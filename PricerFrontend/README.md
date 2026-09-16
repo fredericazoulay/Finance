@@ -1,0 +1,1 @@
+mvn.cmd -f "C:\Users\frede\VSCode\Finance\Pricer\pom.xml" spring-boot:run
