@@ -180,7 +180,7 @@ public class PricingController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping({"/price/option", "/v1/bloomberg/pricing/equity-option", "/v1/blp/pricing/equity-option"})
+        @PostMapping({"/price/option", "/v1/bloomberg/pricing/equity-option"})
     public ResponseEntity<Map<String, Object>> priceOption(@Valid @RequestBody OptionRequest request) {
         Option option = new Option(request.strike(), request.maturity(), OptionType.valueOf(request.optionType().toUpperCase(Locale.ROOT)), request.exerciseStyle().equalsIgnoreCase("EUROPEAN"));
         MarketData marketData = new MarketData(request.underlyingSpot(), request.riskFreeRate(), request.impliedVolatility(), request.dividendYield());
@@ -225,7 +225,7 @@ public class PricingController {
         ));
     }
 
-    @PostMapping({"/v1/bloomberg/pricing/irs", "/v1/blp/pricing/irs"})
+        @PostMapping({"/v1/bloomberg/pricing/irs"})
     public ResponseEntity<Map<String, Object>> priceSwap(@Valid @RequestBody SwapRequest request) {
         DiscountCurve curve = DiscountCurve.bootstrapParSwaps(
                 request.tenors(),
@@ -244,7 +244,7 @@ public class PricingController {
         ));
     }
 
-    @PostMapping({"/v1/bloomberg/pricing/cds", "/v1/blp/pricing/cds"})
+        @PostMapping({"/v1/bloomberg/pricing/cds"})
     public ResponseEntity<Map<String, Object>> priceCds(@Valid @RequestBody CdsRequest request) {
         CreditDefaultSwap cds = new CreditDefaultSwap(request.notional(), request.spread(), request.maturityYears(), request.paymentFrequency(), request.recoveryRate());
         DiscountCurve curve = DiscountCurve.bootstrapParSwaps(
@@ -261,7 +261,7 @@ public class PricingController {
         ));
     }
 
-    @PostMapping({"/v1/bloomberg/pricing/fx-forward", "/v1/blp/pricing/fx-forward"})
+        @PostMapping({"/v1/bloomberg/pricing/fx-forward"})
     public ResponseEntity<Map<String, Object>> priceFxForward(@Valid @RequestBody FxForwardRequest request) {
         double forward = FxForwardPricer.forward(request.spot(), request.domesticRate(), request.foreignRate(), request.maturityYears());
         return ResponseEntity.ok(Map.of(

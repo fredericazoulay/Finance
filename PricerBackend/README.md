@@ -7,7 +7,8 @@ This project exposes a Bloomberg-style pricing API built on top of the Java pric
 PowerShell:
 
 ```powershell
-Set-Location "C:\Users\frede\VSCode\Finance\Pricer"
+Set-Location "C:\Users\frede\VSCode\Finance\PricerBackend"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot"
 mvn spring-boot:run
 ```
 
@@ -283,7 +284,7 @@ Response:
 
 - The legacy routes are retained as fallback compatibility aliases.
 - The Bloomberg-style routes are the primary contract.
-- The app uses Spring Boot 3.3.3 and Java 25.
+- The app uses Spring Boot 3.3.3 and Java 21 LTS for compatibility with the supported Spring Boot baseline.
 - The actual pricing logic remains in the Java engine; the API is a REST layer over it.
 
 ## Postman usage
@@ -300,7 +301,8 @@ Response:
 ## Minimal Maven command
 
 ```powershell
-Set-Location "C:\Users\frede\VSCode\Finance\Pricer"
+Set-Location "C:\Users\frede\VSCode\Finance\PricerBackend"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot"
 mvn spring-boot:run
 ```
 

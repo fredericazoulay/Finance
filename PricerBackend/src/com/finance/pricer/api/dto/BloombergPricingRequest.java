@@ -10,7 +10,7 @@ public record BloombergPricingRequest(
         @JsonProperty("curve_name") String curveName,
         @JsonProperty("market_data_source") String marketDataSource,
         @JsonProperty("pricing_model") String pricingModel,
-        @JsonProperty("market_data") Object marketData,
-        @JsonProperty("instrument") Object instrument
+        @JsonProperty("market_data") BloombergMarketData marketData,
+        @JsonProperty("instrument") BloombergInstrument instrument
 ) {
 }

@@ -438,6 +438,10 @@ export class AppComponent implements OnInit {
       exercise_style: ['EUROPEAN']
       ,face_value: [100], coupon_rate: [0.04], coupon_frequency: [2], yield_to_maturity: [0.035]
       ,forecast_dividend: [2], growth_rate: [0.03], discount_rate: [0.05]
+      ,tenors: [[1, 2, 3, 5, 7, 10]], discount_curve_rates: [[0.018, 0.022, 0.025, 0.029, 0.031, 0.033]], frequency: [2]
+      ,notional: [1000000], fixed_rate: [0.03], payment_frequency: [2], receiver: [true]
+      ,spread: [0.015], recovery_rate: [0.4]
+      ,spot: [1.08], domestic_rate: [0.05], foreign_rate: [0.02], pair: ['EURUSD']
     });
   }
 
@@ -567,7 +571,7 @@ export class AppComponent implements OnInit {
     }
 
     if (product === 'EQUITY') {
-      this.form.patchValue({ ...base, security_id: 'AAPL US Equity', security_name: 'AAPL US Equity', product: 'EQUITY', market_data_source: 'Bloomberg', pricing_model: 'GORDON_GROWTH', forecast_dividend: 2, growth_rate: 0.03, underlying_spot: 100, discount_rate: 0.05 });
+      this.form.patchValue({ ...base, security_id: 'AAPL US Equity', security_name: 'AAPL US Equity', product: 'EQUITY', market_data_source: 'Bloomberg', pricing_model: 'DISCOUNTED_CASH_FLOW', forecast_dividend: 2, growth_rate: 0.03, underlying_spot: 100, discount_rate: 0.05 });
       this.marketFields = [{ key: 'underlying_spot', label: 'Underlying Spot' }, { key: 'discount_rate', label: 'Discount Rate' }];
       this.instrumentFields = [{ key: 'forecast_dividend', label: 'Forecast Dividend' }, { key: 'growth_rate', label: 'Growth Rate' }];
       return;
@@ -758,6 +762,7 @@ export class AppComponent implements OnInit {
     else if (this.selectedProduct === 'EQTY_OPT') series = [80, 90, 100, 110, 120].map(spot => Math.max(spot - Number(values.strike), 0));
     else if (this.selectedProduct === 'BOND') series = [0, 1, 2, 3, 4, 5].map(year => Number(values.face_value) * Math.pow(1 + Number(values.yield_to_maturity), -year));
     else series = [Number(values.forecast_dividend), Number(values.forecast_dividend) * 1.1, Number(values.forecast_dividend) * 1.2, Number(values.forecast_dividend) * 1.3];
+    series = series.filter(Number.isFinite);
     if (!series.length) return [];
     const min = Math.min(...series), max = Math.max(...series), spread = max - min || 1;
     return series.map((value, index) => ({ cx: 42 + index * (458 / Math.max(series.length - 1, 1)), cy: 145 - ((value - min) / spread) * 115 }));
