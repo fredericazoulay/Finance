@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClient, HttpClientModule, HttpErrorResponse } from '@angular/common/http';
+import { finalize, TimeoutError, timeout } from 'rxjs';
 
 interface PriceResponse {
   request_id?: string;
@@ -76,6 +77,11 @@ interface PriceResponse {
               </label>
             </div>
 
+            <div class="actions">
+              <button type="button" class="primary" [disabled]="isPricing" (click)="submitRequest()">{{ isPricing ? 'Pricing...' : 'Price' }}</button>
+              <button type="button" class="secondary" (click)="resetForm()">Reset</button>
+            </div>
+
             <div class="subsection">
               <h3>Market Data</h3>
               <div class="grid small-grid">
@@ -96,16 +102,14 @@ interface PriceResponse {
               </div>
             </div>
 
-            <div class="actions">
-              <button type="submit" class="primary" [disabled]="isPricing">{{ isPricing ? 'Pricing...' : 'Price' }}</button>
-              <button type="button" class="secondary" (click)="resetForm()">Reset</button>
-            </div>
             <p class="error-message" *ngIf="apiError">{{ apiError }}</p>
           </form>
         </section>
 
         <section class="panel quote-panel">
           <div class="panel-header">Quote Monitor</div>
+          <p class="response-state" *ngIf="isPricing">Sending request to pricing API...</p>
+          <p class="response-error" *ngIf="apiError">{{ apiError }}</p>
           <div class="quote-grid">
             <div class="quote-box">
               <span class="label">Security</span>
@@ -398,6 +402,11 @@ interface PriceResponse {
         font-size: 12px;
       }
 
+      .response-state,
+      .response-error { margin: 14px 18px 0; font-size: 12px; }
+      .response-state { color: #9fe1ff; }
+      .response-error { color: #ff9292; }
+
       .chart-box { margin: 0 18px 18px; padding: 14px; background: #0a1b25; border: 1px solid rgba(124, 181, 255, 0.15); border-radius: 12px; }
       .chart-heading { display: flex; justify-content: space-between; color: #9fe1ff; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
       .chart-heading span:last-child { color: #8eaec5; }
@@ -419,7 +428,7 @@ export class AppComponent implements OnInit {
 
   form: FormGroup;
 
-  constructor(private http: HttpClient, private fb: FormBuilder) {
+  constructor(private http: HttpClient, private fb: FormBuilder, private cdr: ChangeDetectorRef) {
     this.form = this.fb.group({
       request_id: ['REQ-1001'],
       security_id: ['AAPL US Equity'],
@@ -462,6 +471,8 @@ export class AppComponent implements OnInit {
 
   selectProduct(product: string): void {
     this.selectedProduct = product;
+    this.lastResponse = null;
+    this.apiError = '';
     this.applyFormForProduct(product);
   }
 
@@ -610,21 +621,33 @@ export class AppComponent implements OnInit {
   }
 
   submitRequest(): void {
+    if (this.isPricing) return;
+
     const payload = this.buildPayload();
     const url = this.urlForProduct(this.selectedProduct);
     this.isPricing = true;
     this.apiError = '';
+    this.lastResponse = null;
 
-    this.http.post<PriceResponse>(url, payload).subscribe({
+    this.http.post<PriceResponse>(url, payload).pipe(
+      timeout(15000),
+      finalize(() => {
+        this.isPricing = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (response) => {
         this.lastResponse = response;
         this.apiOnline = true;
-        this.isPricing = false;
+        this.cdr.detectChanges();
       },
-      error: () => {
+      error: (error: HttpErrorResponse) => {
         this.apiOnline = false;
-        this.isPricing = false;
-        this.apiError = 'Pricing API unavailable. Start the Spring Boot service on port 9092.';
+        const serverMessage = typeof error.error?.message === 'string' ? error.error.message : '';
+        this.apiError = serverMessage || (error instanceof TimeoutError
+          ? 'The pricing API did not respond within 15 seconds.'
+          : 'Pricing API unavailable. Start the Spring Boot service on port 9092.');
+        this.cdr.detectChanges();
       }
     });
   }
