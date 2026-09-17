@@ -1,5 +1,11 @@
 {
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.import.maven.enabled": true,
-  "java.import.gradle.enabled": false
+  "java.import.gradle.enabled": false,
+  "java.project.sourcePaths": [
+    "src"
+  ],
+  "java.project.testSourcePaths": [
+    "src/test/java"
+  ]
 }

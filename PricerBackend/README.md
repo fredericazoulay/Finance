@@ -283,7 +283,7 @@ Response:
 
 - The legacy routes are retained as fallback compatibility aliases.
 - The Bloomberg-style routes are the primary contract.
-- The app uses Spring Boot 3.3.3 and Java 17.
+- The app uses Spring Boot 3.3.3 and Java 25.
 - The actual pricing logic remains in the Java engine; the API is a REST layer over it.
 
 ## Postman usage
