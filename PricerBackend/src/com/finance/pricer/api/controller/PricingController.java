@@ -1,6 +1,8 @@
 package com.finance.pricer.api.controller;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.pricer.Bond;
 import com.finance.pricer.CdsPricer;
 import com.finance.pricer.CreditDefaultSwap;
@@ -23,6 +25,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,11 +39,48 @@ import java.util.Map;
 @RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:4200")
 public class PricingController {
+        private final ObjectMapper objectMapper;
+        private final HttpClient yahooClient = HttpClient.newHttpClient();
+
+        public PricingController(ObjectMapper objectMapper) {
+                this.objectMapper = objectMapper;
+        }
 
     @GetMapping({"/health", "/v1/health"})
     public Map<String, String> health() {
         return Map.of("status", "UP", "service", "Finance Pricer API");
     }
+
+        @GetMapping("/securities/search")
+        public ResponseEntity<?> searchSecurities(@RequestParam String q) {
+                if (q == null || q.isBlank()) {
+                        return ResponseEntity.badRequest().body(Map.of("message", "Query q is required"));
+                }
+
+                try {
+                        String encodedQuery = URLEncoder.encode(q.trim(), StandardCharsets.UTF_8);
+                        URI uri = URI.create("https://query1.finance.yahoo.com/v1/finance/search?q="
+                                        + encodedQuery + "&quotesCount=25&newsCount=0");
+                        HttpRequest request = HttpRequest.newBuilder(uri)
+                                        .header("User-Agent", "FinancePricer/1.0")
+                                        .GET()
+                                        .build();
+                        HttpResponse<String> yahooResponse = yahooClient.send(request, HttpResponse.BodyHandlers.ofString());
+                        JsonNode body = objectMapper.readTree(yahooResponse.body());
+                        if (yahooResponse.statusCode() >= 200 && yahooResponse.statusCode() < 300) {
+                                return ResponseEntity.ok(body);
+                        }
+                        return ResponseEntity.status(502).body(Map.of(
+                                        "message", "Yahoo Finance search failed",
+                                        "upstream_status", yahooResponse.statusCode()
+                        ));
+                } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        return ResponseEntity.status(502).body(Map.of("message", "Yahoo Finance search interrupted"));
+                } catch (Exception exception) {
+                        return ResponseEntity.status(502).body(Map.of("message", "Yahoo Finance search unavailable"));
+                }
+        }
 
     @GetMapping({"/products", "/v1/products", "/bloomberg/catalog", "/v1/blp/catalog"})
     public Map<String, List<String>> products() {

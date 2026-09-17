@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { HttpClient, HttpClientModule, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpClientModule, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { finalize, TimeoutError, timeout } from 'rxjs';
 
 interface PriceResponse {
@@ -13,6 +13,14 @@ interface PriceResponse {
   result?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   timestamp?: string;
+}
+
+interface YahooSecurity {
+  symbol: string;
+  shortname?: string;
+  longname?: string;
+  quoteType?: string;
+  exchange?: string;
 }
 
 @Component({
@@ -53,7 +61,14 @@ interface PriceResponse {
               </label>
               <label>
                 <span>Security ID</span>
-                <input formControlName="security_id" />
+                <div class="security-tools">
+                  <input formControlName="security_id" list="security-options" (input)="securityQueryChanged($any($event.target).value)" (change)="selectSecurity($any($event.target).value)" (keyup.enter)="searchSecurities()" />
+                  <button type="button" class="secondary search-button" [disabled]="isSearchingSecurities" (click)="searchSecurities()">{{ isSearchingSecurities ? '...' : 'Search' }}</button>
+                </div>
+                <datalist id="security-options">
+                  <option *ngFor="let security of securityOptions" [value]="security"></option>
+                  <option *ngFor="let security of securityResults" [value]="security.symbol">{{ security.shortname || security.longname || security.symbol }}</option>
+                </datalist>
               </label>
               <label>
                 <span>Security Name</span>
@@ -61,7 +76,9 @@ interface PriceResponse {
               </label>
               <label>
                 <span>Product</span>
-                <input formControlName="product" />
+                <select formControlName="product" (change)="selectProduct(form.get('product')?.value)">
+                  <option *ngFor="let product of productOptions" [value]="product.code">{{ product.label }}</option>
+                </select>
               </label>
               <label>
                 <span>Curve</span>
@@ -73,7 +90,9 @@ interface PriceResponse {
               </label>
               <label>
                 <span>Model</span>
-                <input formControlName="pricing_model" />
+                <select formControlName="pricing_model">
+                  <option *ngFor="let model of pricingModelOptions" [value]="model">{{ model }}</option>
+                </select>
               </label>
             </div>
 
@@ -87,7 +106,10 @@ interface PriceResponse {
               <div class="grid small-grid">
                 <label *ngFor="let field of marketFields">
                   <span>{{ field.label }}</span>
-                  <input [formControlName]="field.key" [attr.type]="field.type || 'number'" />
+                  <select *ngIf="field.options; else marketInput" [formControlName]="field.key">
+                    <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+                  </select>
+                  <ng-template #marketInput><input [formControlName]="field.key" [attr.type]="field.type || 'number'" /></ng-template>
                 </label>
               </div>
             </div>
@@ -97,7 +119,10 @@ interface PriceResponse {
               <div class="grid small-grid">
                 <label *ngFor="let field of instrumentFields">
                   <span>{{ field.label }}</span>
-                  <input [formControlName]="field.key" [attr.type]="field.type || 'number'" />
+                  <select *ngIf="field.options; else instrumentInput" [formControlName]="field.key">
+                    <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+                  </select>
+                  <ng-template #instrumentInput><input [formControlName]="field.key" [attr.type]="field.type || 'number'" /></ng-template>
                 </label>
               </div>
             </div>
@@ -302,6 +327,18 @@ interface PriceResponse {
         color: #eaf6ff;
       }
 
+      select {
+        background: #0c1b27;
+        border: 1px solid rgba(124, 181, 255, 0.2);
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #eaf6ff;
+      }
+
+      .security-tools { display: flex; gap: 8px; }
+      .security-tools input { min-width: 0; flex: 1; }
+      .search-button { padding: 8px 10px; white-space: nowrap; }
+
       .subsection {
         margin-top: 18px;
       }
@@ -421,10 +458,13 @@ export class AppComponent implements OnInit {
   apiOnline = false;
   isPricing = false;
   apiError = '';
+  isSearchingSecurities = false;
+  securityResults: YahooSecurity[] = [];
+  private securitySearchTimer?: ReturnType<typeof setTimeout>;
   selectedProduct = 'EQTY_OPT';
   lastResponse: PriceResponse | null = null;
-  marketFields: Array<{ key: string; label: string; type?: string }> = [];
-  instrumentFields: Array<{ key: string; label: string; type?: string }> = [];
+  marketFields: Array<{ key: string; label: string; type?: string; options?: string[] }> = [];
+  instrumentFields: Array<{ key: string; label: string; type?: string; options?: string[] }> = [];
 
   form: FormGroup;
 
@@ -467,6 +507,84 @@ export class AppComponent implements OnInit {
       FXC: 'FX Forward'
       ,BOND: 'Fixed Income Bond', EQUITY: 'Equity'
     }[this.selectedProduct] || 'Instrument';
+  }
+
+  readonly productOptions = [
+    { code: 'EQTY_OPT', label: 'Equity Option' },
+    { code: 'IRS', label: 'Interest Rate Swap' },
+    { code: 'CDS', label: 'Credit Default Swap' },
+    { code: 'FXC', label: 'FX Forward' },
+    { code: 'BOND', label: 'Fixed Income Bond' },
+    { code: 'EQUITY', label: 'Equity' }
+  ];
+
+  get securityOptions(): string[] {
+    return {
+      EQTY_OPT: ['AAPL US Equity', 'MSFT US Equity', 'SPY US Equity', 'TSLA US Equity'],
+      IRS: ['USD 2Y IRS', 'USD 5Y IRS', 'EUR 5Y IRS', 'GBP 10Y IRS'],
+      CDS: ['XYZ 5Y CDS', 'AAPL 5Y CDS', 'IBM 5Y CDS'],
+      FXC: ['EURUSD Curncy', 'GBPUSD Curncy', 'USDJPY Curncy'],
+      BOND: ['US GOVT 2Y', 'US GOVT 5Y', 'US GOVT 10Y'],
+      EQUITY: ['AAPL US Equity', 'MSFT US Equity', 'SPY US Equity', 'TSLA US Equity']
+    }[this.selectedProduct] || [];
+  }
+
+  securityQueryChanged(query: string): void {
+    if (this.securitySearchTimer) clearTimeout(this.securitySearchTimer);
+    if (!query.trim()) {
+      this.securityResults = [];
+      return;
+    }
+    this.securitySearchTimer = setTimeout(() => this.searchSecurities(query), 400);
+  }
+
+  searchSecurities(query = String(this.form.get('security_id')?.value || '')): void {
+    if (this.securitySearchTimer) clearTimeout(this.securitySearchTimer);
+    query = query.trim();
+    if (!query) return;
+
+    this.isSearchingSecurities = true;
+    const params = new HttpParams().set('q', query);
+    this.http.get<{ quotes?: YahooSecurity[] }>('/api/securities/search', { params }).pipe(
+      finalize(() => {
+        this.isSearchingSecurities = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: (response) => {
+        this.securityResults = response.quotes || [];
+        if (!this.securityResults.length) {
+          this.apiError = 'Aucune security Yahoo trouvée.';
+          return;
+        }
+        this.apiError = '';
+        const normalizedQuery = query.toUpperCase();
+        const selected = this.securityResults.find(item => item.symbol.toUpperCase() === normalizedQuery)
+          || this.securityResults.find(item => item.symbol.toUpperCase().startsWith(normalizedQuery))
+          || this.securityResults[0];
+        this.selectSecurity(selected.symbol);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.apiError = error.error?.message || 'Recherche Yahoo Finance indisponible.';
+      }
+    });
+  }
+
+  selectSecurity(symbol: string): void {
+    const security = this.securityResults.find(item => item.symbol === symbol);
+    if (security) {
+      this.form.patchValue({
+        security_id: security.symbol,
+        security_name: security.longname || security.shortname || security.symbol
+      });
+    }
+  }
+
+  get pricingModelOptions(): string[] {
+    if (this.selectedProduct === 'EQTY_OPT') return ['BLACK_SCHOLES', 'BINOMIAL', 'MONTE_CARLO'];
+    if (this.selectedProduct === 'BOND' || this.selectedProduct === 'EQUITY') return ['DISCOUNTED_CASH_FLOW'];
+    if (this.selectedProduct === 'IRS' || this.selectedProduct === 'CDS') return ['PAR_SWAP'];
+    return ['FX_FORWARD'];
   }
 
   selectProduct(product: string): void {
@@ -568,7 +686,7 @@ export class AppComponent implements OnInit {
         { key: 'foreign_rate', label: 'Foreign Rate' }
       ];
       this.instrumentFields = [
-        { key: 'pair', label: 'Pair', type: 'text' },
+        { key: 'pair', label: 'Pair', options: ['EURUSD', 'GBPUSD', 'USDJPY'] },
         { key: 'maturity_years', label: 'Maturity (Y)' }
       ];
       return;
@@ -608,8 +726,8 @@ export class AppComponent implements OnInit {
     this.instrumentFields = [
       { key: 'strike', label: 'Strike' },
       { key: 'maturity_years', label: 'Maturity (Y)' },
-      { key: 'option_type', label: 'Option Type', type: 'text' },
-      { key: 'exercise_style', label: 'Exercise Style', type: 'text' }
+      { key: 'option_type', label: 'Option Type', options: ['CALL', 'PUT'] },
+      { key: 'exercise_style', label: 'Exercise Style', options: ['EUROPEAN', 'AMERICAN'] }
     ];
   }
 
