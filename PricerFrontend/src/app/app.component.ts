@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, HostBinding, OnInit } from '@angular/core
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { finalize, TimeoutError, timeout } from 'rxjs';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 interface PriceResponse {
   request_id?: string;
@@ -26,7 +27,12 @@ interface YahooSecurity {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, HttpClientModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    HttpClientModule,
+    TranslateModule
+  ],
   template: `
     <div class="terminal-shell">
       <header class="topbar">
@@ -35,26 +41,33 @@ interface YahooSecurity {
           <span>Finance Pricer Terminal</span>
         </div>
         <div class="status">
-          <span>Theme</span>
+          <span>{{ 'theme' | translate }}</span>
           <span class="pill" [class.light]="isLightTheme">
             <select class="theme-select" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="isLightTheme ? 'LIGHT' : 'DARK'">
               <option value="LIGHT">LIGHT</option>
               <option value="DARK">DARK</option>
             </select>
           </span>
-          <span>API</span>
+          <span>{{ 'language' | translate }}</span>
+          <span class="pill" [class.light]="isLightTheme">
+            <select class="theme-select" (change)="setLanguage($any($event.target).value)" [value]="language">
+              <option value="en">EN</option>
+              <option value="fr">FR</option>
+            </select>
+          </span>
+          <span>{{ 'api' | translate }}</span>
           <span class="pill" [class.online]="apiOnline">{{ apiOnline ? 'ONLINE' : 'OFFLINE' }}</span>
         </div>
       </header>
 
       <aside class="sidebar">
-        <div class="menu-title">Instrument</div>
-        <button type="button" (click)="selectProduct('EQTY_OPT')" [class.active]="selectedProduct === 'EQTY_OPT'">Equity Option</button>
-        <button type="button" (click)="selectProduct('IRS')" [class.active]="selectedProduct === 'IRS'">IRS</button>
-        <button type="button" (click)="selectProduct('CDS')" [class.active]="selectedProduct === 'CDS'">CDS</button>
-        <button type="button" (click)="selectProduct('FXC')" [class.active]="selectedProduct === 'FXC'">FX Forward</button>
-        <button type="button" (click)="selectProduct('BOND')" [class.active]="selectedProduct === 'BOND'">Bond</button>
-        <button type="button" (click)="selectProduct('EQUITY')" [class.active]="selectedProduct === 'EQUITY'">Equity</button>
+        <div class="menu-title">{{ 'instrument' | translate }}</div>
+        <button type="button" (click)="selectProduct('EQTY_OPT')" [class.active]="selectedProduct === 'EQTY_OPT'">{{ 'EQTY_OPT' | translate }}</button>
+        <button type="button" (click)="selectProduct('IRS')" [class.active]="selectedProduct === 'IRS'">{{ 'IRS' | translate }}</button>
+        <button type="button" (click)="selectProduct('CDS')" [class.active]="selectedProduct === 'CDS'">{{ 'CDS' | translate }}</button>
+        <button type="button" (click)="selectProduct('FXC')" [class.active]="selectedProduct === 'FXC'">{{ 'FXC' | translate }}</button>
+        <button type="button" (click)="selectProduct('BOND')" [class.active]="selectedProduct === 'BOND'">{{ 'BOND' | translate }}</button>
+        <button type="button" (click)="selectProduct('EQUITY')" [class.active]="selectedProduct === 'EQUITY'">{{ 'EQUITY' | translate }}</button>
       </aside>
 
       <main class="content">
@@ -63,14 +76,14 @@ interface YahooSecurity {
           <form [formGroup]="form" (ngSubmit)="submitRequest()">
             <div class="grid">
               <label>
-                <span>Request ID</span>
+                <span>{{ 'request_id' | translate }}</span>
                 <input formControlName="request_id" />
               </label>
               <label>
-                <span>Security ID</span>
+                <span>{{ 'security_id' | translate }}</span>
                 <div class="security-tools">
                   <input formControlName="security_id" list="security-options" (input)="securityQueryChanged($any($event.target).value)" (change)="selectSecurity($any($event.target).value)" (keyup.enter)="searchSecurities()" />
-                  <button type="button" class="secondary search-button" [disabled]="isSearchingSecurities" (click)="searchSecurities()">{{ isSearchingSecurities ? '...' : 'Search' }}</button>
+                  <button type="button" class="secondary search-button" [disabled]="isSearchingSecurities" (click)="searchSecurities()">{{ isSearchingSecurities ? '...' : ('search' | translate) }}</button>
                 </div>
                 <datalist id="security-options">
                   <option *ngFor="let security of securityOptions" [value]="security"></option>
@@ -78,25 +91,25 @@ interface YahooSecurity {
                 </datalist>
               </label>
               <label>
-                <span>Security Name</span>
+                <span>{{ 'security_name' | translate }}</span>
                 <input formControlName="security_name" />
               </label>
               <label>
-                <span>Product</span>
+                <span>{{ 'product' | translate }}</span>
                 <select formControlName="product" (change)="selectProduct(form.get('product')?.value)">
-                  <option *ngFor="let product of productOptions" [value]="product.code">{{ product.label }}</option>
+                  <option *ngFor="let product of productOptions" [value]="product.code">{{ product.code | translate }}</option>
                 </select>
               </label>
               <label>
-                <span>Curve</span>
+                <span>{{ 'curve' | translate }}</span>
                 <input formControlName="curve_name" />
               </label>
               <label>
-                <span>Source</span>
+                <span>{{ 'source' | translate }}</span>
                 <input formControlName="market_data_source" />
               </label>
               <label>
-                <span>Model</span>
+                <span>{{ 'model' | translate }}</span>
                 <select formControlName="pricing_model">
                   <option *ngFor="let model of pricingModelOptions" [value]="model">{{ model }}</option>
                 </select>
@@ -104,12 +117,12 @@ interface YahooSecurity {
             </div>
 
             <div class="actions">
-              <button type="button" class="primary" [disabled]="isPricing" (click)="submitRequest()">{{ isPricing ? 'Pricing...' : 'Price' }}</button>
-              <button type="button" class="secondary" (click)="resetForm()">Reset</button>
+              <button type="button" class="primary" [disabled]="isPricing" (click)="submitRequest()">{{ isPricing ? ('pricing_in_progress' | translate) : ('price' | translate) }}</button>
+              <button type="button" class="secondary" (click)="resetForm()">{{ 'reset' | translate }}</button>
             </div>
 
             <div class="subsection">
-              <h3>Market Data</h3>
+              <h3>{{ 'market_data' | translate }}</h3>
               <div class="grid small-grid">
                 <label *ngFor="let field of marketFields">
                   <span>{{ field.label }}</span>
@@ -122,7 +135,7 @@ interface YahooSecurity {
             </div>
 
             <div class="subsection">
-              <h3>Instrument</h3>
+              <h3>{{ 'instrument_section' | translate }}</h3>
               <div class="grid small-grid">
                 <label *ngFor="let field of instrumentFields">
                   <span>{{ field.label }}</span>
@@ -139,24 +152,24 @@ interface YahooSecurity {
         </section>
 
         <section class="panel quote-panel">
-          <div class="panel-header">Quote Monitor</div>
+          <div class="panel-header">{{ 'quote_monitor' | translate }}</div>
           <p class="response-state" *ngIf="isPricing">Sending request to pricing API...</p>
           <p class="response-error" *ngIf="apiError">{{ apiError }}</p>
           <div class="quote-grid">
             <div class="quote-box">
-              <span class="label">Security</span>
+              <span class="label">{{ 'security_label' | translate }}</span>
               <strong>{{ lastResponse?.security_name || '-' }}</strong>
             </div>
             <div class="quote-box">
-              <span class="label">Product</span>
+              <span class="label">{{ 'product_label' | translate }}</span>
               <strong>{{ lastResponse?.product || '-' }}</strong>
             </div>
             <div class="quote-box">
-              <span class="label">Status</span>
-              <strong>{{ lastResponse?.response_status || 'WAITING' }}</strong>
+              <span class="label">{{ 'status_label' | translate }}</span>
+              <strong>{{ lastResponse?.response_status || ('waiting' | translate) }}</strong>
             </div>
             <div class="quote-box accent">
-              <span class="label">Price</span>
+              <span class="label">{{ 'price_label' | translate }}</span>
               <strong>{{ formatResultValue(lastResponse?.result) }}</strong>
             </div>
           </div>
@@ -226,8 +239,13 @@ interface YahooSecurity {
       }
 
       :host.light-theme .json-box {
-        background: #0b2f33; /* keep code box dark for readability */
-        color: #a7f3c5;
+        background: #fbfdff;
+        border-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+      }
+
+      :host.light-theme .json-box pre {
+        color: #0b2f33;
       }
 
       :host.light-theme .panel {
@@ -259,6 +277,31 @@ interface YahooSecurity {
         background: linear-gradient(135deg, #0ecb8d, #3ae374);
         color: #062116;
       }
+
+      /* Light theme chart adjustments */
+      :host.light-theme .chart-box {
+        background: #fbfdff;
+        border-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+      }
+
+      :host.light-theme .chart-heading { color: #0b5560; }
+
+      :host.light-theme .chart-axis { stroke: rgba(7,20,29,0.08); }
+
+      :host.light-theme .chart-line {
+        fill: none;
+        stroke: #0b8f6b;
+        stroke-width: 3;
+      }
+
+      :host.light-theme .chart-point {
+        fill: #0ecb8d;
+        stroke: #fbfdff;
+        stroke-width: 2;
+      }
+
+      :host.light-theme .chart-box .chart-axis { opacity: 0.7; }
 
       .terminal-shell {
         display: grid;
@@ -552,6 +595,7 @@ export class AppComponent implements OnInit {
   apiOnline = false;
   @HostBinding('class.light-theme')
   isLightTheme = false;
+  language = 'en';
   isPricing = false;
   apiError = '';
   isSearchingSecurities = false;
@@ -564,7 +608,7 @@ export class AppComponent implements OnInit {
 
   form: FormGroup;
 
-  constructor(private http: HttpClient, private fb: FormBuilder, private cdr: ChangeDetectorRef) {
+  constructor(private http: HttpClient, private fb: FormBuilder, private cdr: ChangeDetectorRef, private translate: TranslateService) {
     this.form = this.fb.group({
       request_id: ['REQ-1001'],
       security_id: ['AAPL US Equity'],
@@ -599,22 +643,33 @@ export class AppComponent implements OnInit {
       } else if (typeof window !== 'undefined' && (window as any).matchMedia) {
         this.isLightTheme = (window as any).matchMedia('(prefers-color-scheme: light)').matches;
       }
+      const storedLang = localStorage.getItem('language');
+      if (storedLang === 'EN' || storedLang === 'FR') this.language = storedLang;
     } catch (e) {
       // ignore storage errors
     }
+    // init translate
+    try {
+      const storedLang = localStorage.getItem('language');
+      if (storedLang) this.language = storedLang.toLowerCase();
+    } catch (e) {}
+    this.translate.addLangs(['en', 'fr']);
+    this.translate.setDefaultLang('en');
+    this.translate.use(this.language);
+    // ensure UI updates when translations load or language changes
+    try {
+      this.translate.onLangChange.subscribe(() => this.cdr.detectChanges());
+      this.translate.onTranslationChange.subscribe(() => this.cdr.detectChanges());
+    } catch (e) {}
+
     this.applyThemeToBody();
     this.applyFormForProduct(this.selectedProduct);
     this.checkApi();
   }
 
   get selectedProductLabel(): string {
-    return {
-      EQTY_OPT: 'Equity Option',
-      IRS: 'Interest Rate Swap',
-      CDS: 'Credit Default Swap',
-      FXC: 'FX Forward'
-      ,BOND: 'Fixed Income Bond', EQUITY: 'Equity'
-    }[this.selectedProduct] || 'Instrument';
+    const translated = this.translate.instant(this.selectedProduct);
+    return translated && translated !== this.selectedProduct ? translated : this.translate.instant('instrument');
   }
 
   readonly productOptions = [
@@ -884,6 +939,16 @@ export class AppComponent implements OnInit {
       localStorage.setItem('theme', isLight ? 'LIGHT' : 'DARK');
     } catch (e) {}
     this.applyThemeToBody();
+  }
+
+  setLanguage(lang: string): void {
+    this.language = lang.toLowerCase();
+    try {
+      localStorage.setItem('language', this.language);
+    } catch (e) {}
+    try {
+      this.translate.use(this.language);
+    } catch (e) {}
   }
 
   private applyThemeToBody(): void {
