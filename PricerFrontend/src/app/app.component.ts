@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { finalize, TimeoutError, timeout } from 'rxjs';
@@ -35,6 +35,13 @@ interface YahooSecurity {
           <span>Finance Pricer Terminal</span>
         </div>
         <div class="status">
+          <span>Theme</span>
+          <span class="pill" [class.light]="isLightTheme">
+            <select class="theme-select" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="isLightTheme ? 'LIGHT' : 'DARK'">
+              <option value="LIGHT">LIGHT</option>
+              <option value="DARK">DARK</option>
+            </select>
+          </span>
           <span>API</span>
           <span class="pill" [class.online]="apiOnline">{{ apiOnline ? 'ONLINE' : 'OFFLINE' }}</span>
         </div>
@@ -181,6 +188,78 @@ interface YahooSecurity {
         font-family: 'Segoe UI', sans-serif;
       }
 
+      :host.light-theme {
+        background: #f6f8fa;
+        color: #072024;
+      }
+
+      :host.light-theme .topbar {
+        background: #ffffff;
+        border-bottom-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+      }
+
+      :host.light-theme .sidebar {
+        background: #f0f4f7;
+        border-right-color: rgba(7, 20, 29, 0.06);
+        color: #06323a;
+      }
+
+      /* Lighter buttons and panels in light theme for better contrast */
+      :host.light-theme .sidebar button {
+        background: #e9f6f4;
+        border: 1px solid rgba(7, 20, 29, 0.06);
+        color: #06323a;
+      }
+
+      :host.light-theme .sidebar button.active {
+        background: #d7f0ea;
+        border-color: rgba(14, 203, 141, 0.18);
+        color: #032826;
+      }
+
+      :host.light-theme .quote-box,
+      :host.light-theme .quote-box.accent {
+        background: #f6fbfc;
+        border-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+      }
+
+      :host.light-theme .json-box {
+        background: #0b2f33; /* keep code box dark for readability */
+        color: #a7f3c5;
+      }
+
+      :host.light-theme .panel {
+        background: #ffffff;
+        border-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+        box-shadow: 0 6px 18px rgba(10, 20, 30, 0.06);
+      }
+
+      :host.light-theme input,
+      :host.light-theme select,
+      :host.light-theme .theme-select {
+        background: #fbfdff;
+        border-color: rgba(7, 20, 29, 0.06);
+        color: #072024;
+      }
+
+      :host.light-theme .pill {
+        background: rgba(7, 20, 29, 0.04);
+        color: #072024;
+      }
+
+      :host.light-theme .pill.online {
+        background: rgba(58, 227, 116, 0.12);
+        color: #0b3a22;
+      }
+
+      :host.light-theme .primary {
+        background: linear-gradient(135deg, #0ecb8d, #3ae374);
+        color: #062116;
+      }
+
       .terminal-shell {
         display: grid;
         grid-template-columns: 220px 1fr;
@@ -236,6 +315,21 @@ interface YahooSecurity {
       .pill.online {
         background: rgba(58, 227, 116, 0.12);
         color: #7af7a5;
+      }
+
+      .pill.light {
+        background: rgba(255, 255, 255, 0.08);
+        color: #062116;
+      }
+
+      .pill .theme-select {
+        background: transparent;
+        border: none;
+        color: inherit;
+        font-weight: 700;
+        padding: 4px 8px;
+        cursor: pointer;
+        appearance: none;
       }
 
       .sidebar {
@@ -456,6 +550,8 @@ interface YahooSecurity {
 })
 export class AppComponent implements OnInit {
   apiOnline = false;
+  @HostBinding('class.light-theme')
+  isLightTheme = false;
   isPricing = false;
   apiError = '';
   isSearchingSecurities = false;
@@ -495,6 +591,18 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // initialize theme from localStorage or system preference
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'LIGHT' || stored === 'DARK') {
+        this.isLightTheme = stored === 'LIGHT';
+      } else if (typeof window !== 'undefined' && (window as any).matchMedia) {
+        this.isLightTheme = (window as any).matchMedia('(prefers-color-scheme: light)').matches;
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+    this.applyThemeToBody();
     this.applyFormForProduct(this.selectedProduct);
     this.checkApi();
   }
@@ -768,6 +876,25 @@ export class AppComponent implements OnInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  setTheme(isLight: boolean): void {
+    this.isLightTheme = isLight;
+    try {
+      localStorage.setItem('theme', isLight ? 'LIGHT' : 'DARK');
+    } catch (e) {}
+    this.applyThemeToBody();
+  }
+
+  private applyThemeToBody(): void {
+    if (typeof document === 'undefined' || !document.body) return;
+    if (this.isLightTheme) {
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+    } else {
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
+    }
   }
 
   buildPayload(): Record<string, unknown> {
