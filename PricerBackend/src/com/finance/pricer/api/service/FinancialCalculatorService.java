@@ -1,8 +1,11 @@
 package com.finance.pricer.api.service;
 
+import com.finance.pricer.DayCount;
 import com.finance.pricer.api.dto.FinancialCalculatorRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -15,6 +18,7 @@ public class FinancialCalculatorService {
             case "loan", "payment", "mortgage", "auto-loan", "student-loan" -> loan(r);
             case "compound-interest", "savings", "investment" -> compound(r);
             case "simple-interest" -> simple(r);
+            case "bond", "bond-price", "bond-pricing" -> bond(r);
             case "annuity", "annuity-payout" -> annuity(r);
             case "retirement", "401k", "ira" -> retirement(r);
             case "roi" -> roi(r);
@@ -32,7 +36,7 @@ public class FinancialCalculatorService {
         return Map.of(
             "Mortgage and Real Estate", List.of("mortgage", "loan", "payment", "apr"),
             "Auto", List.of("auto-loan"),
-            "Investment", List.of("simple-interest", "compound-interest", "savings", "investment", "roi", "irr"),
+            "Investment", List.of("simple-interest", "compound-interest", "savings", "investment", "bond", "roi", "irr"),
             "Retirement", List.of("retirement", "401k", "ira", "annuity", "annuity-payout"),
             "Tax and Salary", List.of("sales-tax", "vat"),
             "Other", List.of("currency", "inflation", "debt-payoff", "credit-card-payoff", "student-loan")
@@ -67,6 +71,45 @@ public class FinancialCalculatorService {
         double principal = positive(first(r.principal(), r.amount(), "principal"), "principal");
         double interest = principal * nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate") * positive(r.termYears(), "termYears");
         return result("simple-interest", Map.of("principal", principal, "interest", interest, "futureValue", principal + interest));
+    }
+
+    private Map<String, Object> bond(FinancialCalculatorRequest r) {
+        double faceValue = positive(r.faceValue(), "faceValue");
+        double yield = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        double couponRate = nonNegative(r.couponRate() == null ? 0 : r.couponRate(), "couponRate");
+        int frequency = positiveInt(r.couponFrequency(), 1, "couponFrequency");
+        LocalDate maturity = required(r.maturityDate(), "maturityDate");
+        LocalDate settlement = required(r.settlementDate(), "settlementDate");
+        if (!settlement.isBefore(maturity)) throw new IllegalArgumentException("settlementDate must be before maturityDate");
+
+        DayCount convention = parseDayCount(r.dayCount());
+        long couponMonths = 12L / frequency;
+        LocalDate previousCoupon = maturity;
+        while (!previousCoupon.isBefore(settlement)) previousCoupon = previousCoupon.minusMonths(couponMonths);
+        LocalDate nextCoupon = previousCoupon.plusMonths(couponMonths);
+        double accruedFraction = convention.yearFraction(previousCoupon, settlement)
+                / convention.yearFraction(previousCoupon, nextCoupon);
+        double coupon = faceValue * couponRate / frequency;
+        double periodicYield = yield / frequency;
+        double dirtyPrice = 0;
+        LocalDate paymentDate = nextCoupon;
+        int periods = 0;
+        while (!paymentDate.isAfter(maturity)) {
+            double cashFlow = coupon + (paymentDate.equals(maturity) ? faceValue : 0);
+            dirtyPrice += cashFlow / Math.pow(1 + periodicYield, periods + 1 - accruedFraction);
+            paymentDate = paymentDate.plusMonths(couponMonths);
+            periods++;
+        }
+        double accruedInterest = coupon * accruedFraction;
+        return result("bond", Map.of(
+                "dirtyPrice", dirtyPrice,
+                "cleanPrice", dirtyPrice - accruedInterest,
+                "accruedInterest", accruedInterest,
+                "accruedDays", ChronoUnit.DAYS.between(previousCoupon, settlement),
+                "previousCouponDate", previousCoupon,
+                "nextCouponDate", nextCoupon,
+                "dayCount", convention.name()
+        ));
     }
 
     private Map<String, Object> annuity(FinancialCalculatorRequest r) {
@@ -150,6 +193,16 @@ public class FinancialCalculatorService {
     private static double futureValue(double payment, double rate, double periods, boolean beginning) { if (rate == 0) return payment * periods; double value = payment * (Math.pow(1 + rate, periods) - 1) / rate; return beginning ? value * (1 + rate) : value; }
     private static double npv(List<Double> flows, double rate) { double value = 0; for (int i = 0; i < flows.size(); i++) value += flows.get(i) / Math.pow(1 + rate, i); return value; }
     private static double first(Double a, Double b, String name) { if (a != null) return a; if (b != null) return b; throw new IllegalArgumentException(name + " is required"); }
+    private static <T> T required(T value, String name) { if (value == null) throw new IllegalArgumentException(name + " is required"); return value; }
+    private static DayCount parseDayCount(String value) {
+        if (value == null || value.isBlank()) return DayCount.THIRTY_360;
+        return switch (value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace('/', '_')) {
+            case "ACT_360", "ACTUAL_360" -> DayCount.ACT_360;
+            case "ACT_365F", "ACTUAL_365", "ACTUAL_365F" -> DayCount.ACT_365F;
+            case "30_360", "THIRTY_360" -> DayCount.THIRTY_360;
+            default -> throw new IllegalArgumentException("Unsupported dayCount: " + value);
+        };
+    }
     private static double positive(Double value, String name) { if (value == null || !Double.isFinite(value) || value <= 0) throw new IllegalArgumentException(name + " must be greater than zero"); return value; }
     private static double nonNegative(double value, String name) { if (!Double.isFinite(value) || value < 0) throw new IllegalArgumentException(name + " must be non-negative"); return value; }
     private static int positiveInt(Integer value, int fallback, String name) { int actual = value == null ? fallback : value; if (actual <= 0) throw new IllegalArgumentException(name + " must be greater than zero"); return actual; }

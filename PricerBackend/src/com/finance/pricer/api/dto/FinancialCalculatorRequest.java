@@ -2,6 +2,7 @@ package com.finance.pricer.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -30,6 +31,10 @@ public record FinancialCalculatorRequest(
         Double futureValue,
         Double faceValue,
         Double couponRate,
+        Integer couponFrequency,
+        LocalDate maturityDate,
+        LocalDate settlementDate,
+        String dayCount,
         List<Double> cashFlows,
         Boolean contributionAtBeginning
 ) {}

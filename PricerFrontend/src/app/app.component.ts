@@ -24,6 +24,14 @@ interface YahooSecurity {
   exchange?: string;
 }
 
+interface CalculatorField {
+  key: string;
+  label: string;
+  type?: string;
+  step?: string;
+  defaultValue?: string | number;
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -68,9 +76,56 @@ interface YahooSecurity {
         <button type="button" (click)="selectProduct('FXC')" [class.active]="selectedProduct === 'FXC'">{{ 'FXC' | translate }}</button>
         <button type="button" (click)="selectProduct('BOND')" [class.active]="selectedProduct === 'BOND'">{{ 'BOND' | translate }}</button>
         <button type="button" (click)="selectProduct('EQUITY')" [class.active]="selectedProduct === 'EQUITY'">{{ 'EQUITY' | translate }}</button>
+        <button type="button" (click)="selectProduct('CALCULATORS')" [class.active]="selectedProduct === 'CALCULATORS'">{{ 'financial_calculators' | translate }}</button>
       </aside>
 
       <main class="content">
+        <ng-container *ngIf="selectedProduct === 'CALCULATORS'; else pricingTerminal">
+          <section class="panel calculators-panel">
+            <div class="panel-header">{{ 'financial_calculators' | translate }}</div>
+            <div class="calculator-layout">
+              <div class="calculator-picker">
+                <label>
+                  <span>{{ 'calculator' | translate }}</span>
+                  <select [value]="selectedCalculator" (change)="selectCalculator($any($event.target).value)">
+                    <optgroup *ngFor="let group of calculatorGroups" [label]="calculatorGroupLabel(group.label)">
+                      <option *ngFor="let calculator of group.items" [value]="calculator">{{ calculatorLabel(calculator) }}</option>
+                    </optgroup>
+                  </select>
+                </label>
+                <p class="calculator-description">{{ 'calculator_description' | translate }}</p>
+              </div>
+              <form class="calculator-form" [formGroup]="calculatorForm" (ngSubmit)="calculateFinancialCalculator()">
+                <div class="calculator-fields">
+                  <label *ngFor="let field of calculatorFields">
+                    <span>{{ calculatorFieldLabel(field.label) }}</span>
+                    <input [formControlName]="field.key" [type]="field.type || 'number'" [step]="field.step || 'any'" />
+                  </label>
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary" [disabled]="isCalculatorRunning">{{ isCalculatorRunning ? ('calculating' | translate) : ('calculate' | translate) }}</button>
+                  <button type="button" class="secondary" (click)="resetCalculator()">{{ 'clear' | translate }}</button>
+                </div>
+                <p class="error-message" *ngIf="calculatorError">{{ calculatorError }}</p>
+              </form>
+            </div>
+          </section>
+
+          <section class="panel calculator-results-panel">
+            <div class="panel-header">{{ 'results' | translate }}</div>
+            <div class="calculator-results" *ngIf="calculatorResult; else noCalculatorResult">
+              <div class="result-card" *ngFor="let entry of calculatorResultEntries">
+                <span>{{ formatCalculatorKey(entry[0]) }}</span>
+                <strong>{{ formatCalculatorValue(entry[1]) }}</strong>
+              </div>
+            </div>
+            <ng-template #noCalculatorResult>
+              <p class="empty-results">{{ 'calculator_empty_results' | translate }}</p>
+            </ng-template>
+          </section>
+        </ng-container>
+
+        <ng-template #pricingTerminal>
         <section class="panel form-panel">
           <div class="panel-header">{{ selectedProductLabel }}</div>
           <form [formGroup]="form" (ngSubmit)="submitRequest()">
@@ -188,6 +243,7 @@ interface YahooSecurity {
             </svg>
           </div>
         </section>
+        </ng-template>
       </main>
     </div>
   `,
@@ -588,6 +644,25 @@ interface YahooSecurity {
       .chart-axis { stroke: rgba(142, 174, 197, .35); stroke-width: 1; }
       .chart-line { fill: none; stroke: #3ae374; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
       .chart-point { fill: #9fe1ff; stroke: #07141d; stroke-width: 2; }
+
+      .calculators-panel, .calculator-results-panel { padding-bottom: 18px; }
+      .calculator-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 22px; padding: 20px; }
+      .calculator-picker { border-right: 1px solid rgba(124, 181, 255, 0.15); padding-right: 20px; }
+      .calculator-description, .empty-results { color: #8eaec5; font-size: 12px; line-height: 1.6; }
+      .calculator-form { padding: 0; }
+      .calculator-fields { display: grid; grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 14px 16px; }
+      .calculator-results { display: grid; grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 14px; padding: 20px; }
+      .result-card { background: rgba(17, 33, 45, 0.9); border: 1px solid rgba(124, 181, 255, 0.15); border-radius: 10px; padding: 14px; }
+      .result-card span { display: block; color: #8eaec5; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; }
+      .result-card strong { color: #a7f3c5; font-size: 18px; word-break: break-word; }
+      .empty-results { margin: 20px; }
+      :host.light-theme .calculator-picker { border-right-color: rgba(7, 20, 29, 0.08); }
+      :host.light-theme .result-card { background: #f6fbfc; border-color: rgba(7, 20, 29, 0.08); }
+      :host.light-theme .result-card strong { color: #0b6b55; }
+      @media (max-width: 900px) {
+        .calculator-layout { grid-template-columns: 1fr; }
+        .calculator-picker { border-right: 0; border-bottom: 1px solid rgba(124, 181, 255, 0.15); padding: 0 0 16px; }
+      }
     `
   ]
 })
@@ -605,6 +680,19 @@ export class AppComponent implements OnInit {
   lastResponse: PriceResponse | null = null;
   marketFields: Array<{ key: string; label: string; type?: string; options?: string[] }> = [];
   instrumentFields: Array<{ key: string; label: string; type?: string; options?: string[] }> = [];
+  selectedCalculator = 'loan';
+  isCalculatorRunning = false;
+  calculatorError = '';
+  calculatorResult: Record<string, unknown> | null = null;
+  calculatorForm: FormGroup;
+
+  readonly calculatorGroups = [
+    { label: 'Mortgage and Real Estate', items: ['mortgage', 'loan', 'payment', 'apr'] },
+    { label: 'Auto', items: ['auto-loan'] },
+    { label: 'Investment', items: ['simple-interest', 'compound-interest', 'savings', 'investment', 'bond', 'roi', 'irr'] },
+    { label: 'Retirement', items: ['retirement', '401k', 'ira', 'annuity', 'annuity-payout'] },
+    { label: 'Other', items: ['currency', 'inflation', 'debt-payoff', 'credit-card-payoff', 'student-loan'] }
+  ];
 
   form: FormGroup;
 
@@ -632,6 +720,50 @@ export class AppComponent implements OnInit {
       ,spread: [0.015], recovery_rate: [0.4]
       ,spot: [1.08], domestic_rate: [0.05], foreign_rate: [0.02], pair: ['EURUSD']
     });
+    this.calculatorForm = this.fb.group({
+      principal: [250000], amount: [10000], annualRate: [0.05], interestRate: [0.05], termYears: [30],
+      paymentsPerYear: [12], compoundsPerYear: [12], contribution: [0], contributionFrequency: [12],
+      payment: [1500], monthlyPayment: [300], initialInvestment: [10000], annualContribution: [5000],
+      returnRate: [0.07], currentSavings: [25000], futureValue: [15000], exchangeRate: [1.08],
+      inflationRate: [0.03], taxRate: [0.2], fees: [0], cashFlows: ['-10000,3000,4000,5000'],
+      faceValue: [100], couponRate: [0.05], couponFrequency: [1], maturityDate: ['2029-09-16'],
+      settlementDate: ['2026-09-19'], dayCount: ['30/360']
+    });
+  }
+
+  get calculatorFields(): CalculatorField[] {
+    const commonRate = [{ key: 'annualRate', label: 'Annual rate', step: '0.0001' }];
+    const fields: Record<string, CalculatorField[]> = {
+      loan: [{ key: 'principal', label: 'Principal' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      payment: [{ key: 'principal', label: 'Principal' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      mortgage: [{ key: 'principal', label: 'Loan amount' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      'auto-loan': [{ key: 'principal', label: 'Loan amount' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      'student-loan': [{ key: 'principal', label: 'Loan amount' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      'simple-interest': [{ key: 'principal', label: 'Principal' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }],
+      'compound-interest': [{ key: 'principal', label: 'Principal' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'compoundsPerYear', label: 'Compounds per year', step: '1' }, { key: 'contribution', label: 'Contribution' }, { key: 'contributionFrequency', label: 'Contribution frequency', step: '1' }],
+      savings: [{ key: 'principal', label: 'Initial savings' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'compoundsPerYear', label: 'Compounds per year', step: '1' }, { key: 'contribution', label: 'Contribution' }, { key: 'contributionFrequency', label: 'Contribution frequency', step: '1' }],
+      investment: [{ key: 'principal', label: 'Initial investment' }, { key: 'returnRate', label: 'Return rate', step: '0.0001' }, { key: 'termYears', label: 'Term (years)' }, { key: 'contribution', label: 'Contribution' }, { key: 'contributionFrequency', label: 'Contribution frequency', step: '1' }],
+      bond: [{ key: 'faceValue', label: 'Face value' }, { key: 'annualRate', label: 'Yield', step: '0.0001' }, { key: 'couponRate', label: 'Annual coupon', step: '0.0001' }, { key: 'couponFrequency', label: 'Coupon frequency', step: '1' }, { key: 'maturityDate', label: 'Maturity date', type: 'date' }, { key: 'settlementDate', label: 'Settlement date', type: 'date' }, { key: 'dayCount', label: 'Day count', type: 'text' }],
+      roi: [{ key: 'principal', label: 'Amount invested' }, { key: 'futureValue', label: 'Amount returned' }],
+      irr: [{ key: 'cashFlows', label: 'Cash flows (comma-separated)', type: 'text' }],
+      retirement: [{ key: 'currentSavings', label: 'Current savings' }, { key: 'annualContribution', label: 'Annual contribution' }, { key: 'returnRate', label: 'Return rate', step: '0.0001' }, { key: 'termYears', label: 'Years to retirement' }],
+      '401k': [{ key: 'currentSavings', label: 'Current savings' }, { key: 'annualContribution', label: 'Annual contribution' }, { key: 'returnRate', label: 'Return rate', step: '0.0001' }, { key: 'termYears', label: 'Years to retirement' }],
+      ira: [{ key: 'currentSavings', label: 'Current savings' }, { key: 'annualContribution', label: 'Annual contribution' }, { key: 'returnRate', label: 'Return rate', step: '0.0001' }, { key: 'termYears', label: 'Years to retirement' }],
+      annuity: [{ key: 'payment', label: 'Payment' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      'annuity-payout': [{ key: 'payment', label: 'Payment' }, ...commonRate, { key: 'termYears', label: 'Term (years)' }, { key: 'paymentsPerYear', label: 'Payments per year', step: '1' }],
+      'debt-payoff': [{ key: 'principal', label: 'Debt balance' }, ...commonRate, { key: 'monthlyPayment', label: 'Monthly payment' }],
+      'credit-card-payoff': [{ key: 'principal', label: 'Credit card balance' }, ...commonRate, { key: 'monthlyPayment', label: 'Monthly payment' }],
+      inflation: [{ key: 'amount', label: 'Current amount' }, { key: 'inflationRate', label: 'Inflation rate', step: '0.0001' }, { key: 'termYears', label: 'Years' }],
+      'sales-tax': [{ key: 'amount', label: 'Amount' }, { key: 'taxRate', label: 'Tax rate', step: '0.0001' }],
+      vat: [{ key: 'amount', label: 'Amount' }, { key: 'taxRate', label: 'VAT rate', step: '0.0001' }],
+      currency: [{ key: 'amount', label: 'Amount' }, { key: 'exchangeRate', label: 'Exchange rate', step: '0.0001' }],
+      apr: [{ key: 'principal', label: 'Principal' }, ...commonRate, { key: 'fees', label: 'Fees' }, { key: 'termYears', label: 'Term (years)' }]
+    };
+    return fields[this.selectedCalculator] || fields['loan'];
+  }
+
+  get calculatorResultEntries(): Array<[string, unknown]> {
+    return this.calculatorResult ? Object.entries(this.calculatorResult).filter(([key]) => key !== 'calculator') : [];
   }
 
   ngOnInit(): void {
@@ -678,7 +810,8 @@ export class AppComponent implements OnInit {
     { code: 'CDS', label: 'Credit Default Swap' },
     { code: 'FXC', label: 'FX Forward' },
     { code: 'BOND', label: 'Fixed Income Bond' },
-    { code: 'EQUITY', label: 'Equity' }
+    { code: 'EQUITY', label: 'Equity' },
+    { code: 'CALCULATORS', label: 'Financial Calculators' }
   ];
 
   get securityOptions(): string[] {
@@ -754,7 +887,96 @@ export class AppComponent implements OnInit {
     this.selectedProduct = product;
     this.lastResponse = null;
     this.apiError = '';
+    this.calculatorError = '';
+    this.calculatorResult = null;
     this.applyFormForProduct(product);
+  }
+
+  selectCalculator(calculator: string): void {
+    this.selectedCalculator = calculator;
+    this.calculatorError = '';
+    this.calculatorResult = null;
+  }
+
+  calculatorLabel(calculator: string): string {
+    const key = `calculator_${calculator.replaceAll('-', '_')}`;
+    const translated = this.translate.instant(key);
+    return translated === key ? calculator.replaceAll('-', ' ').replace(/\b\w/g, character => character.toUpperCase()) : translated;
+  }
+
+  calculatorGroupLabel(label: string): string {
+    const keys: Record<string, string> = {
+      'Mortgage and Real Estate': 'calculator_group_mortgage',
+      Auto: 'calculator_group_auto',
+      Investment: 'calculator_group_investment',
+      Retirement: 'calculator_group_retirement',
+      Other: 'calculator_group_other'
+    };
+    return this.translate.instant(keys[label] || label);
+  }
+
+  calculatorFieldLabel(label: string): string {
+    const key = `calculator_field_${label.toLowerCase().replaceAll(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`;
+    const translated = this.translate.instant(key);
+    return translated === key ? label : translated;
+  }
+
+  calculateFinancialCalculator(): void {
+    if (this.isCalculatorRunning) return;
+    const raw = this.calculatorForm.getRawValue();
+    const payload: Record<string, unknown> = {};
+    for (const field of this.calculatorFields) {
+      const value = raw[field.key];
+      if (field.key === 'cashFlows') {
+        payload[field.key] = String(value || '').split(',').map(item => Number(item.trim()));
+      } else if (field.type === 'date' || field.type === 'text') {
+        payload[field.key] = value;
+      } else {
+        payload[field.key] = Number(value);
+      }
+    }
+
+    this.isCalculatorRunning = true;
+    this.calculatorError = '';
+    this.http.post<Record<string, unknown>>(`/api/v1/calculators/${this.selectedCalculator}`, payload).pipe(
+      timeout(15000),
+      finalize(() => {
+        this.isCalculatorRunning = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: result => {
+        this.calculatorResult = result;
+        this.apiOnline = true;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.apiOnline = false;
+        this.calculatorError = error.error?.message || 'Calculator API unavailable.';
+      }
+    });
+  }
+
+  resetCalculator(): void {
+    this.calculatorError = '';
+    this.calculatorResult = null;
+    this.calculatorForm.reset({
+      principal: 250000, amount: 10000, annualRate: 0.05, interestRate: 0.05, termYears: 30,
+      paymentsPerYear: 12, compoundsPerYear: 12, contribution: 0, contributionFrequency: 12,
+      payment: 1500, monthlyPayment: 300, initialInvestment: 10000, annualContribution: 5000,
+      returnRate: 0.07, currentSavings: 25000, futureValue: 15000, exchangeRate: 1.08,
+      inflationRate: 0.03, taxRate: 0.2, fees: 0, cashFlows: '-10000,3000,4000,5000',
+      faceValue: 100, couponRate: 0.05, couponFrequency: 1, maturityDate: '2029-09-16',
+      settlementDate: '2026-09-19', dayCount: '30/360'
+    });
+  }
+
+  formatCalculatorKey(key: string): string {
+    return key.replaceAll(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
+  }
+
+  formatCalculatorValue(value: unknown): string {
+    if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(6);
+    return String(value);
   }
 
   applyFormForProduct(product: string): void {
