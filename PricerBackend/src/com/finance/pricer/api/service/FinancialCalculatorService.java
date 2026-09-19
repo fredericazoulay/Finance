@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -51,7 +52,22 @@ public class FinancialCalculatorService {
         double periodicRate = rate / frequency;
         double payment = periodicPayment(principal, periodicRate, periods);
         double total = payment * periods;
-        return result("loan", Map.of("principal", principal, "payment", payment, "totalPaid", total, "totalInterest", total - principal, "numberOfPayments", (int) periods));
+        List<Map<String, Object>> schedule = new ArrayList<>();
+        double balance = principal;
+        for (int period = 1; period <= (int) periods; period++) {
+            double interest = balance * periodicRate;
+            double actualPayment = Math.min(payment, balance + interest);
+            double principalPaid = actualPayment - interest;
+            balance = Math.max(0, balance - principalPaid);
+            schedule.add(Map.of(
+                "period", period,
+                "payment", actualPayment,
+                "principal", principalPaid,
+                "interest", interest,
+                "balance", balance
+            ));
+        }
+        return result("loan", Map.of("principal", principal, "payment", payment, "totalPaid", total, "totalInterest", total - principal, "numberOfPayments", (int) periods, "schedule", schedule));
     }
 
     private Map<String, Object> compound(FinancialCalculatorRequest r) {

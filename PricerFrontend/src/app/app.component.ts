@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { finalize, TimeoutError, timeout } from 'rxjs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import * as XLSX from 'xlsx-js-style';
 
 interface PriceResponse {
   request_id?: string;
@@ -117,6 +118,34 @@ interface CalculatorField {
               <div class="result-card" *ngFor="let entry of calculatorResultEntries">
                 <span>{{ formatCalculatorKey(entry[0]) }}</span>
                 <strong>{{ formatCalculatorValue(entry[1]) }}</strong>
+              </div>
+            </div>
+            <div class="schedule" *ngIf="calculatorSchedule.length">
+              <div class="schedule-heading">
+                <h3>{{ 'amortization_schedule' | translate }}</h3>
+                <button type="button" class="export-button" (click)="exportScheduleToExcel()">{{ 'export_excel' | translate }}</button>
+              </div>
+              <div class="schedule-table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{{ 'schedule_period' | translate }}</th>
+                      <th>{{ 'schedule_payment' | translate }}</th>
+                      <th>{{ 'schedule_principal' | translate }}</th>
+                      <th>{{ 'schedule_interest' | translate }}</th>
+                      <th>{{ 'schedule_balance' | translate }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of calculatorSchedule">
+                      <td>{{ row['period'] }}</td>
+                      <td>{{ formatCalculatorValue(row['payment']) }}</td>
+                      <td>{{ formatCalculatorValue(row['principal']) }}</td>
+                      <td>{{ formatCalculatorValue(row['interest']) }}</td>
+                      <td>{{ formatCalculatorValue(row['balance']) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
             <ng-template #noCalculatorResult>
@@ -656,6 +685,20 @@ interface CalculatorField {
       .result-card span { display: block; color: #8eaec5; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; }
       .result-card strong { color: #a7f3c5; font-size: 18px; word-break: break-word; }
       .empty-results { margin: 20px; }
+          .schedule { padding: 0 20px 20px; }
+      .schedule-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+      .schedule h3 { color: #9fe1ff; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+      .export-button { border: 1px solid rgba(79, 227, 186, 0.4); border-radius: 7px; padding: 8px 12px; background: rgba(13, 61, 69, 0.6); color: #a7f3c5; font-weight: 700; cursor: pointer; }
+          .schedule-table-wrapper { max-height: 420px; overflow: auto; border: 1px solid rgba(124, 181, 255, 0.15); border-radius: 10px; }
+          table { width: 100%; border-collapse: collapse; min-width: 620px; font-size: 12px; }
+          th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid rgba(124, 181, 255, 0.1); }
+          th:first-child, td:first-child { text-align: left; }
+          th { position: sticky; top: 0; background: #102532; color: #9fe1ff; font-weight: 700; }
+          td { color: #d9ebff; }
+          :host.light-theme .schedule h3 { color: #0b5560; }
+          :host.light-theme .export-button { background: #e9f6f4; color: #0b6b55; border-color: rgba(11, 107, 85, 0.25); }
+          :host.light-theme th { background: #e9f6f4; color: #06323a; }
+          :host.light-theme td { color: #072024; }
       :host.light-theme .calculator-picker { border-right-color: rgba(7, 20, 29, 0.08); }
       :host.light-theme .result-card { background: #f6fbfc; border-color: rgba(7, 20, 29, 0.08); }
       :host.light-theme .result-card strong { color: #0b6b55; }
@@ -763,7 +806,12 @@ export class AppComponent implements OnInit {
   }
 
   get calculatorResultEntries(): Array<[string, unknown]> {
-    return this.calculatorResult ? Object.entries(this.calculatorResult).filter(([key]) => key !== 'calculator') : [];
+    return this.calculatorResult ? Object.entries(this.calculatorResult).filter(([key]) => key !== 'calculator' && key !== 'schedule') : [];
+  }
+
+  get calculatorSchedule(): Array<Record<string, unknown>> {
+    const schedule = this.calculatorResult?.['schedule'];
+    return Array.isArray(schedule) ? schedule as Array<Record<string, unknown>> : [];
   }
 
   ngOnInit(): void {
@@ -971,12 +1019,64 @@ export class AppComponent implements OnInit {
   }
 
   formatCalculatorKey(key: string): string {
+    const translationKey = `calculator_result_${key.replaceAll(/([a-z])([A-Z])/g, '$1_$2').replaceAll('-', '_').toLowerCase()}`;
+    const translated = this.translate.instant(translationKey);
+    if (translated !== translationKey) return translated;
     return key.replaceAll(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
   }
 
   formatCalculatorValue(value: unknown): string {
     if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(6);
     return String(value);
+  }
+
+  exportScheduleToExcel(): void {
+    if (!this.calculatorSchedule.length) return;
+    const rows = this.calculatorSchedule.map(row => ({
+      [this.translate.instant('schedule_period')]: row['period'],
+      [this.translate.instant('schedule_payment')]: row['payment'],
+      [this.translate.instant('schedule_principal')]: row['principal'],
+      [this.translate.instant('schedule_interest')]: row['interest'],
+      [this.translate.instant('schedule_balance')]: row['balance']
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const lastRow = rows.length + 1;
+    const lastColumn = 'E';
+    const border = {
+      top: { style: 'thin', color: { rgb: 'B7B7B7' } },
+      bottom: { style: 'thin', color: { rgb: 'B7B7B7' } },
+      left: { style: 'thin', color: { rgb: 'B7B7B7' } },
+      right: { style: 'thin', color: { rgb: 'B7B7B7' } }
+    };
+    for (let row = 1; row <= lastRow; row++) {
+      for (let column = 0; column < 5; column++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r: row - 1, c: column })];
+        if (cell) cell.s = { border };
+      }
+    }
+    for (let column = 0; column < 5; column++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: 0, c: column })];
+      if (cell) {
+        cell.s = {
+          fill: { patternType: 'solid', fgColor: { rgb: 'FFF200' } },
+          font: { bold: true, color: { rgb: '000000' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border
+        };
+      }
+    }
+    worksheet['!autofilter'] = { ref: `A1:${lastColumn}${lastRow}` };
+    worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+    worksheet['!cols'] = [
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 20 }
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Schedule');
+    XLSX.writeFile(workbook, `${this.selectedCalculator}-amortization-schedule.xlsx`);
   }
 
   applyFormForProduct(product: string): void {
