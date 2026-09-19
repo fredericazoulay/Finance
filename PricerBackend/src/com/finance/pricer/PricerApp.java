@@ -1,7 +1,6 @@
 package com.finance.pricer;
 
 import java.util.Locale;
-import java.util.Scanner;
 
 public final class PricerApp {
     private PricerApp() { }

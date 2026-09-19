@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { HttpClient, HttpClientModule, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { finalize, TimeoutError, timeout } from 'rxjs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import * as XLSX from 'xlsx-js-style';
+import { CalculatorDefinitionsService, CalculatorField } from './services/calculator-definitions.service';
 
 interface PriceResponse {
   request_id?: string;
@@ -25,21 +26,12 @@ interface YahooSecurity {
   exchange?: string;
 }
 
-interface CalculatorField {
-  key: string;
-  label: string;
-  type?: string;
-  step?: string;
-  defaultValue?: string | number;
-}
-
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    HttpClientModule,
     TranslateModule
   ],
   template: `
@@ -104,10 +96,11 @@ interface CalculatorField {
                   </label>
                 </div>
                 <div class="actions">
-                  <button type="submit" class="primary" [disabled]="isCalculatorRunning">{{ isCalculatorRunning ? ('calculating' | translate) : ('calculate' | translate) }}</button>
+                  <button type="submit" class="primary" [disabled]="isCalculatorRunning || calculatorForm.invalid">{{ isCalculatorRunning ? ('calculating' | translate) : ('calculate' | translate) }}</button>
                   <button type="button" class="secondary" (click)="resetCalculator()">{{ 'clear' | translate }}</button>
                 </div>
                 <p class="error-message" *ngIf="calculatorError">{{ calculatorError }}</p>
+                <p class="error-message" *ngIf="calculatorForm.invalid && calculatorForm.touched">{{ 'calculator_invalid_form' | translate }}</p>
               </form>
             </div>
           </section>
@@ -727,19 +720,11 @@ export class AppComponent implements OnInit {
   isCalculatorRunning = false;
   calculatorError = '';
   calculatorResult: Record<string, unknown> | null = null;
-  calculatorForm: FormGroup;
+  readonly calculatorForm: FormGroup;
 
-  readonly calculatorGroups = [
-    { label: 'Mortgage and Real Estate', items: ['mortgage', 'loan', 'payment', 'apr'] },
-    { label: 'Auto', items: ['auto-loan'] },
-    { label: 'Investment', items: ['simple-interest', 'compound-interest', 'savings', 'investment', 'bond', 'roi', 'irr'] },
-    { label: 'Retirement', items: ['retirement', '401k', 'ira', 'annuity', 'annuity-payout'] },
-    { label: 'Other', items: ['currency', 'inflation', 'debt-payoff', 'credit-card-payoff', 'student-loan'] }
-  ];
+  readonly form: FormGroup;
 
-  form: FormGroup;
-
-  constructor(private http: HttpClient, private fb: FormBuilder, private cdr: ChangeDetectorRef, private translate: TranslateService) {
+  constructor(private readonly http: HttpClient, private readonly fb: FormBuilder, private readonly cdr: ChangeDetectorRef, private readonly translate: TranslateService, private readonly calculatorDefinitions: CalculatorDefinitionsService) {
     this.form = this.fb.group({
       request_id: ['REQ-1001'],
       security_id: ['AAPL US Equity'],
@@ -764,14 +749,22 @@ export class AppComponent implements OnInit {
       ,spot: [1.08], domestic_rate: [0.05], foreign_rate: [0.02], pair: ['EURUSD']
     });
     this.calculatorForm = this.fb.group({
-      principal: [250000], amount: [10000], annualRate: [0.05], interestRate: [0.05], termYears: [30],
-      paymentsPerYear: [12], compoundsPerYear: [12], contribution: [0], contributionFrequency: [12],
-      payment: [1500], monthlyPayment: [300], initialInvestment: [10000], annualContribution: [5000],
-      returnRate: [0.07], currentSavings: [25000], futureValue: [15000], exchangeRate: [1.08],
-      inflationRate: [0.03], taxRate: [0.2], fees: [0], cashFlows: ['-10000,3000,4000,5000'],
-      faceValue: [100], couponRate: [0.05], couponFrequency: [1], maturityDate: ['2029-09-16'],
+      principal: [250000, [Validators.min(0.01)]], amount: [10000, [Validators.min(0.01)]], annualRate: [0.05, [Validators.min(0)]], interestRate: [0.05, [Validators.min(0)]], termYears: [30, [Validators.min(0.01)]],
+      paymentsPerYear: [12, [Validators.min(1)]], compoundsPerYear: [12, [Validators.min(1)]], contribution: [0, [Validators.min(0)]], contributionFrequency: [12, [Validators.min(1)]],
+      payment: [1500, [Validators.min(0.01)]], monthlyPayment: [300, [Validators.min(0.01)]], initialInvestment: [10000, [Validators.min(0.01)]], annualContribution: [5000, [Validators.min(0)]],
+      returnRate: [0.07, [Validators.min(0)]], currentSavings: [25000, [Validators.min(0)]], futureValue: [15000, [Validators.min(0.01)]], exchangeRate: [1.08, [Validators.min(0.000001)]],
+      inflationRate: [0.03, [Validators.min(0)]], taxRate: [0.2, [Validators.min(0)]], fees: [0, [Validators.min(0)]], cashFlows: ['-10000,3000,4000,5000'],
+      faceValue: [100, [Validators.min(0.01)]], couponRate: [0.05, [Validators.min(0)]], couponFrequency: [1, [Validators.min(1)]], maturityDate: ['2029-09-16'],
+      currentBalance: [250000, [Validators.min(0.01)]], newRate: [0.04, [Validators.min(0)]], closingCosts: [5000, [Validators.min(0)]],
+      propertyValue: [300000, [Validators.min(0.01)]], monthlyIncome: [6000, [Validators.min(0.01)]], monthlyExpenses: [1800, [Validators.min(0)]], monthlyRent: [1200, [Validators.min(0.01)]],
+      residualValue: [10000, [Validators.min(0)]], salvageValue: [0, [Validators.min(0)]], usefulLifeYears: [5, [Validators.min(0.01)]], discountRate: [0.1, [Validators.min(0)]],
+      marginRate: [0.2, [Validators.min(0)]], commissionRate: [0.05, [Validators.min(0)]], annualIncome: [60000, [Validators.min(0.01)]],
       settlementDate: ['2026-09-19'], dayCount: ['30/360']
     });
+  }
+
+  get calculatorGroups() {
+    return this.calculatorDefinitions.groups;
   }
 
   get calculatorFields(): CalculatorField[] {
@@ -832,7 +825,9 @@ export class AppComponent implements OnInit {
     try {
       const storedLang = localStorage.getItem('language');
       if (storedLang) this.language = storedLang.toLowerCase();
-    } catch (e) {}
+    } catch (error) {
+      console.warn('Unable to restore the saved language preference.', error);
+    }
     this.translate.addLangs(['en', 'fr']);
     this.translate.setDefaultLang('en');
     this.translate.use(this.language);
@@ -840,7 +835,9 @@ export class AppComponent implements OnInit {
     try {
       this.translate.onLangChange.subscribe(() => this.cdr.detectChanges());
       this.translate.onTranslationChange.subscribe(() => this.cdr.detectChanges());
-    } catch (e) {}
+    } catch (error) {
+      console.warn('Unable to subscribe to translation updates.', error);
+    }
 
     this.applyThemeToBody();
     this.applyFormForProduct(this.selectedProduct);
@@ -958,7 +955,7 @@ export class AppComponent implements OnInit {
       Auto: 'calculator_group_auto',
       Investment: 'calculator_group_investment',
       Retirement: 'calculator_group_retirement',
-      Other: 'calculator_group_other'
+      'Tax and Other': 'calculator_group_other'
     };
     return this.translate.instant(keys[label] || label);
   }
@@ -971,6 +968,10 @@ export class AppComponent implements OnInit {
 
   calculateFinancialCalculator(): void {
     if (this.isCalculatorRunning) return;
+    if (this.calculatorForm.invalid) {
+      this.calculatorForm.markAllAsTouched();
+      return;
+    }
     const raw = this.calculatorForm.getRawValue();
     const payload: Record<string, unknown> = {};
     for (const field of this.calculatorFields) {
@@ -1026,7 +1027,12 @@ export class AppComponent implements OnInit {
   }
 
   formatCalculatorValue(value: unknown): string {
-    if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(6);
+    if (typeof value === 'number') {
+      return new Intl.NumberFormat(this.language === 'fr' ? 'fr-FR' : 'en-US', {
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        maximumFractionDigits: 6
+      }).format(value);
+    }
     return String(value);
   }
 
@@ -1406,7 +1412,9 @@ export class AppComponent implements OnInit {
   }
 
   get chartUnit(): string {
-    return this.selectedProduct === 'FXC' ? 'Forward points' : this.selectedProduct === 'IRS' || this.selectedProduct === 'CDS' ? 'Rate' : 'Value';
+    if (this.selectedProduct === 'FXC') return 'Forward points';
+    if (this.selectedProduct === 'IRS' || this.selectedProduct === 'CDS') return 'Rate';
+    return 'Value';
   }
 
   get chartPoints(): Array<{ cx: number; cy: number }> {

@@ -42,7 +42,7 @@ class MarketDataProviderTest {
     @Test
     void rejectsMalformedCsvRowsAndUnknownSymbols() throws IOException {
         Path csv = temporaryDirectory.resolve("invalid.csv");
-        Files.writeString(csv, "AAPL,99.5\n");
+        Files.writeString(csv, "symbol,bid,ask\nAAPL,99.5\n");
 
         assertThrows(IllegalArgumentException.class, () -> new CsvMarketDataProvider(csv));
         Path validCsv = temporaryDirectory.resolve("valid.csv");

@@ -17,16 +17,29 @@ public class FinancialCalculatorService {
     public Map<String, Object> calculate(String name, FinancialCalculatorRequest r) {
         return switch (name.trim().toLowerCase(Locale.ROOT).replace('_', '-')) {
             case "loan", "payment", "mortgage", "auto-loan", "student-loan" -> loan(r);
+            case "refinance" -> refinance(r);
+            case "house-affordability", "affordability" -> affordability(r);
+            case "rent" -> rent(r);
+            case "auto-lease", "lease" -> lease(r);
             case "compound-interest", "savings", "investment" -> compound(r);
+            case "cd" -> cd(r);
             case "simple-interest" -> simple(r);
             case "bond", "bond-price", "bond-pricing" -> bond(r);
             case "annuity", "annuity-payout" -> annuity(r);
             case "retirement", "401k", "ira" -> retirement(r);
             case "roi" -> roi(r);
             case "irr" -> irr(r);
+            case "payback-period" -> payback(r);
+            case "present-value" -> presentValue(r);
+            case "future-value" -> futureValueCalculator(r);
             case "debt-payoff", "credit-card", "credit-card-payoff" -> debt(r);
             case "inflation" -> inflation(r);
-            case "sales-tax", "vat" -> tax(r);
+            case "sales-tax", "vat", "income-tax" -> tax(r);
+            case "salary", "take-home-paycheck" -> salary(r);
+            case "depreciation" -> depreciation(r);
+            case "margin" -> margin(r);
+            case "discount" -> discount(r);
+            case "commission" -> commission(r);
             case "currency" -> currency(r);
             case "apr" -> apr(r);
             default -> throw new IllegalArgumentException("Unknown calculator: " + name);
@@ -36,12 +49,78 @@ public class FinancialCalculatorService {
     public Map<String, List<String>> catalog() {
         return Map.of(
             "Mortgage and Real Estate", List.of("mortgage", "loan", "payment", "apr"),
-            "Auto", List.of("auto-loan"),
-            "Investment", List.of("simple-interest", "compound-interest", "savings", "investment", "bond", "roi", "irr"),
+            "Auto", List.of("auto-loan", "auto-lease"),
+            "Investment", List.of("simple-interest", "compound-interest", "savings", "investment", "cd", "bond", "roi", "irr", "payback-period", "present-value", "future-value"),
             "Retirement", List.of("retirement", "401k", "ira", "annuity", "annuity-payout"),
-            "Tax and Salary", List.of("sales-tax", "vat"),
+            "Tax and Salary", List.of("sales-tax", "vat", "income-tax", "salary", "take-home-paycheck"),
+            "Real Estate", List.of("refinance", "house-affordability", "rent"),
+            "Business", List.of("depreciation", "margin", "discount", "commission"),
             "Other", List.of("currency", "inflation", "debt-payoff", "credit-card-payoff", "student-loan")
         );
+    }
+
+    private Map<String, Object> refinance(FinancialCalculatorRequest r) {
+        double balance = positive(first(r.currentBalance(), r.principal(), "currentBalance"), "currentBalance");
+        double rate = nonNegative(first(r.newRate(), r.annualRate(), "newRate"), "newRate");
+        double years = positive(r.termYears(), "termYears");
+        double costs = nonNegative(r.closingCosts() == null ? 0 : r.closingCosts(), "closingCosts");
+        double payment = periodicPayment(balance, rate / 12, years * 12);
+        double total = payment * years * 12 + costs;
+        return result("refinance", Map.of("newPayment", payment, "closingCosts", costs, "totalCost", total, "breakEvenMonths", costs == 0 ? 0 : Math.ceil(costs / Math.max(payment, 0.01))));
+    }
+
+    private Map<String, Object> affordability(FinancialCalculatorRequest r) {
+        double income = positive(r.monthlyIncome(), "monthlyIncome");
+        double expenses = nonNegative(r.monthlyExpenses() == null ? 0 : r.monthlyExpenses(), "monthlyExpenses");
+        double rate = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        double years = positive(r.termYears(), "termYears");
+        double payment = Math.max(0, income * 0.28 - expenses);
+        double loan = payment == 0 ? 0 : payment / (rate / 12 == 0 ? 1 / (years * 12) : rate / 12 / (1 - Math.pow(1 + rate / 12, -years * 12)));
+        double downPayment = nonNegative(r.downPayment() == null ? 0 : r.downPayment(), "downPayment");
+        return result("house-affordability", Map.of("maximumMonthlyPayment", payment, "maximumLoan", loan, "maximumHomePrice", loan + downPayment));
+    }
+
+    private Map<String, Object> rent(FinancialCalculatorRequest r) {
+        double monthlyRent = positive(r.monthlyRent(), "monthlyRent");
+        double property = positive(first(r.propertyValue(), r.amount(), "propertyValue"), "propertyValue");
+        double annualYield = monthlyRent * 12 / property;
+        return result("rent", Map.of("annualRent", monthlyRent * 12, "rentToValueRatio", annualYield, "monthlyRent", monthlyRent));
+    }
+
+    private Map<String, Object> lease(FinancialCalculatorRequest r) {
+        double price = positive(first(r.principal(), r.amount(), "price"), "price");
+        double residual = nonNegative(r.residualValue() == null ? price * 0.4 : r.residualValue(), "residualValue");
+        double rate = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        int months = (int) Math.ceil(positive(r.termYears(), "termYears") * 12);
+        double depreciation = (price - residual) / months;
+        double finance = (price + residual) * rate / 24;
+        return result("auto-lease", Map.of("monthlyPayment", depreciation + finance, "depreciationCharge", depreciation, "financeCharge", finance, "months", months));
+    }
+
+    private Map<String, Object> cd(FinancialCalculatorRequest r) {
+        Map<String, Object> result = compound(r);
+        result.put("calculator", "cd");
+        return result;
+    }
+
+    private Map<String, Object> payback(FinancialCalculatorRequest r) {
+        double investment = positive(first(r.principal(), r.initialInvestment(), "initialInvestment"), "initialInvestment");
+        double annualCashFlow = positive(first(r.annualContribution(), r.contribution(), "annualContribution"), "annualContribution");
+        return result("payback-period", Map.of("years", investment / annualCashFlow, "initialInvestment", investment, "annualCashFlow", annualCashFlow));
+    }
+
+    private Map<String, Object> presentValue(FinancialCalculatorRequest r) {
+        double future = positive(first(r.futureValue(), r.amount(), "futureValue"), "futureValue");
+        double rate = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        double years = positive(r.termYears(), "termYears");
+        return result("present-value", Map.of("presentValue", future / Math.pow(1 + rate, years), "futureValue", future));
+    }
+
+    private Map<String, Object> futureValueCalculator(FinancialCalculatorRequest r) {
+        double present = positive(first(r.presentValue(), r.principal(), "presentValue"), "presentValue");
+        double rate = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        double years = positive(r.termYears(), "termYears");
+        return result("future-value", Map.of("presentValue", present, "futureValue", present * Math.pow(1 + rate, years)));
     }
 
     private Map<String, Object> loan(FinancialCalculatorRequest r) {
@@ -188,6 +267,42 @@ public class FinancialCalculatorService {
         double amount = nonNegative(first(r.amount(), r.principal(), "amount"), "amount");
         double tax = amount * nonNegative(first(r.taxRate(), r.annualRate(), "taxRate"), "taxRate");
         return result("tax", Map.of("netAmount", amount + tax, "taxAmount", tax));
+    }
+
+    private Map<String, Object> salary(FinancialCalculatorRequest r) {
+        double gross = positive(first(r.annualIncome(), r.amount(), "annualIncome"), "annualIncome");
+        double taxRate = nonNegative(first(r.taxRate(), r.annualRate(), "taxRate"), "taxRate");
+        double tax = gross * taxRate;
+        return result("salary", Map.of("grossIncome", gross, "taxAmount", tax, "netIncome", gross - tax, "monthlyNetIncome", (gross - tax) / 12));
+    }
+
+    private Map<String, Object> depreciation(FinancialCalculatorRequest r) {
+        double cost = positive(first(r.principal(), r.amount(), "cost"), "cost");
+        double salvage = nonNegative(r.salvageValue() == null ? 0 : r.salvageValue(), "salvageValue");
+        double life = positive(r.usefulLifeYears(), "usefulLifeYears");
+        double annual = (cost - salvage) / life;
+        return result("depreciation", Map.of("annualDepreciation", annual, "monthlyDepreciation", annual / 12, "depreciableBasis", cost - salvage));
+    }
+
+    private Map<String, Object> margin(FinancialCalculatorRequest r) {
+        double sales = positive(first(r.amount(), r.salePrice(), "sales"), "sales");
+        double marginRate = nonNegative(required(r.marginRate(), "marginRate"), "marginRate");
+        double profit = sales * marginRate;
+        return result("margin", Map.of("profit", profit, "cost", sales - profit, "marginPercentage", marginRate * 100));
+    }
+
+    private Map<String, Object> discount(FinancialCalculatorRequest r) {
+        double price = positive(first(r.amount(), r.salePrice(), "price"), "price");
+        double rate = nonNegative(first(r.discountRate(), r.taxRate(), "discountRate"), "discountRate");
+        double discount = price * rate;
+        return result("discount", Map.of("discountAmount", discount, "salePrice", price - discount, "originalPrice", price));
+    }
+
+    private Map<String, Object> commission(FinancialCalculatorRequest r) {
+        double sale = positive(first(r.amount(), r.salePrice(), "saleAmount"), "saleAmount");
+        double rate = nonNegative(required(r.commissionRate(), "commissionRate"), "commissionRate");
+        double commission = sale * rate;
+        return result("commission", Map.of("commission", commission, "netAmount", sale - commission, "commissionPercentage", rate * 100));
     }
 
     private Map<String, Object> currency(FinancialCalculatorRequest r) {

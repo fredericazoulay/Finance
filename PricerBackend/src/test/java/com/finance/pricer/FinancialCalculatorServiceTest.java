@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,5 +34,23 @@ class FinancialCalculatorServiceTest {
         assertEquals(dirtyPrice, cleanPrice + accruedInterest, 1e-9);
         assertTrue(dirtyPrice > cleanPrice);
         assertEquals("THIRTY_360", result.get("dayCount"));
+    }
+
+    @Test
+    void createsLoanAmortizationSchedule() {
+        FinancialCalculatorRequest request = new FinancialCalculatorRequest(
+                250000.0, null, 0.05, null, null, null, null, 30.0, 12, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null);
+
+        Map<String, Object> result = service.calculate("loan", request);
+        List<?> schedule = (List<?>) result.get("schedule");
+
+        assertEquals(360, schedule.size());
+        Map<?, ?> firstPeriod = (Map<?, ?>) schedule.get(0);
+        Map<?, ?> lastPeriod = (Map<?, ?>) schedule.get(schedule.size() - 1);
+        assertEquals(1, firstPeriod.get("period"));
+        assertEquals(360, lastPeriod.get("period"));
+        assertEquals(0.0, (double) lastPeriod.get("balance"), 1e-9);
     }
 }

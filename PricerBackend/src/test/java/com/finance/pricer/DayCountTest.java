@@ -22,6 +22,6 @@ class DayCountTest {
         LocalDate end = LocalDate.of(2024, 7, 31);
 
         assertEquals(180.0 / 360, DayCount.THIRTY_360.yearFraction(start, end), 1e-12);
-        assertEquals(-180.0 / 365, DayCount.ACT_365F.yearFraction(end, start), 1e-12);
+        assertEquals(-182.0 / 365, DayCount.ACT_365F.yearFraction(end, start), 1e-12);
     }
 }
