@@ -57,6 +57,12 @@ public final class DiscountCurve {
     }
 
     public double parRate(double maturity, double paymentFrequency) {
+        if (maturity <= 0 || paymentFrequency <= 0) {
+            throw new IllegalArgumentException("Invalid maturity or payment frequency");
+        }
+        if (isFlatCurve()) {
+            return zeroRate(maturity);
+        }
         int periods = (int) Math.round(maturity * paymentFrequency);
         double annuity = 0;
         for (int i = 1; i <= periods; i++) annuity += discountFactor(i / paymentFrequency) / paymentFrequency;
@@ -64,6 +70,17 @@ public final class DiscountCurve {
     }
 
     public double[] maturities() { return Arrays.copyOf(maturities, maturities.length); }
+
+    private boolean isFlatCurve() {
+        if (maturities.length < 2) return true;
+        double firstZeroRate = zeroRate(maturities[0]);
+        for (int i = 1; i < maturities.length; i++) {
+            if (Math.abs(zeroRate(maturities[i]) - firstZeroRate) > 1e-12) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private double logLinear(double maturity, int left, int right) {
         double weight = (maturity - maturities[left]) / (maturities[right] - maturities[left]);
