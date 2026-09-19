@@ -1,0 +1,12 @@
+<div class="results-container">
+  <div class="calculator-results" *ngIf="calculatorResult; else noCalculatorResult">
+    <div class="result-card" *ngFor="let entry of resultEntries">
+      <span>{{ formatKey(entry[0]) }}</span>
+      <strong>{{ formatValue(entry[1]) }}</strong>
+    </div>
+  </div>
+
+  <ng-template #noCalculatorResult>
+    <p class="empty-results">{{ 'calculator_empty_results' | translate }}</p>
+  </ng-template>
+</div>

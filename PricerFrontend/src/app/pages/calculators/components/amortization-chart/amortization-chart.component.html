@@ -1,0 +1,20 @@
+<div class="amortization-chart-panel" *ngIf="schedule.length">
+  <div class="totals-bar">
+    <div class="total-badge principal">
+      <span class="label">Total Principal</span>
+      <strong>${{ totalPrincipal | number:'1.2-2' }}</strong>
+    </div>
+    <div class="total-badge interest">
+      <span class="label">Total Interest</span>
+      <strong>${{ totalInterest | number:'1.2-2' }}</strong>
+    </div>
+    <div class="total-badge total">
+      <span class="label">Total Paid</span>
+      <strong>${{ totalPaid | number:'1.2-2' }}</strong>
+    </div>
+  </div>
+
+  <div class="chart-wrapper">
+    <canvas #chartCanvas></canvas>
+  </div>
+</div>

@@ -1,0 +1,152 @@
+.calculator-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 22px;
+  padding: 20px;
+}
+
+.calculator-picker {
+  border-right: 1px solid rgba(124, 181, 255, 0.15);
+  padding-right: 20px;
+}
+
+.picker-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #8eaec5;
+  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+}
+
+.calculator-description {
+  color: #8eaec5;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 14px;
+}
+
+.calculator-form {
+  padding: 0;
+}
+
+.calculator-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 14px 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #8eaec5;
+}
+
+input, select {
+  background: #0c1b27;
+  border: 1px solid rgba(124, 181, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #eaf6ff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: #59b6ff;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+button.primary, button.secondary {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.primary {
+  background: linear-gradient(135deg, #3ae374, #0ecb8d);
+  color: #062116;
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 0 16px rgba(58, 227, 116, 0.4);
+  }
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.secondary {
+  background: #102532;
+  color: #d9ebff;
+  border: 1px solid rgba(124, 181, 255, 0.2);
+
+  &:hover {
+    background: #153447;
+  }
+}
+
+.error-message {
+  margin: 14px 0 0;
+  color: #ff9292;
+  font-size: 12px;
+}
+
+:host-context(body.light-theme) {
+  .calculator-picker {
+    border-right-color: rgba(7, 20, 29, 0.08);
+  }
+
+  .picker-label, .calculator-description, label {
+    color: #4a6572;
+  }
+
+  input, select {
+    background: #fbfdff;
+    border-color: rgba(7, 20, 29, 0.12);
+    color: #072024;
+
+    &:focus {
+      border-color: #0ecb8d;
+    }
+  }
+
+  .primary {
+    background: linear-gradient(135deg, #0ecb8d, #3ae374);
+    color: #062116;
+  }
+
+  .secondary {
+    background: #e9f6f4;
+    border-color: rgba(7, 20, 29, 0.1);
+    color: #06323a;
+
+    &:hover {
+      background: #def0ed;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .calculator-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator-picker {
+    border-right: 0;
+    border-bottom: 1px solid rgba(124, 181, 255, 0.15);
+    padding: 0 0 16px;
+  }
+}

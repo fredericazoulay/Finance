@@ -1,15 +1,10 @@
 import { Injectable } from '@angular/core';
-
-export interface CalculatorField {
-  key: string;
-  label: string;
-  type?: string;
-  step?: string;
-}
+import { Validators } from '@angular/forms';
+import { CalculatorField, CalculatorGroup } from '../models/calculator.model';
 
 @Injectable({ providedIn: 'root' })
 export class CalculatorDefinitionsService {
-  readonly groups = [
+  readonly groups: CalculatorGroup[] = [
     { label: 'Mortgage and Real Estate', items: ['mortgage', 'loan', 'payment', 'apr', 'refinance', 'house-affordability', 'rent'] },
     { label: 'Auto', items: ['auto-loan', 'auto-lease'] },
     { label: 'Investment', items: ['simple-interest', 'compound-interest', 'savings', 'investment', 'cd', 'bond', 'roi', 'irr', 'payback-period', 'present-value', 'future-value'] },
@@ -19,10 +14,10 @@ export class CalculatorDefinitionsService {
     { label: 'Other', items: ['currency', 'inflation', 'debt-payoff', 'credit-card-payoff', 'student-loan'] }
   ];
 
-  private readonly rate = { key: 'annualRate', label: 'Annual rate', step: '0.0001' };
-  private readonly term = { key: 'termYears', label: 'Term (years)' };
-  private readonly payments = { key: 'paymentsPerYear', label: 'Payments per year', step: '1' };
-  private readonly loanFields = [{ key: 'principal', label: 'Principal' }, this.rate, this.term, this.payments];
+  private readonly rate: CalculatorField = { key: 'annualRate', label: 'Annual rate', step: '0.0001' };
+  private readonly term: CalculatorField = { key: 'termYears', label: 'Term (years)' };
+  private readonly payments: CalculatorField = { key: 'paymentsPerYear', label: 'Payments per year', step: '1' };
+  private readonly loanFields: CalculatorField[] = [{ key: 'principal', label: 'Principal' }, this.rate, this.term, this.payments];
 
   readonly fields: Record<string, CalculatorField[]> = {
     loan: this.loanFields,
@@ -65,4 +60,104 @@ export class CalculatorDefinitionsService {
     currency: [{ key: 'amount', label: 'Amount' }, { key: 'exchangeRate', label: 'Exchange rate', step: '0.0001' }],
     apr: [{ key: 'principal', label: 'Principal' }, this.rate, { key: 'fees', label: 'Fees' }, this.term]
   };
+
+  getFields(calculator: string): CalculatorField[] {
+    return this.fields[calculator] || this.fields['loan'];
+  }
+
+  getDefaultFormValues(): Record<string, any> {
+    return {
+      principal: 250000,
+      amount: 10000,
+      annualRate: 0.05,
+      interestRate: 0.05,
+      termYears: 30,
+      paymentsPerYear: 12,
+      compoundsPerYear: 12,
+      contribution: 0,
+      contributionFrequency: 12,
+      payment: 1500,
+      monthlyPayment: 300,
+      initialInvestment: 10000,
+      annualContribution: 5000,
+      returnRate: 0.07,
+      currentSavings: 25000,
+      futureValue: 15000,
+      presentValue: 10000,
+      exchangeRate: 1.08,
+      inflationRate: 0.03,
+      taxRate: 0.2,
+      fees: 0,
+      cashFlows: '-10000,3000,4000,5000',
+      faceValue: 100,
+      couponRate: 0.05,
+      couponFrequency: 1,
+      maturityDate: '2029-09-16',
+      settlementDate: '2026-09-19',
+      dayCount: '30/360',
+      currentBalance: 250000,
+      newRate: 0.04,
+      closingCosts: 5000,
+      propertyValue: 300000,
+      monthlyIncome: 6000,
+      monthlyExpenses: 1800,
+      monthlyRent: 1200,
+      downPayment: 50000,
+      residualValue: 10000,
+      salvageValue: 0,
+      usefulLifeYears: 5,
+      discountRate: 0.1,
+      marginRate: 0.2,
+      commissionRate: 0.05,
+      annualIncome: 60000
+    };
+  }
+
+  getFormValidators(): Record<string, any[]> {
+    return {
+      principal: [Validators.min(0.01)],
+      amount: [Validators.min(0.01)],
+      annualRate: [Validators.min(0)],
+      interestRate: [Validators.min(0)],
+      termYears: [Validators.min(0.01)],
+      paymentsPerYear: [Validators.min(1)],
+      compoundsPerYear: [Validators.min(1)],
+      contribution: [Validators.min(0)],
+      contributionFrequency: [Validators.min(1)],
+      payment: [Validators.min(0.01)],
+      monthlyPayment: [Validators.min(0.01)],
+      initialInvestment: [Validators.min(0.01)],
+      annualContribution: [Validators.min(0)],
+      returnRate: [Validators.min(0)],
+      currentSavings: [Validators.min(0)],
+      futureValue: [Validators.min(0.01)],
+      presentValue: [Validators.min(0.01)],
+      exchangeRate: [Validators.min(0.000001)],
+      inflationRate: [Validators.min(0)],
+      taxRate: [Validators.min(0)],
+      fees: [Validators.min(0)],
+      cashFlows: [],
+      faceValue: [Validators.min(0.01)],
+      couponRate: [Validators.min(0)],
+      couponFrequency: [Validators.min(1)],
+      maturityDate: [],
+      settlementDate: [],
+      dayCount: [],
+      currentBalance: [Validators.min(0.01)],
+      newRate: [Validators.min(0)],
+      closingCosts: [Validators.min(0)],
+      propertyValue: [Validators.min(0.01)],
+      monthlyIncome: [Validators.min(0.01)],
+      monthlyExpenses: [Validators.min(0.01)],
+      monthlyRent: [Validators.min(0.01)],
+      downPayment: [Validators.min(0)],
+      residualValue: [Validators.min(0)],
+      salvageValue: [Validators.min(0)],
+      usefulLifeYears: [Validators.min(0.01)],
+      discountRate: [Validators.min(0)],
+      marginRate: [Validators.min(0)],
+      commissionRate: [Validators.min(0)],
+      annualIncome: [Validators.min(0.01)]
+    };
+  }
 }

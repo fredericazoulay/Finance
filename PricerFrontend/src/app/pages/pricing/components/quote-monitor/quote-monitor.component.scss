@@ -1,0 +1,167 @@
+.quote-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.quote-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(124, 181, 255, 0.15);
+  padding: 0 18px;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #8eaec5;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #eaf6ff;
+  }
+
+  &.active {
+    color: #59b6ff;
+    border-bottom-color: #59b6ff;
+  }
+}
+
+.response-state,
+.response-error {
+  margin: 14px 18px 0;
+  font-size: 12px;
+}
+
+.response-state {
+  color: #9fe1ff;
+}
+
+.response-error {
+  color: #ff9292;
+}
+
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.quote-box {
+  background: rgba(17, 33, 45, 0.9);
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  &.accent {
+    background: rgba(13, 61, 69, 0.6);
+    border-color: rgba(79, 227, 186, 0.4);
+
+    strong {
+      color: #3ae374;
+      font-size: 20px;
+    }
+  }
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  color: #8eaec5;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+strong {
+  font-size: 16px;
+  color: #eaf6ff;
+  word-break: break-word;
+}
+
+.status-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffbf69;
+
+  &.success {
+    color: #3ae374;
+  }
+}
+
+.json-box {
+  margin: 18px;
+  background: #07141d;
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 240px;
+
+  pre {
+    margin: 0;
+    padding: 14px;
+    color: #a7f3c5;
+    font-size: 12px;
+    white-space: pre-wrap;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+}
+
+:host-context(body.light-theme) {
+  .quote-tabs {
+    border-bottom-color: rgba(7, 20, 29, 0.08);
+  }
+
+  .tab-btn {
+    color: #5a7585;
+
+    &:hover {
+      color: #072024;
+    }
+
+    &.active {
+      color: #0ecb8d;
+      border-bottom-color: #0ecb8d;
+    }
+  }
+
+  .quote-box {
+    background: #f6fbfc;
+    border-color: rgba(7, 20, 29, 0.08);
+
+    strong {
+      color: #072024;
+    }
+
+    &.accent {
+      background: #e9f6f4;
+      border-color: rgba(14, 203, 141, 0.3);
+
+      strong {
+        color: #0b8f6b;
+      }
+    }
+  }
+
+  .label {
+    color: #5a7585;
+  }
+
+  .json-box {
+    background: #fbfdff;
+    border-color: rgba(7, 20, 29, 0.08);
+
+    pre {
+      color: #0b5560;
+    }
+  }
+}

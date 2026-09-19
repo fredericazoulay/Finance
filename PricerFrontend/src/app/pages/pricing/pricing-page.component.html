@@ -1,0 +1,29 @@
+<div class="pricing-layout">
+  <section class="panel form-panel">
+    <div class="panel-header">{{ selectedProductLabel }}</div>
+    <app-pricing-form
+      [product]="selectedProduct"
+      [form]="form"
+      [isPricing]="isPricing"
+      [apiError]="apiError"
+      (productChange)="onProductChange($event)"
+      (priceSubmit)="submitRequest()"
+      (formReset)="resetForm()"
+    ></app-pricing-form>
+  </section>
+
+  <section class="panel quote-panel">
+    <div class="panel-header">{{ 'quote_monitor' | translate }}</div>
+    <app-quote-monitor
+      [lastResponse]="lastResponse"
+      [isPricing]="isPricing"
+      [apiError]="apiError"
+    ></app-quote-monitor>
+
+    <app-financial-chart
+      [product]="selectedProduct"
+      [formValues]="formValues"
+      [lastPrice]="lastPrice"
+    ></app-financial-chart>
+  </section>
+</div>

@@ -1,0 +1,55 @@
+<div class="financial-chart-panel">
+  <!-- Greeks metrics bar (Options) -->
+  <div class="greeks-banner" *ngIf="product === 'EQTY_OPT' && greeks">
+    <div class="greek-item">
+      <span class="greek-label">Delta (&Delta;)</span>
+      <span class="greek-val" [class.pos]="greeks.delta > 0" [class.neg]="greeks.delta < 0">
+        {{ greeks.delta }}
+      </span>
+    </div>
+    <div class="greek-item">
+      <span class="greek-label">Gamma (&Gamma;)</span>
+      <span class="greek-val">{{ greeks.gamma }}</span>
+    </div>
+    <div class="greek-item">
+      <span class="greek-label">Vega (1%)</span>
+      <span class="greek-val">{{ greeks.vega }}</span>
+    </div>
+    <div class="greek-item">
+      <span class="greek-label">Theta (1d)</span>
+      <span class="greek-val neg">{{ greeks.theta }}</span>
+    </div>
+    <div class="greek-item accent">
+      <span class="greek-label">Break-Even</span>
+      <span class="greek-val">${{ greeks.breakEven }}</span>
+    </div>
+  </div>
+
+  <!-- Interactive Spot sensitivity slider (Options) -->
+  <div class="spot-slider-bar" *ngIf="product === 'EQTY_OPT'">
+    <div class="slider-info">
+      <span>Simulated Spot: <strong>${{ effectiveSpot }}</strong></span>
+      <span class="slider-offset" [class.pos]="sliderSpotOffset > 0" [class.neg]="sliderSpotOffset < 0">
+        ({{ sliderSpotOffset > 0 ? '+' : '' }}{{ sliderSpotOffset }}%)
+      </span>
+    </div>
+    <div class="slider-controls">
+      <input
+        type="range"
+        min="-30"
+        max="30"
+        step="1"
+        [value]="sliderSpotOffset"
+        (input)="onSpotSliderChange($event)"
+      />
+      <button type="button" class="reset-slider-btn" (click)="resetSpotSlider()" *ngIf="sliderSpotOffset !== 0">
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- Chart canvas container -->
+  <div class="chart-wrapper">
+    <canvas #chartCanvas></canvas>
+  </div>
+</div>

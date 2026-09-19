@@ -1,0 +1,83 @@
+.amortization-chart-panel {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.totals-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.total-badge {
+  background: rgba(17, 33, 45, 0.9);
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+
+  .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #8eaec5;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  strong {
+    font-size: 14px;
+    font-family: 'Consolas', monospace;
+  }
+
+  &.principal strong {
+    color: #3ae374;
+  }
+
+  &.interest strong {
+    color: #ff7d7d;
+  }
+
+  &.total strong {
+    color: #59b6ff;
+  }
+}
+
+.chart-wrapper {
+  background: #0a1b25;
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px;
+  height: 220px;
+  position: relative;
+}
+
+:host-context(body.light-theme) {
+  .total-badge {
+    background: #f6fbfc;
+    border-color: rgba(7, 20, 29, 0.08);
+
+    .label {
+      color: #5a7585;
+    }
+
+    &.principal strong {
+      color: #0b8f6b;
+    }
+
+    &.interest strong {
+      color: #d93025;
+    }
+
+    &.total strong {
+      color: #026aa7;
+    }
+  }
+
+  .chart-wrapper {
+    background: #fbfdff;
+    border-color: rgba(7, 20, 29, 0.08);
+  }
+}

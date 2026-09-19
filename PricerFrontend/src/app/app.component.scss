@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  height: 100vh;
+  background: #07141d;
+  color: #eaf6ff;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+:host.light-theme {
+  background: #f6f8fa;
+  color: #072024;
+}
+
+.terminal-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 64px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+app-topbar {
+  grid-column: 1 / -1;
+  display: block;
+}
+
+app-sidebar {
+  display: block;
+  overflow-y: auto;
+}
+
+.content {
+  padding: 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: inherit;
+}

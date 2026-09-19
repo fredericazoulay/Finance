@@ -1,0 +1,50 @@
+<div class="quote-container">
+  <div class="quote-tabs">
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'quote'"
+      (click)="setTab('quote')"
+    >
+      {{ 'quote_summary' | translate }}
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="activeTab === 'json'"
+      (click)="setTab('json')"
+    >
+      {{ 'json_inspection' | translate }}
+    </button>
+  </div>
+
+  <p class="response-state" *ngIf="isPricing">{{ 'pricing_in_progress' | translate }}</p>
+  <p class="response-error" *ngIf="apiError">{{ apiError }}</p>
+
+  <div class="tab-content">
+    <div class="quote-grid" *ngIf="activeTab === 'quote'">
+      <div class="quote-box">
+        <span class="label">{{ 'security_label' | translate }}</span>
+        <strong>{{ lastResponse?.security_name || '-' }}</strong>
+      </div>
+      <div class="quote-box">
+        <span class="label">{{ 'product_label' | translate }}</span>
+        <strong>{{ lastResponse?.product || '-' }}</strong>
+      </div>
+      <div class="quote-box">
+        <span class="label">{{ 'status_label' | translate }}</span>
+        <span class="status-badge" [class.success]="lastResponse?.response_status === 'SUCCESS'">
+          {{ lastResponse?.response_status || ('waiting' | translate) }}
+        </span>
+      </div>
+      <div class="quote-box accent">
+        <span class="label">{{ 'price_label' | translate }}</span>
+        <strong>{{ formatResultValue(lastResponse?.result) }}</strong>
+      </div>
+    </div>
+
+    <div class="json-box" *ngIf="activeTab === 'json'">
+      <pre>{{ lastResponse | json }}</pre>
+    </div>
+  </div>
+</div>

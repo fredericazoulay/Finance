@@ -1,0 +1,126 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()">
+  <div class="grid">
+    <label>
+      <span>{{ 'request_id' | translate }}</span>
+      <input formControlName="request_id" />
+    </label>
+    <label>
+      <span>{{ 'security_id' | translate }}</span>
+      <div class="security-tools">
+        <input
+          formControlName="security_id"
+          list="security-options"
+          (input)="securityQueryChanged($any($event.target).value)"
+          (change)="selectSecurity($any($event.target).value)"
+          (keyup.enter)="searchSecurities()"
+        />
+        <button
+          type="button"
+          class="secondary search-button"
+          [disabled]="isSearchingSecurities"
+          (click)="searchSecurities()"
+        >
+          {{ isSearchingSecurities ? '...' : ('search' | translate) }}
+        </button>
+      </div>
+      <datalist id="security-options">
+        <option *ngFor="let security of securityOptions" [value]="security"></option>
+        <option *ngFor="let security of securityResults" [value]="security.symbol">
+          {{ security.shortname || security.longname || security.symbol }}
+        </option>
+      </datalist>
+    </label>
+    <label>
+      <span>{{ 'security_name' | translate }}</span>
+      <input formControlName="security_name" />
+    </label>
+    <label>
+      <span>{{ 'product' | translate }}</span>
+      <select formControlName="product" (change)="onProductSelect(form.get('product')?.value)">
+        <option *ngFor="let prod of productOptions" [value]="prod.code">{{ prod.code | translate }}</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ 'curve' | translate }}</span>
+      <input formControlName="curve_name" />
+    </label>
+    <label>
+      <span>{{ 'source' | translate }}</span>
+      <input formControlName="market_data_source" />
+    </label>
+    <label>
+      <span>{{ 'model' | translate }}</span>
+      <select formControlName="pricing_model">
+        <option *ngFor="let model of pricingModelOptions" [value]="model">{{ model }}</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- Quick adjustment bar for Equity Options -->
+  <div class="quick-tools-bar" *ngIf="product === 'EQTY_OPT'">
+    <span class="quick-title">{{ 'quick_presets' | translate }}:</span>
+    <button type="button" class="quick-btn" (click)="alignStrikeAtm()">
+      {{ 'atm_strike' | translate }}
+    </button>
+    <button type="button" class="quick-btn" (click)="adjustVolatility(0.05)">
+      +5% Vol
+    </button>
+    <button type="button" class="quick-btn" (click)="adjustVolatility(-0.05)">
+      -5% Vol
+    </button>
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="primary" [disabled]="isPricing">
+      {{ isPricing ? ('pricing_in_progress' | translate) : ('price' | translate) }}
+    </button>
+    <button type="button" class="secondary" (click)="onReset()">
+      {{ 'reset' | translate }}
+    </button>
+  </div>
+
+  <div class="subsection" *ngIf="marketFields.length">
+    <h3>{{ 'market_data' | translate }}</h3>
+    <div class="grid small-grid">
+      <label *ngFor="let field of marketFields">
+        <span class="field-title">
+          {{ field.label }}
+          <span class="suffix-tag" *ngIf="getFieldSuffix(field.key)">{{ getFieldSuffix(field.key) }}</span>
+        </span>
+        <select *ngIf="field.options; else marketInput" [formControlName]="field.key">
+          <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+        </select>
+        <ng-template #marketInput>
+          <input [formControlName]="field.key" [attr.type]="field.type || 'number'" />
+        </ng-template>
+      </label>
+    </div>
+  </div>
+
+  <div class="subsection" *ngIf="instrumentFields.length">
+    <h3>{{ 'instrument_section' | translate }}</h3>
+    <div class="grid small-grid">
+      <label *ngFor="let field of instrumentFields">
+        <span class="field-title">
+          {{ field.label }}
+          <span class="suffix-tag" *ngIf="getFieldSuffix(field.key)">{{ getFieldSuffix(field.key) }}</span>
+        </span>
+        <select *ngIf="field.options; else instrumentInput" [formControlName]="field.key">
+          <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+        </select>
+        <ng-template #instrumentInput>
+          <input
+            [formControlName]="field.key"
+            [attr.type]="field.type || 'number'"
+            *ngIf="field.type !== 'checkbox'; else checkboxInput"
+          />
+        </ng-template>
+        <ng-template #checkboxInput>
+          <input [formControlName]="field.key" type="checkbox" class="checkbox-input" />
+        </ng-template>
+      </label>
+    </div>
+  </div>
+
+  <p class="error-message" *ngIf="apiError">{{ apiError }}</p>
+</form>

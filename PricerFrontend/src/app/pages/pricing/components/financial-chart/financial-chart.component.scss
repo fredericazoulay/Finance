@@ -1,0 +1,181 @@
+.financial-chart-panel {
+  margin: 0 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.greeks-banner {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  background: rgba(10, 27, 37, 0.95);
+  border: 1px solid rgba(124, 181, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.greek-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  &.accent {
+    border-left: 1px solid rgba(124, 181, 255, 0.15);
+    padding-left: 6px;
+
+    .greek-val {
+      color: #3ae374;
+    }
+  }
+}
+
+.greek-label {
+  font-size: 10px;
+  color: #8eaec5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.greek-val {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Consolas', 'Roboto Mono', monospace;
+  color: #eaf6ff;
+
+  &.pos {
+    color: #3ae374;
+  }
+
+  &.neg {
+    color: #ff7d7d;
+  }
+}
+
+.spot-slider-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(16, 37, 50, 0.6);
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+
+.slider-info {
+  font-size: 12px;
+  color: #8eaec5;
+  white-space: nowrap;
+
+  strong {
+    color: #59b6ff;
+    font-family: 'Consolas', monospace;
+  }
+
+  .slider-offset {
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 700;
+
+    &.pos {
+      color: #3ae374;
+    }
+
+    &.neg {
+      color: #ff7d7d;
+    }
+  }
+}
+
+.slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  max-width: 240px;
+
+  input[type='range'] {
+    flex: 1;
+    cursor: pointer;
+    accent-color: #59b6ff;
+    padding: 0;
+    height: 6px;
+    background: #0a1b25;
+    border: none;
+  }
+}
+
+.reset-slider-btn {
+  background: rgba(124, 181, 255, 0.15);
+  border: none;
+  color: #9fe1ff;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(124, 181, 255, 0.3);
+  }
+}
+
+.chart-wrapper {
+  background: #0a1b25;
+  border: 1px solid rgba(124, 181, 255, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+  height: 240px;
+  position: relative;
+}
+
+:host-context(body.light-theme) {
+  .greeks-banner {
+    background: #f6fbfc;
+    border-color: rgba(7, 20, 29, 0.08);
+
+    .greek-label {
+      color: #5a7585;
+    }
+
+    .greek-val {
+      color: #072024;
+
+      &.pos {
+        color: #0b8f6b;
+      }
+
+      &.neg {
+        color: #d93025;
+      }
+    }
+
+    .greek-item.accent .greek-val {
+      color: #0b8f6b;
+    }
+  }
+
+  .spot-slider-bar {
+    background: #f0f4f7;
+    border-color: rgba(7, 20, 29, 0.08);
+
+    .slider-info {
+      color: #4a6572;
+
+      strong {
+        color: #0b6b55;
+      }
+    }
+
+    input[type='range'] {
+      accent-color: #0ecb8d;
+      background: #dbe4eb;
+    }
+  }
+
+  .chart-wrapper {
+    background: #fbfdff;
+    border-color: rgba(7, 20, 29, 0.08);
+  }
+}

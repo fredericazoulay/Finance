@@ -1,0 +1,31 @@
+<div class="calculators-page-layout">
+  <section class="panel calculators-panel">
+    <div class="panel-header">{{ 'financial_calculators' | translate }}</div>
+    <app-calculator-form
+      [selectedCalculator]="selectedCalculator"
+      [calculatorForm]="calculatorForm"
+      [isCalculatorRunning]="isCalculatorRunning"
+      [calculatorError]="calculatorError"
+      (calculatorChange)="onCalculatorChange($event)"
+      (calculateSubmit)="calculate()"
+      (calculatorReset)="resetCalculator()"
+    ></app-calculator-form>
+  </section>
+
+  <section class="panel calculator-results-panel">
+    <div class="panel-header">{{ 'results' | translate }}</div>
+    <app-calculator-results
+      [calculatorResult]="calculatorResult"
+    ></app-calculator-results>
+
+    <app-amortization-chart
+      [schedule]="schedule"
+      [selectedCalculator]="selectedCalculator"
+    ></app-amortization-chart>
+
+    <app-amortization-schedule
+      [schedule]="schedule"
+      [selectedCalculator]="selectedCalculator"
+    ></app-amortization-schedule>
+  </section>
+</div>

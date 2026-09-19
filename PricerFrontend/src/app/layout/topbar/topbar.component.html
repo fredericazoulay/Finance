@@ -1,0 +1,29 @@
+<header class="topbar">
+  <div class="brand">
+    <span class="dot green"></span>
+    <span>Finance Pricer Terminal</span>
+  </div>
+  <div class="status">
+    <span>{{ 'theme' | translate }}</span>
+    <span class="pill" [class.light]="themeService.isLightTheme">
+      <select class="theme-select" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="themeService.isLightTheme ? 'LIGHT' : 'DARK'">
+        <option value="LIGHT">LIGHT</option>
+        <option value="DARK">DARK</option>
+      </select>
+    </span>
+    <span>{{ 'language' | translate }}</span>
+    <span class="pill" [class.light]="themeService.isLightTheme">
+      <select class="theme-select" (change)="setLanguage($any($event.target).value)" [value]="language">
+        <option value="en">EN</option>
+        <option value="fr">FR</option>
+      </select>
+    </span>
+    <span>{{ 'api' | translate }}</span>
+    <ng-container *ngIf="(pricingService.apiOnline$ | async) as isOnline; else offlinePill">
+      <span class="pill online">ONLINE</span>
+    </ng-container>
+    <ng-template #offlinePill>
+      <span class="pill">OFFLINE</span>
+    </ng-template>
+  </div>
+</header>

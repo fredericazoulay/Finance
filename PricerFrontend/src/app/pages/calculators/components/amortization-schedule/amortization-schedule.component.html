@@ -1,0 +1,30 @@
+<div class="schedule" *ngIf="schedule.length">
+  <div class="schedule-heading">
+    <h3>{{ 'amortization_schedule' | translate }}</h3>
+    <button type="button" class="export-button" (click)="exportToExcel()">
+      {{ 'export_excel' | translate }}
+    </button>
+  </div>
+  <div class="schedule-table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'schedule_period' | translate }}</th>
+          <th>{{ 'schedule_payment' | translate }}</th>
+          <th>{{ 'schedule_principal' | translate }}</th>
+          <th>{{ 'schedule_interest' | translate }}</th>
+          <th>{{ 'schedule_balance' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of schedule">
+          <td>{{ row.period }}</td>
+          <td>{{ formatValue(row.payment) }}</td>
+          <td>{{ formatValue(row.principal) }}</td>
+          <td>{{ formatValue(row.interest) }}</td>
+          <td>{{ formatValue(row.balance) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

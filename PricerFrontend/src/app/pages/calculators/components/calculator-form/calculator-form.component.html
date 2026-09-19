@@ -1,0 +1,46 @@
+<div class="calculator-layout">
+  <div class="calculator-picker">
+    <label>
+      <span class="picker-label">{{ 'calculator' | translate }}</span>
+      <select [value]="selectedCalculator" (change)="onSelectCalculator($any($event.target).value)">
+        <optgroup *ngFor="let group of calculatorGroups" [label]="calculatorGroupLabel(group.label)">
+          <option *ngFor="let calc of group.items" [value]="calc">
+            {{ calculatorLabel(calc) }}
+          </option>
+        </optgroup>
+      </select>
+    </label>
+    <p class="calculator-description">{{ 'calculator_description' | translate }}</p>
+  </div>
+
+  <form class="calculator-form" [formGroup]="calculatorForm" (ngSubmit)="onSubmit()">
+    <div class="calculator-fields">
+      <label *ngFor="let field of calculatorFields">
+        <span>{{ calculatorFieldLabel(field.label) }}</span>
+        <input
+          [formControlName]="field.key"
+          [type]="field.type || 'number'"
+          [step]="field.step || 'any'"
+        />
+      </label>
+    </div>
+
+    <div class="actions">
+      <button
+        type="submit"
+        class="primary"
+        [disabled]="isCalculatorRunning || calculatorForm.invalid"
+      >
+        {{ isCalculatorRunning ? ('calculating' | translate) : ('calculate' | translate) }}
+      </button>
+      <button type="button" class="secondary" (click)="onReset()">
+        {{ 'clear' | translate }}
+      </button>
+    </div>
+
+    <p class="error-message" *ngIf="calculatorError">{{ calculatorError }}</p>
+    <p class="error-message" *ngIf="calculatorForm.invalid && calculatorForm.touched">
+      {{ 'calculator_invalid_form' | translate }}
+    </p>
+  </form>
+</div>
