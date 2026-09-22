@@ -38,7 +38,12 @@ export class AppComponent implements OnInit {
       if (storedLang === 'en' || storedLang === 'fr') {
         language = storedLang;
       }
-    } catch (e) {}
+    } catch (e) {
+      // Log storage access error so it's not silently ignored
+      // (Some environments may deny access to localStorage)
+      // eslint-disable-next-line no-console
+      console.debug('[AppComponent] error reading persisted language', e);
+    }
 
     this.translate.addLangs(['en', 'fr']);
     this.translate.setDefaultLang('en');
@@ -47,6 +52,10 @@ export class AppComponent implements OnInit {
     try {
       this.translate.onLangChange.subscribe(() => this.cdr.detectChanges());
       this.translate.onTranslationChange.subscribe(() => this.cdr.detectChanges());
-    } catch (e) {}
+    } catch (e) {
+      // Log subscription wiring errors for diagnostics
+      // eslint-disable-next-line no-console
+      console.debug('[AppComponent] error subscribing to translate events', e);
+    }
   }
 }

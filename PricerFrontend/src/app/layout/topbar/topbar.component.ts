@@ -27,7 +27,9 @@ export class TopbarComponent implements OnInit {
         this.language = storedLang.toLowerCase();
       }
     } catch (e) {
-      // ignore
+      // log the error for diagnostics
+      // eslint-disable-next-line no-console
+      console.debug('[TopbarComponent] error reading persisted language', e);
     }
   }
 

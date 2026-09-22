@@ -21,7 +21,9 @@ export class ThemeService {
     try {
       localStorage.setItem('theme', isLight ? 'LIGHT' : 'DARK');
     } catch (e) {
-      // ignore storage errors
+      // Log storage errors rather than silently ignoring them so SonarQube rule S2486 is satisfied
+      // eslint-disable-next-line no-console
+      console.debug('[ThemeService] error persisting theme', e);
     }
     this.applyThemeToBody(isLight);
   }
@@ -40,7 +42,9 @@ export class ThemeService {
         isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
       }
     } catch (e) {
-      // ignore storage error
+      // Log storage access error for diagnostics
+      // eslint-disable-next-line no-console
+      console.debug('[ThemeService] initTheme error reading localStorage', e);
     }
     this._isLightTheme$.next(isLight);
     this.applyThemeToBody(isLight);

@@ -6,14 +6,16 @@
   <div class="status">
     <span>{{ 'theme' | translate }}</span>
     <span class="pill" [class.light]="themeService.isLightTheme">
-      <select class="theme-select" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="themeService.isLightTheme ? 'LIGHT' : 'DARK'">
+      <label class="visually-hidden" for="theme-select">Theme</label>
+      <select id="theme-select" class="theme-select" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="themeService.isLightTheme ? 'LIGHT' : 'DARK'">
         <option value="LIGHT">LIGHT</option>
         <option value="DARK">DARK</option>
       </select>
     </span>
     <span>{{ 'language' | translate }}</span>
     <span class="pill" [class.light]="themeService.isLightTheme">
-      <select class="theme-select" (change)="setLanguage($any($event.target).value)" [value]="language">
+      <label class="visually-hidden" for="lang-select">Language</label>
+      <select id="lang-select" class="theme-select" (change)="setLanguage($any($event.target).value)" [value]="language">
         <option value="en">EN</option>
         <option value="fr">FR</option>
       </select>
