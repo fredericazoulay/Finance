@@ -86,7 +86,8 @@ export class PricingService {
   getPricingModelOptions(product: string): string[] {
     if (product === 'EQTY_OPT') return ['BLACK_SCHOLES', 'BINOMIAL', 'MONTE_CARLO'];
     if (product === 'BOND' || product === 'EQUITY') return ['DISCOUNTED_CASH_FLOW'];
-    if (product === 'IRS' || product === 'CDS') return ['PAR_SWAP'];
+    if (product === 'IRS') return ['PAR_SWAP'];
+    if (product === 'CDS') return ['IMPLIED_HAZARD'];
     return ['FX_FORWARD'];
   }
 
@@ -386,14 +387,19 @@ export class PricingService {
     };
   }
 
-  formatResultValue(result: Record<string, unknown> | undefined): string {
+  formatResultValue(result: PriceResponse | Record<string, unknown> | null | undefined): string {
     if (!result) return '-';
-    if (typeof result['price'] === 'number') return `$${Number(result['price']).toFixed(4)}`;
-    if (typeof result['present_value'] === 'number') return `$${Number(result['present_value']).toFixed(2)}`;
-    if (typeof result['forward_price'] === 'number') return Number(result['forward_price']).toFixed(6).toString();
-    if (typeof result['implied_hazard_rate'] === 'number') return Number(result['implied_hazard_rate']).toFixed(6).toString();
-    if (typeof result['par_rate'] === 'number') return Number(result['par_rate']).toFixed(6).toString();
-    return JSON.stringify(result);
+
+    // Support both nested `result` responses and flat responses where price sits at the root
+    const flat = result as Record<string, unknown>;
+    const payload = flat['result'] && typeof flat['result'] === 'object' ? flat['result'] as Record<string, unknown> : flat;
+
+    if (typeof payload['price'] === 'number') return `$${Number(payload['price']).toFixed(4)}`;
+    if (typeof payload['present_value'] === 'number') return `$${Number(payload['present_value']).toFixed(2)}`;
+    if (typeof payload['forward_price'] === 'number') return Number(payload['forward_price']).toFixed(6).toString();
+    if (typeof payload['implied_hazard_rate'] === 'number') return Number(payload['implied_hazard_rate']).toFixed(6).toString();
+    if (typeof payload['par_rate'] === 'number') return Number(payload['par_rate']).toFixed(6).toString();
+    return JSON.stringify(payload);
   }
 
   getChartTitle(product: string): string {

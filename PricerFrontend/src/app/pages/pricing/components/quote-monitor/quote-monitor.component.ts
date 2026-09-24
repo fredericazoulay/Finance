@@ -20,7 +20,7 @@ export class QuoteMonitorComponent {
 
   constructor(private readonly pricingService: PricingService) {}
 
-  formatResultValue(result?: Record<string, unknown>): string {
+  formatResultValue(result: PriceResponse | Record<string, unknown> | null | undefined): string {
     return this.pricingService.formatResultValue(result);
   }
 

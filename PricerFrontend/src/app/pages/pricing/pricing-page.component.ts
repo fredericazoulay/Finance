@@ -132,7 +132,24 @@ export class PricingPageComponent implements OnInit, OnDestroy {
     const payload = this.pricingService.buildPayload(this.selectedProduct, this.form.getRawValue());
     this.pricingService.submitPricing(this.selectedProduct, payload).subscribe({
       next: (response) => {
-        this.lastResponse = response;
+        // Normalize flat responses where pricing fields are at the root
+        const resAny = response as any;
+        const normalized: PriceResponse = { ...(response as PriceResponse) };
+
+        if (resAny && typeof resAny['price'] === 'number') {
+          normalized.result = {
+            price: resAny['price'],
+            currency: resAny['currency'],
+            pricing_model: resAny['pricing_model']
+          };
+          // keep product if present at root
+          if (!normalized.product && resAny['product']) normalized.product = resAny['product'];
+        }
+
+        if (!normalized.security_name) normalized.security_name = this.formValues['security_name'] || this.formValues['security_id'] || '';
+        if (!normalized.response_status) normalized.response_status = 'SUCCESS';
+
+        this.lastResponse = normalized;
         this.isPricing = false;
         this.cdr.detectChanges();
       },

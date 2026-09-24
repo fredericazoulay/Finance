@@ -10,6 +10,7 @@ PowerShell:
 Set-Location "C:\Users\frede\VSCode\Finance\PricerBackend"
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.6.7-hotspot"
 mvn spring-boot:run
+mvn -Dmaven.test.skip=true spring-boot:run
 ```
 
 The application listens on port 9092 by default.
