@@ -12,11 +12,23 @@ import { TranslateModule } from '@ngx-translate/core';
 })
 export class SidebarComponent {
   readonly instruments = [
-    { code: 'EQTY_OPT', labelKey: 'EQTY_OPT' },
-    { code: 'IRS', labelKey: 'IRS' },
-    { code: 'CDS', labelKey: 'CDS' },
-    { code: 'FXC', labelKey: 'FXC' },
-    { code: 'BOND', labelKey: 'BOND' },
-    { code: 'EQUITY', labelKey: 'EQUITY' }
+    { code: 'EQTY_OPT', labelKey: 'EQTY_OPT', icon: '🧾' },
+    { code: 'IRS', labelKey: 'IRS', icon: '📈' },
+    { code: 'CDS', labelKey: 'CDS', icon: '🛡️' },
+    { code: 'FXC', labelKey: 'FXC', icon: '💱' },
+    { code: 'BOND', labelKey: 'BOND', icon: '🏛️' },
+    { code: 'EQUITY', labelKey: 'EQUITY', icon: '📊' }
   ];
+  collapsed = false;
+
+  toggle(): void {
+    this.collapsed = !this.collapsed;
+  }
+  // Collapse the Instruments group (hide labels)
+  // default to false so all instruments are visible
+  instrumentsCollapsed = false;
+
+  toggleInstruments(): void {
+    this.instrumentsCollapsed = !this.instrumentsCollapsed;
+  }
 }

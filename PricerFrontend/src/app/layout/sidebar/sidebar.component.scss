@@ -8,6 +8,35 @@
   flex-direction: column;
 }
 
+.sidebar.collapsed {
+  width: 72px;
+  padding: 12px 6px;
+}
+
+.sidebar .sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.collapse-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.group-toggle {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .menu-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -54,6 +83,28 @@
     font-weight: 700;
     box-shadow: 0 0 12px rgba(89, 182, 255, 0.2);
   }
+}
+
+.sidebar.collapsed .nav-button {
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.nav-icon {
+  font-weight: 700;
+}
+
+.nav-label {
+  margin-left: 8px;
+}
+
+.nav-button .nav-icon {
+  display: inline-block;
+  width: 20px;
+}
+
+.sidebar.collapsed .nav-label {
+  display: none;
 }
 
 :host-context(body.light-theme) .sidebar {

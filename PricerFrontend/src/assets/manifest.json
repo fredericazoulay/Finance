@@ -7,7 +7,7 @@
   "theme_color": "#0b1720",
   "icons": [
     {
-      "src": "assets/pricer.svg",
+      "src": "pricer.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }

@@ -1,24 +1,42 @@
-<aside class="sidebar">
-  <div class="menu-title">{{ 'instrument' | translate }}</div>
+<aside class="sidebar" [class.collapsed]="collapsed">
+  <div class="sidebar-header">
+    <div class="menu-title">
+      <button class="group-toggle" (click)="toggleInstruments()" aria-expanded="{{!instrumentsCollapsed}}">{{ 'Menu' | translate }}</button>
+    </div>
+    <button class="collapse-btn" (click)="toggle()" [attr.aria-expanded]="!collapsed">
+      <span *ngIf="!collapsed">«</span>
+      <span *ngIf="collapsed">»</span>
+    </button>
+  </div>
+
+  <div class="menu-divider"></div>
+
   <nav class="nav-menu">
-    <a
-      *ngFor="let item of instruments"
-      [routerLink]="['/pricing', item.code]"
-      routerLinkActive="active"
-      class="nav-button"
-    >
-      {{ item.labelKey | translate }}
-    </a>
+    <div class="menu-title" *ngIf="!collapsed">{{ 'instrument' | translate }}</div>
+    <ng-container *ngFor="let item of instruments">
+      <a
+        [routerLink]="['/pricing', item.code]"
+        routerLinkActive="active"
+        class="nav-button"
+        [title]="(collapsed ? (item.labelKey | translate) : '')"
+        *ngIf="!instrumentsCollapsed || collapsed"
+      >
+        <span class="nav-icon">{{ item.icon }}</span>
+        <span class="nav-label" *ngIf="!collapsed">{{ item.labelKey | translate }}</span>
+      </a>
+    </ng-container>
 
     <div class="menu-divider"></div>
 
-    <div class="menu-title">{{ 'financial_calculators' | translate }}</div>
+    <div class="menu-title" *ngIf="!collapsed">{{ 'financial_calculators' | translate }}</div>
     <a
       routerLink="/calculators"
       routerLinkActive="active"
       class="nav-button"
+      [title]="(collapsed ? ( 'financial_calculators' | translate) : '')"
     >
-      {{ 'financial_calculators' | translate }}
+      <span class="nav-icon">🧮</span>
+      <span class="nav-label" *ngIf="!collapsed">{{ 'financial_calculators' | translate }}</span>
     </a>
   </nav>
 </aside>

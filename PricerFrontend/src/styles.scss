@@ -1,3 +1,7 @@
+/* AG Grid themes: keep imports at top-level before style rules */
+@import "../node_modules/ag-grid-community/styles/ag-grid.css";
+@import "../node_modules/ag-grid-community/styles/ag-theme-alpine.css";
+
 :root {
   --bg: #07141d;
   --panel: #0d1b25;

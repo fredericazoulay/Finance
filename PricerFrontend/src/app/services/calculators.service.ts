@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, timeout } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
-import * as XLSX from 'xlsx-js-style';
 import { AmortizationRow } from '../models/calculator.model';
 import { PricingService } from './pricing.service';
 
@@ -47,8 +46,11 @@ export class CalculatorsService {
     return String(value);
   }
 
-  exportScheduleToExcel(schedule: AmortizationRow[], calculatorId: string): void {
+  async exportScheduleToExcel(schedule: AmortizationRow[], calculatorId: string): Promise<void> {
     if (!schedule || !schedule.length) return;
+
+    // Load xlsx only when exporting to avoid browser startup warnings about node polyfills.
+    const XLSX = await import('xlsx-js-style');
 
     const rows = schedule.map(row => ({
       [this.translate.instant('schedule_period')]: row.period,
