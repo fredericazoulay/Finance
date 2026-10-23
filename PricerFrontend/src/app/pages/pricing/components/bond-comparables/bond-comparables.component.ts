@@ -121,7 +121,7 @@ export class BondComparablesComponent {
     try {
       this.cdr.detectChanges();
       if (file.size > 20 * 1024 * 1024) throw new Error('Le fichier dépasse la taille maximale de 20 Mo.');
-      const XLSX = await import('xlsx-js-style');
+      const XLSX = window.XLSX;
       if (generation !== this.importGeneration) return;
       const buffer = await file.arrayBuffer();
       if (generation !== this.importGeneration) return;
@@ -288,7 +288,7 @@ export class BondComparablesComponent {
     this.exportError = '';
     this.exportSuccess = '';
     try {
-      const XLSX = await import('xlsx-js-style');
+      const XLSX = window.XLSX;
       const workbook = XLSX.utils.book_new();
       this.appendPanelSheet(XLSX, workbook);
       this.appendPricingSheet(XLSX, workbook);

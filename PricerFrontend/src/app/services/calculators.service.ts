@@ -49,8 +49,7 @@ export class CalculatorsService {
   async exportScheduleToExcel(schedule: AmortizationRow[], calculatorId: string): Promise<void> {
     if (!schedule?.length) return;
 
-    // Load xlsx only when exporting to avoid browser startup warnings about node polyfills.
-    const XLSX = await import('xlsx-js-style');
+    const XLSX = window.XLSX;
 
     const rows = schedule.map(row => ({
       [this.translate.instant('schedule_period')]: row.period,

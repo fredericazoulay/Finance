@@ -24,7 +24,12 @@
             "tsConfig": "tsconfig.app.json",
             "assets": [
               "src/assets",
-              "src/favicon.ico"
+              "src/favicon.ico",
+              {
+                "glob": "xlsx.min.js",
+                "input": "node_modules/xlsx-js-style/dist",
+                "output": "assets/vendor"
+              }
             ],
             "styles": [
               "src/styles.scss"
@@ -32,10 +37,6 @@
             "scripts": [],
             "allowedCommonJsDependencies": [
               "xlsx-js-style"
-            ],
-            "externalDependencies": [
-              "fs",
-              "stream"
             ]
           },
           "configurations": {
