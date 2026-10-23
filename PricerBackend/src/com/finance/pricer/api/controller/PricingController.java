@@ -7,11 +7,14 @@ import com.finance.pricer.Bond;
 import com.finance.pricer.CdsPricer;
 import com.finance.pricer.CreditDefaultSwap;
 import com.finance.pricer.DiscountCurve;
+import com.finance.pricer.ExerciseStyle;
 import com.finance.pricer.FxForwardPricer;
 import com.finance.pricer.InterestRateSwap;
 import com.finance.pricer.MarketData;
 import com.finance.pricer.Models;
 import com.finance.pricer.Option;
+import com.finance.pricer.OptionGreekCalculator;
+import com.finance.pricer.OptionGreeks;
 import com.finance.pricer.OptionType;
 import com.finance.pricer.PricingModel;
 import com.finance.pricer.Stock;
@@ -110,7 +113,8 @@ public class PricingController {
                 instrument.strike(),
                 instrument.maturityYears(),
                 OptionType.valueOf(instrument.optionType().toUpperCase(Locale.ROOT)),
-                "EUROPEAN".equalsIgnoreCase(instrument.exerciseStyle())
+                exerciseStyle(instrument.exerciseStyle(), request.pricingModel()),
+                instrument.exerciseTimesYears()
         );
         MarketData md = new MarketData(
                 marketData.underlyingSpot(),
@@ -120,6 +124,7 @@ public class PricingController {
         );
         PricingModel model = Models.create(request.pricingModel(), 100_000, 42L);
         double price = model.price(option, md);
+        OptionGreeks greeks = OptionGreekCalculator.calculate(option, md, model, price);
 
         BloombergPricingResponse response = new BloombergPricingResponse(
                 request.requestId(),
@@ -130,8 +135,9 @@ public class PricingController {
                 "EQTY_OPT",
                 request.curveName(),
                 request.marketDataSource(),
-                Map.of(PRICE_KEY, price, CURRENCY_KEY, "USD"),
-                Map.of(PRICING_MODEL_KEY, model.name())
+                Map.of(PRICE_KEY, price, CURRENCY_KEY, "USD", "greeks", greeks),
+                Map.of(PRICING_MODEL_KEY, model.name(), "exercise_style", option.exerciseStyle().name(),
+                        "greek_units", greekUnits())
         );
         return ResponseEntity.ok(response);
     }
@@ -234,18 +240,48 @@ public class PricingController {
 
         @PostMapping({"/price/option", "/v1/bloomberg/pricing/equity-option"})
     public ResponseEntity<Map<String, Object>> priceOption(@Valid @RequestBody OptionRequest request) {
-        Option option = new Option(request.strike(), request.maturity(), OptionType.valueOf(request.optionType().toUpperCase(Locale.ROOT)), request.exerciseStyle().equalsIgnoreCase("EUROPEAN"));
+                Option option = new Option(
+                        request.strike(),
+                        request.maturity(),
+                        OptionType.valueOf(request.optionType().toUpperCase(Locale.ROOT)),
+                        exerciseStyle(request.exerciseStyle(), request.model()),
+                        request.exerciseTimesYears()
+                );
         MarketData marketData = new MarketData(request.underlyingSpot(), request.riskFreeRate(), request.impliedVolatility(), request.dividendYield());
         PricingModel model = Models.create(request.model(), 100_000, 42L);
         double price = model.price(option, marketData);
+                OptionGreeks greeks = OptionGreekCalculator.calculate(option, marketData, model, price);
 
         return ResponseEntity.ok(Map.of(
                 PRODUCT_KEY, "EQUITY_OPTION",
                 PRICING_MODEL_KEY, model.name(),
                 PRICE_KEY, price,
-                CURRENCY_KEY, "USD"
+                        CURRENCY_KEY, "USD",
+                        "exercise_style", option.exerciseStyle().name(),
+                        "greeks", greeks,
+                        "greek_units", greekUnits()
         ));
     }
+
+            private static ExerciseStyle exerciseStyle(String requestedStyle, String modelName) {
+                String style = requestedStyle;
+                if (style == null || style.isBlank()) {
+                    style = "AMERICAN".equalsIgnoreCase(modelName) || "BERMUDAN".equalsIgnoreCase(modelName)
+                            ? modelName
+                            : "EUROPEAN";
+                }
+                return ExerciseStyle.valueOf(style.trim().toUpperCase(Locale.ROOT));
+            }
+
+            private static Map<String, String> greekUnits() {
+                return Map.of(
+                        "delta", "per underlying unit",
+                        "gamma", "per underlying unit squared",
+                        "theta", "per calendar day",
+                        "vega", "per 1 volatility percentage point",
+                        "rho", "per 1 interest-rate percentage point"
+                );
+            }
 
     @PostMapping({"/price/bond", "/v1/bloomberg/pricing/fixed-income-bond", "/v1/blp/pricing/fixed-income-bond"})
     public ResponseEntity<Map<String, Object>> priceBond(@Valid @RequestBody BondRequest request) {
@@ -333,7 +369,8 @@ public class PricingController {
             @JsonProperty("underlying_spot") double underlyingSpot,
             @JsonProperty("risk_free_rate") double riskFreeRate,
             @JsonProperty("implied_volatility") double impliedVolatility,
-            @JsonProperty("dividend_yield") double dividendYield
+            @JsonProperty("dividend_yield") double dividendYield,
+            @JsonProperty("exercise_times_years") List<Double> exerciseTimesYears
     ) {}
 
     public record BondRequest(

@@ -3,7 +3,9 @@ package com.finance.pricer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PricingModelsTest {
     private static final double TOLERANCE = 1e-3;
@@ -63,6 +65,59 @@ class PricingModelsTest {
         double price = new BinomialModel(100).price(option, marketData);
 
         assertEquals(20, price, 1.0);
+    }
+
+    @Test
+    void binomialSupportsBermudanExerciseDates() {
+        MarketData marketData = new MarketData(80, 0.05, 0.2, 0);
+        Option european = new Option(100, 1, OptionType.PUT, true);
+        Option bermudan = Option.bermudan(100, 1, OptionType.PUT, java.util.List.of(0.5));
+        Option american = new Option(100, 1, OptionType.PUT, false);
+        BinomialModel model = new BinomialModel(400);
+
+        double europeanPrice = model.price(european, marketData);
+        double bermudanPrice = model.price(bermudan, marketData);
+        double americanPrice = model.price(american, marketData);
+
+        assertTrue(bermudanPrice >= europeanPrice);
+        assertTrue(bermudanPrice <= americanPrice);
+    }
+
+    @Test
+    void bermudanExerciseDateMapsToOnlyOneNearestTreeNode() {
+        Option bermudan = Option.bermudan(100, 1, OptionType.PUT, java.util.List.of(0.15));
+
+        assertFalse(bermudan.canExerciseAt(0.1, 0.1));
+        assertTrue(bermudan.canExerciseAt(0.2, 0.1));
+    }
+
+    @Test
+    void optionGreeksUseStandardEuropeanBlackScholesFormulas() {
+        Option call = new Option(100, 1, OptionType.CALL, true);
+        MarketData marketData = new MarketData(100, 0.05, 0.2, 0.01);
+
+        OptionGreeks greeks = OptionGreekCalculator.calculate(
+                call, marketData, new BlackScholesModel(), new BlackScholesModel().price(call, marketData));
+
+        assertEquals(0.6118, greeks.delta(), 1e-3);
+        assertEquals(0.0189, greeks.gamma(), 1e-3);
+        assertTrue(greeks.theta() < 0);
+        assertEquals(0.3776, greeks.vega(), 1e-3);
+        assertEquals(0.5135, greeks.rho(), 1e-3);
+    }
+
+    @Test
+    void optionGreeksAreCalculatedForAmericanBinomialOptions() {
+        Option put = new Option(100, 1, OptionType.PUT, false);
+        MarketData marketData = new MarketData(95, 0.05, 0.2, 0);
+        BinomialModel model = new BinomialModel(200);
+
+        OptionGreeks greeks = OptionGreekCalculator.calculate(put, marketData, model, model.price(put, marketData));
+
+        assertTrue(greeks.delta() < 0);
+        assertTrue(greeks.gamma() > 0);
+        assertTrue(greeks.vega() > 0);
+        assertTrue(greeks.rho() < 0);
     }
 
     @Test

@@ -14,10 +14,17 @@ Je vais examiner le modèle binomial, le type Option et les endpoints actuels po
 
 Le modèle binomial sait déjà valoriser les options américaines, mais le type d’option ne distingue pas American de Bermudan et les endpoints ne renvoient aucun grec. Je vérifie le factory et les DTO avant de définir l’extension : Black–Scholes analytique pour European, arbre à exercice discret/anticipé et sensibilités numériques pour American/Bermudan.
 
+Les modèles American et Bermudan utilisent maintenant l’arbre CRR; Black–Scholes fermé reste réservé aux options européennes. Les deux endpoints d’options renvoient delta, gamma, theta, vega et rho, avec leurs unités. Le calendrier Bermudan est accepté via exercise_times_years.
+
+Les calculs et l’intégration API sont couverts par des tests. La suite complète passe : 46 tests, aucun échec. L’analyse SonarQube a été déclenchée fichier par fichier; les outils de bascule automatique et d’analyse groupée n’étaient pas disponibles.
+
 optionId;optionType;underlyingType;underlyingSecurityId;currency;valuationDate;underlyingSpot;strikePrice;expirationDate;premiumPerUnit;exerciseStyle;quantity;nominal;position;intrinsicValuePerUnit;timeValuePerUnit;moneyness;volatility;riskFreeRate;dividendYield;delta;gamma;vegaPer1PctVol;thetaPerDay;rhoPer1PctRate;underlyingYieldToMaturity;dataSource
 
 Exemple de ligne CSV :
 123;Call;Action;AAPL;USD;2024-06-01;150;155;2024-12-01;5;Européen;10;1000;Long;0;5;0.97;0.2;0.03;0.01;0.5;0.1;0.2;0.01;0.001;0.03;Bloomberg
+SIMOPT-0001-CALL-SHORT;CALL;BOND;FRTR 0.50 05/25/2029;EUR;23/10/2026;100,000000;90,000000;25/05/2029;17,988289;EUROPEAN;1;100,000000;SHORT;10,000000;7,988289;ITM;15,000000%;2,000000%;0,000000%;-0,779869;-0,012272;-0,476592;0,007070;-1,553390;2,400000%;SYNTHETIC_BLACK_SCHOLES
+SIMOPT-0002-PUT-LONG;PUT;BOND;OAT 1.75 06/25/2039;EUR;23/10/2026;100,000000;95,000000;25/06/2039;8,965326;EUROPEAN;1;100,000000;LONG;0,000000;8,965326;OTM;16,000000%;2,000000%;0,000000%;-0,206108;0,005003;1,014964;-0,000134;-3,750094;3,100000%;SYNTHETIC_BLACK_SCHOLES
+
 
 Explication des colonnes :
 optionId : identifiant unique de l'option.

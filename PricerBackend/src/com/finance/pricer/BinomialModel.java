@@ -33,7 +33,7 @@ public final class BinomialModel implements PricingModel {
         for (int step = steps - 1; step >= 0; step--) {
             for (int i = 0; i <= step; i++) {
                 values[i] = discount * (probability * values[i + 1] + (1 - probability) * values[i]);
-                if (!option.european()) {
+                if (option.canExerciseAt(step * dt, dt)) {
                     double nodeSpot = marketData.spot() * Math.pow(up, i) * Math.pow(down, step - i);
                     values[i] = Math.max(values[i], BlackScholesModel.intrinsicValue(nodeSpot, option.strike(), option.type()));
                 }

@@ -26,6 +26,7 @@
       <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30/360</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option></select></label>
+      <label><span>modele</span><select [(ngModel)]="target.model" (ngModelChange)="invalidateResult()"><option value="BLACK_SCHOLES">Black-Scholes</option><option value="BINOMIAL">Binomial</option><option value="AMERICAN">American</option><option value="BERMUDAN">Bermudan</option></select></label>
     </div>
   </section>
 
@@ -39,10 +40,15 @@
         <span class="actions-label">Actions</span>
         <div class="panel-actions">
           <label class="tolerance-control"><span>Écart échéance (mois)</span><input type="number" min="0" max="240" [(ngModel)]="maturityToleranceMonths" (ngModelChange)="invalidateResult()" /></label>
-          <label class="visually-hidden" for="bond-panel-file">Fichier CSV ou Excel</label>
-          <input #fileInput id="bond-panel-file" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" />
-          <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInput.click()">
-            {{ isImporting ? 'Lecture…' : 'Importer CSV / Excel' }}
+          <label class="visually-hidden" for="bond-panel-file-light">Fichier obligataire CSV ou Excel</label>
+          <input #fileInputLight id="bond-panel-file-light" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'light')" />
+          <label class="visually-hidden" for="bond-panel-file-full">Fichier options CSV ou Excel</label>
+          <input #fileInputFull id="bond-panel-file-full" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'full')" />
+          <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputLight.click()">
+            {{ isImporting ? 'Lecture…' : 'Importer Light CSV / Excel' }}
+          </button>
+          <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
+            {{ isImporting ? 'Lecture…' : 'Importer Full CSV / Excel' }}
           </button>
           <button type="button" class="secondary-button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportXlsx()">
             {{ isExporting ? 'Export…' : 'Exporter .xlsx' }}
@@ -54,6 +60,7 @@
       </div>
     </div>
     <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity. Les taux peuvent être saisis en décimal ou avec « % ».</p>
+    <p class="import-hint" *ngIf="fullOptions.length">Import Full : {{ fullOptions.length }} options chargées avec les 27 colonnes du format complet.</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" *ngIf="error">{{ error }}</p>
     <p class="message error" *ngIf="exportError">{{ exportError }}</p>
@@ -104,6 +111,16 @@
             <td class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</td>
             <td>{{ row.source || '—' }}<small>{{ row.asOf || 'Date inconnue' }}</small></td>
             <td><span *ngIf="row.selected" class="status best">Meilleur YTM</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable</span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap full-option-table" *ngIf="fullOptions.length">
+      <table>
+        <thead><tr><th *ngFor="let column of fullOptionColumns">{{ column }}</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let option of fullOptions">
+            <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
           </tr>
         </tbody>
       </table>

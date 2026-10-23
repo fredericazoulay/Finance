@@ -1,6 +1,7 @@
 package com.finance.pricer.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 public record BloombergInstrument(
         @JsonProperty("strike") Double strike,
@@ -13,6 +14,7 @@ public record BloombergInstrument(
         @JsonProperty("receiver") Boolean receiver,
         @JsonProperty("spread") Double spread,
         @JsonProperty("recovery_rate") Double recoveryRate,
-        @JsonProperty("pair") String pair
+        @JsonProperty("pair") String pair,
+        @JsonProperty("exercise_times_years") List<Double> exerciseTimesYears
 ) {
 }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, finalize } from 'rxjs';
 import { BondComparable, BondComparablesRequest, BondComparablesResponse } from '../../../../models/bond-comparables.model';
+import { OPTION_IMPORT_COLUMNS, OptionImportColumn, OptionImportRecord } from '../../../../models/option-import.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 import { PricingService } from '../../../../services/pricing.service';
 
@@ -16,11 +17,15 @@ interface BondComparableRow extends BondComparable {
 type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
 type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
+type BondTargetForm = BondComparablesRequest['target'] & {
+  model: 'BLACK_SCHOLES' | 'BINOMIAL' | 'AMERICAN' | 'BERMUDAN';
+};
 
 interface PersistedBondComparablesState {
   version: 1;
-  target: BondComparablesRequest['target'];
+  target: BondTargetForm;
   panel: BondComparable[];
+  fullOptions?: OptionImportRecord[];
   result: BondComparablesResponse | null;
   lastCalculatedAt: string | null;
   maturityToleranceMonths: number;
@@ -50,8 +55,9 @@ export class BondComparablesComponent {
     { value: 'excluded', label: 'Exclue' },
     { value: 'pending', label: 'À analyser' }
   ] as const;
+  readonly fullOptionColumns = OPTION_IMPORT_COLUMNS;
 
-  target = {
+  target: BondTargetForm = {
     securityId: '',
     name: '',
     currency: 'EUR',
@@ -60,10 +66,12 @@ export class BondComparablesComponent {
     couponFrequency: 2,
     maturityDate: '',
     settlementDate: new Date().toISOString().slice(0, 10),
-    dayCount: '30/360'
+    dayCount: '30/360',
+    model: 'BLACK_SCHOLES'
   };
   maturityToleranceMonths = 24;
   panel: BondComparable[] = [];
+  fullOptions: OptionImportRecord[] = [];
   result: BondComparablesResponse | null = null;
   lastCalculatedAt: Date | null = null;
   error = '';
@@ -91,7 +99,7 @@ export class BondComparablesComponent {
     this.restoreState();
   }
 
-  async onFileSelected(event: Event): Promise<void> {
+  async onFileSelected(event: Event, mode: 'light' | 'full'): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -121,11 +129,17 @@ export class BondComparablesComponent {
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       if (!firstSheet) throw new Error('Le fichier ne contient aucune feuille.');
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: null });
-      this.panel = rows.map((row, index) => this.toComparable(row, index, XLSX));
-      if (!this.panel.length) throw new Error('Aucune obligation trouvée dans la première feuille.');
+      if (!rows.length) throw new Error('Aucune ligne trouvée dans la première feuille.');
+      if (mode === 'full') {
+        this.validateOptionHeaders(rows[0]);
+        this.fullOptions = rows.map((row, index) => this.toOptionImport(row, index, XLSX));
+      } else {
+        this.panel = rows.map((row, index) => this.toComparable(row, index, XLSX));
+      }
     } catch (error) {
       if (generation !== this.importGeneration) return;
-      this.panel = [];
+      if (mode === 'full') this.fullOptions = [];
+      else this.panel = [];
       this.importError = error instanceof Error ? error.message : 'Impossible de lire ce fichier.';
     } finally {
       clearTimeout(timeoutId);
@@ -153,7 +167,17 @@ export class BondComparablesComponent {
     this.isLoading = true;
     this.cdr.detectChanges();
     this.comparablesService.price({
-      target: { ...this.target, couponRate: Number(this.target.couponRate) / 100 },
+      target: {
+        securityId: this.target.securityId,
+        name: this.target.name,
+        currency: this.target.currency,
+        faceValue: this.target.faceValue,
+        couponRate: Number(this.target.couponRate) / 100,
+        couponFrequency: this.target.couponFrequency,
+        maturityDate: this.target.maturityDate,
+        settlementDate: this.target.settlementDate,
+        dayCount: this.target.dayCount
+      },
       panel: this.panel,
       maturityToleranceMonths: Number(this.maturityToleranceMonths)
     }).pipe(finalize(() => {
@@ -402,6 +426,7 @@ export class BondComparablesComponent {
   private restoreTargetAndPanel(state: Partial<PersistedBondComparablesState>): void {
     if (state.target && typeof state.target === 'object') this.target = { ...this.target, ...state.target };
     if (Array.isArray(state.panel)) this.panel = state.panel;
+    if (Array.isArray(state.fullOptions)) this.fullOptions = state.fullOptions;
     if (typeof state.maturityToleranceMonths === 'number' && Number.isFinite(state.maturityToleranceMonths)) {
       this.maturityToleranceMonths = state.maturityToleranceMonths;
     }
@@ -441,6 +466,7 @@ export class BondComparablesComponent {
       version: 1,
       target: this.target,
       panel: this.panel,
+      fullOptions: this.fullOptions,
       result: this.result,
       lastCalculatedAt: this.lastCalculatedAt?.toISOString() ?? null,
       maturityToleranceMonths: this.maturityToleranceMonths,
@@ -524,6 +550,126 @@ export class BondComparablesComponent {
       rating: text('rating') || undefined,
       source: text('source') || 'Import utilisateur',
       asOf: text('asOf', 'quoteDate', 'date') || undefined
+    };
+  }
+
+  private validateOptionHeaders(row: Record<string, unknown>): void {
+    const headers = new Set(Object.keys(row).map(value => this.normalizeKey(value)));
+    const missing = OPTION_IMPORT_COLUMNS.filter(column => !headers.has(this.normalizeKey(column)));
+    if (missing.length) {
+      throw new Error(`Import Full : colonnes manquantes : ${missing.join(', ')}.`);
+    }
+  }
+
+  private toOptionImport(
+    row: Record<string, unknown>,
+    index: number,
+    xlsx: typeof import('xlsx-js-style')
+  ): OptionImportRecord {
+    const values = new Map(Object.entries(row).map(([key, value]) => [this.normalizeKey(key), value]));
+    const raw = (column: OptionImportColumn): unknown => values.get(this.normalizeKey(column));
+    const text = (column: OptionImportColumn): string => {
+      const value = raw(column);
+      return value == null ? '' : String(value).trim();
+    };
+    const requiredText = (column: OptionImportColumn): string => {
+      const value = text(column);
+      if (!value) throw new Error(`Ligne ${index + 2} : ${column} est obligatoire.`);
+      return value;
+    };
+    const number = (column: OptionImportColumn, options: { optional?: boolean; percentage?: boolean } = {}): number | null => {
+      const value = text(column);
+      if (!value && options.optional) return null;
+      if (!value) throw new Error(`Ligne ${index + 2} : ${column} est obligatoire.`);
+      const hasPercent = value.endsWith('%');
+      let normalized = value.replace(/%$/, '').replace(/\s/g, '');
+      if (normalized.includes(',') && normalized.includes('.')) {
+        normalized = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
+          ? normalized.replace(/\./g, '').replace(',', '.')
+          : normalized.replace(/,/g, '');
+      } else {
+        normalized = normalized.replace(',', '.');
+      }
+      let parsed = Number(normalized);
+      if (!Number.isFinite(parsed)) throw new Error(`Ligne ${index + 2} : ${column} doit être numérique.`);
+      if (options.percentage && (hasPercent || Math.abs(parsed) > 1)) parsed /= 100;
+      return parsed;
+    };
+    const date = (column: 'valuationDate' | 'expirationDate'): string => {
+      const value = raw(column);
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+      }
+      if (typeof value === 'number') {
+        const parsed = xlsx.SSF.parse_date_code(value);
+        if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+      }
+      const rawDate = text(column);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return rawDate;
+      const dayFirst = rawDate.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+      if (dayFirst) return `${dayFirst[3]}-${dayFirst[2].padStart(2, '0')}-${dayFirst[1].padStart(2, '0')}`;
+      throw new Error(`Ligne ${index + 2} : ${column} doit être une date AAAA-MM-JJ ou JJ/MM/AAAA.`);
+    };
+    const optionType = requiredText('optionType').toUpperCase();
+    if (optionType !== 'CALL' && optionType !== 'PUT') {
+      throw new Error(`Ligne ${index + 2} : optionType doit être CALL ou PUT.`);
+    }
+    const exerciseValue = requiredText('exerciseStyle')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const exerciseStyle = exerciseValue === 'EUROPEEN' || exerciseValue === 'EUROPEAN'
+      ? 'EUROPEAN'
+      : exerciseValue === 'AMERICAIN' || exerciseValue === 'AMERICAN'
+        ? 'AMERICAN'
+        : exerciseValue === 'BERMUDEN' || exerciseValue === 'BERMUDAN'
+          ? 'BERMUDAN'
+          : null;
+    if (!exerciseStyle) throw new Error(`Ligne ${index + 2} : exerciseStyle doit être European, American ou Bermudan.`);
+    const positionValue = requiredText('position').toUpperCase();
+    if (positionValue !== 'LONG' && positionValue !== 'SHORT') {
+      throw new Error(`Ligne ${index + 2} : position doit être LONG ou SHORT.`);
+    }
+
+    const valuationDate = date('valuationDate');
+    const expirationDate = date('expirationDate');
+    if (expirationDate <= valuationDate) {
+      throw new Error(`Ligne ${index + 2} : expirationDate doit être postérieure à valuationDate.`);
+    }
+    const underlyingSpot = number('underlyingSpot') as number;
+    const strikePrice = number('strikePrice') as number;
+    const quantity = number('quantity') as number;
+    const nominal = number('nominal') as number;
+    if (underlyingSpot <= 0 || strikePrice <= 0 || quantity <= 0 || nominal <= 0) {
+      throw new Error(`Ligne ${index + 2} : spot, strike, quantité et nominal doivent être positifs.`);
+    }
+
+    return {
+      optionId: requiredText('optionId'),
+      optionType,
+      underlyingType: requiredText('underlyingType').toUpperCase(),
+      underlyingSecurityId: requiredText('underlyingSecurityId'),
+      currency: requiredText('currency').toUpperCase(),
+      valuationDate,
+      underlyingSpot,
+      strikePrice,
+      expirationDate,
+      premiumPerUnit: number('premiumPerUnit') as number,
+      exerciseStyle,
+      quantity,
+      nominal,
+      position: positionValue,
+      intrinsicValuePerUnit: number('intrinsicValuePerUnit') as number,
+      timeValuePerUnit: number('timeValuePerUnit') as number,
+      moneyness: requiredText('moneyness').toUpperCase(),
+      volatility: number('volatility', { percentage: true }) as number,
+      riskFreeRate: number('riskFreeRate', { percentage: true }) as number,
+      dividendYield: number('dividendYield', { percentage: true }) as number,
+      delta: number('delta') as number,
+      gamma: number('gamma') as number,
+      vegaPer1PctVol: number('vegaPer1PctVol') as number,
+      thetaPerDay: number('thetaPerDay') as number,
+      rhoPer1PctRate: number('rhoPer1PctRate') as number,
+      underlyingYieldToMaturity: number('underlyingYieldToMaturity', { optional: true, percentage: true }),
+      dataSource: requiredText('dataSource')
     };
   }
 
