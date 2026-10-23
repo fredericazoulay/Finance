@@ -15,6 +15,9 @@
     "declaration": false,
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
+    "paths": {
+      "fs": ["./src/shims/fs.ts"]
+    },
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",

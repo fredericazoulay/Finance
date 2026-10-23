@@ -236,3 +236,82 @@ Comment visualiser les informations sur les obligations comparables constitue un
 En résumé, la visualisation des informations sur les obligations comparables constitue un outil précieux pour les investisseurs, permettant de mettre en évidence les différences clés entre les obligations et d'identifier rapidement l'obligation la plus performante. En utilisant des tableaux comparatifs, des graphiques de performance et des matrices de risque, les investisseurs peuvent renforcer leur compréhension des caractéristiques des obligations, faciliter la communication des analyses et soutenir une prise de décision plus éclairée et efficace sur le marché obligataire.
 
 En conclusion, la visualisation des informations sur les obligations comparables constitue une étape complémentaire essentielle pour optimiser la stratégie d'investissement obligataire. En mettant en évidence les différences clés entre les obligations et en facilitant l'identification de l'obligation la plus performante, les investisseurs peuvent renforcer leur analyse, améliorer la communication des résultats et prendre des décisions plus éclairées et efficaces sur le marché obligataire.
+
+============================
+
+Le document PDF Hull - Options, futures et autres actifs dérivés.pdf (6ᵉ édition française, Pearson Education, 848 pages, 32 chapitres et 20 notes techniques) ainsi que l'ensemble du code existant dans PricerBackend ont été analysés.
+
+Le plan directeur complet et la feuille de route d'implémentation ont été formalisés dans l'artéfact dédié : 👉 master_plan_pricer_backend_hull.md
+
+Synthèse des Écarts Majeurs Identifiés
+
+Actuellement, PricerBackend ne couvre qu'une fraction initiale du Hull (Call/Put vanille avec dividende continu via BlackScholesModel et BinomialModel, DCF obligataire basique via DiscountedCashFlowModel, swap vanille fixe/flottant via SwapPricer, et CDS simplifié via CdsPricer).
+
+Pour couvrir l'intégralité du livre et tous les cas de marché, les ajouts indispensables sont organisés en 8 familles :
+
+Dérivés Linéaires & Futures de Taux (Ch. 1-3, 5, 6) :
+Forwards actions avec dividendes discrets et continus, forwards FX/NDF, matières premières avec coût de stockage et convenience yield (contango / backwardation).
+Accords de taux futurs (FRAs), futures sur emprunts d'État (T-Bond, Bund, OAT) avec facteur de conversion et sélection de l'obligation la moins chère à livrer (Cheapest-to-Deliver - CTD), futures Eurodollar avec ajustement de convexité de Hull, ratio de couverture variance minimale (
+ℎ
+∗
+=
+𝜌
+𝜎
+𝑆
+𝜎
+𝐹
+h
+∗
+=ρ
+σ
+F
+	​
+
+σ
+S
+	​
+
+	​
+
+).
+Marché Obligataire & Sensibilités Avancées (Ch. 4, 6) :
+Conventions de calcul de jours strictes (ACT/ACT ICMA, ACT/ACT ISDA, 30/360, 30E/360, ACT/360), FRN, obligations amortissables, indexées inflation (TIPS/OATi), convertibles.
+Durations de Macaulay et modifiée, convexité, DV01/PVBP, Key Rate Durations (KRD), Z-Spread et OAS (Option-Adjusted Spread).
+Swaps Avancés & Cadre Multi-Courbes (Ch. 7, 30) :
+Séparation stricte OIS discounting (€STR / SOFR) vs projection IBOR, OIS composés au jour le jour in-arrears, swaps de devises (Cross-Currency Basis Swaps avec option MtM), swaps amortissables, compounding swaps, equity swaps et swaps in-arrears avec ajustement de convexité.
+Options Vanilles & Stratégies Multi-Legs (Ch. 8-10, 13, 14) :
+Modèle de Garman-Kohlhagen (options de change), modèle de Black-76 (options sur futures et matières premières), approximations américaines rapides (Bjerksund-Stensland 1993/2002, Barone-Adesi & Whaley), arbre binomial Leisen-Reimer.
+Moteur de stratégies multi-legs : Spreads verticaux (Bull/Bear), Butterfly, Condor, Calendar Spreads, Straddles, Strangles, Collars avec analyse de profil P&L et grecs nets.
+Bibliothèque Complète d'Exotiques (Ch. 22) :
+Barrières (8 types Reiner-Rubinstein avec correction de Broadie-Glasserman-Kou pour monitoring discret), Digitales / Binaires (Cash/Asset-or-Nothing, Gap), Composées (Geske), Chooser (Rubinstein), Lookback (floating/fixed strike), Asiatiques (Kemna-Vorst et Curran / Turnbull-Wakeman), Margrabe (échange), Quantos, Baskets et Rainbow options.
+Dérivés de Taux Avancés (Ch. 26-29) :
+Caps, Floors et Collars sous Black-76 avec stripping de volatilité des caplets, Swaptions européennes sous Black-76, Arbre trinomial de Hull-White à 1 facteur calibré à la courbe zéro-coupon initiale pour pricer les Swaptions Bermudiennes et options sur obligations, CMS avec ajustement de convexité.
+Dérivés de Crédit & Risque de Contrepartie (Ch. 20, 21) :
+Modèle ISDA standard pour CDS (conversion spread / upfront), bootstrapping de courbe de taux de hasard 
+𝜆
+(
+𝑡
+)
+λ(t) par morceaux, indices iTraxx/CDX, First-to-Default (FTD), tranches de CDO synthétiques par la Copule Gaussienne à un facteur de Hull-White, modélisation CVA/DVA.
+Moteurs Numériques & Gestion des Risques (Ch. 15, 17, 18, 19, 23, 24, 31) :
+Schéma PDE aux différences finies de Crank-Nicolson avec algorithme PSOR pour exercice américain.
+Moteur Monte Carlo vectorisé avec séquences quasi-aléatoires de Sobol, réduction de variance (antithétique, variable de contrôle) et algorithme des moindres carrés Longstaff-Schwartz (LSM).
+Inversion de Fourier pour le modèle à volatilité stochastique de Heston.
+Grecs d'ordre 1 et 2 (
+Vanna
+,
+Volga
+,
+Charm
+,
+Color
+,
+Speed
+Vanna,Volga,Charm,Color,Speed), Value at Risk (Historique, Paramétrique Cornish-Fisher, Monte Carlo), Expected Shortfall (CVaR) et stress testing.
+Décisions Clés à Valider pour Démarrer
+Priorité de démarrage : Souhaitez-vous lancer en premier la Phase 1 & 2 (fondations multi-courbes, conventions de décompte de jours et obligataire complet / dérivés linéaires) ou prioriser directement les options exotiques / stratégies multi-legs (Phases 3 & 5) ?
+Bibliothèques mathématiques Java : Préférez-vous conserver une implémentation pure Java sans dépendance externe pour l'algèbre linéaire (Cholesky, matrices) ou intégrer une dépendance standard comme Apache Commons Math ou EJML ?
+
+(Vous pouvez utiliser la commande /plan si vous souhaitez affiner le découpage d'un lot particulier avant implémentation, ou valider le plan dans l'artéfact pour lancer la première phase).
+
+Master Plan Pricer Backend Hull
