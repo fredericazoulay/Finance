@@ -32,6 +32,10 @@
             "scripts": [],
             "allowedCommonJsDependencies": [
               "xlsx-js-style"
+            ],
+            "externalDependencies": [
+              "fs",
+              "stream"
             ]
           },
           "configurations": {

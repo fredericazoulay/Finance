@@ -16,8 +16,7 @@
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
     "paths": {
-      "fs": ["./src/shims/fs.ts"],
-      "stream": ["./src/shims/fs.ts"]
+      "fs": ["./src/shims/fs.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
