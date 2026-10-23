@@ -1,0 +1,28 @@
+package com.finance.pricer.api.dto;
+
+import java.util.List;
+
+public record BondComparablesPricingResponse(
+        String targetSecurityId,
+        String currency,
+        int maturityToleranceMonths,
+        List<PanelItem> panel,
+        String bestYieldSecurityId,
+        double appliedYield,
+        BondValuation valuation
+) {
+    public record PanelItem(
+            BondComparablesPricingRequest.ComparableBond bond,
+            boolean eligible,
+            boolean selected,
+            String exclusionReason
+    ) {}
+
+    public record BondValuation(
+            double cleanPrice,
+            double dirtyPrice,
+            double accruedInterest,
+            long accruedDays,
+            String dayCount
+    ) {}
+}

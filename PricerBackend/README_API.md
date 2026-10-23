@@ -241,6 +241,52 @@ Response:
 
 ## Swagger/OpenAPI
 
+## Bond comparable pricing
+
+### POST /api/v1/calculators/bonds/comparables/pricing
+
+This endpoint accepts a user-supplied panel. It does not connect to a market-data provider. The target and eligible comparables must use the same currency; comparable maturity must be within the configured number of months from the target maturity. The highest eligible yield to maturity is applied to the target bond cash flows.
+
+Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defaults to 24 and is limited to 0–240.
+
+```json
+{
+  "target": {
+    "securityId": "TARGET-001",
+    "name": "Target bond",
+    "currency": "USD",
+    "faceValue": 100.0,
+    "couponRate": 0.04,
+    "couponFrequency": 2,
+    "maturityDate": "2031-10-23",
+    "settlementDate": "2026-10-23",
+    "dayCount": "30/360"
+  },
+  "panel": [
+    {
+      "securityId": "COMP-001",
+      "name": "Comparable bond",
+      "issuer": "Example issuer",
+      "currency": "USD",
+      "maturityDate": "2032-04-23",
+      "yieldToMaturity": 0.052,
+      "couponRate": 0.045,
+      "marketPrice": 97.2,
+      "rating": "A",
+      "source": "User import",
+      "asOf": "2026-10-22"
+    }
+  ],
+  "maturityToleranceMonths": 24
+}
+```
+
+The response includes each panel row's eligibility and exclusion reason, the selected security and applied yield, plus clean price, dirty price, accrued interest and day-count convention. The client is responsible for accurately identifying the imported data source and quote date.
+
+---
+
+## Swagger/OpenAPI
+
 ```text
 http://localhost:9092/swagger-ui/index.html
 http://localhost:9092/v3/api-docs

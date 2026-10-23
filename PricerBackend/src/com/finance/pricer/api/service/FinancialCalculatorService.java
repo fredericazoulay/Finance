@@ -170,9 +170,11 @@ public class FinancialCalculatorService {
 
     private Map<String, Object> bond(FinancialCalculatorRequest r) {
         double faceValue = positive(r.faceValue(), "faceValue");
-        double yield = nonNegative(first(r.annualRate(), r.interestRate(), "annualRate"), "annualRate");
+        double bondYield = first(r.annualRate(), r.interestRate(), "annualRate");
         double couponRate = nonNegative(r.couponRate() == null ? 0 : r.couponRate(), "couponRate");
         int frequency = positiveInt(r.couponFrequency(), 1, "couponFrequency");
+        if (12 % frequency != 0) throw new IllegalArgumentException("couponFrequency must divide 12");
+        if (!Double.isFinite(bondYield) || bondYield <= -frequency) throw new IllegalArgumentException("annualRate must be greater than -couponFrequency");
         LocalDate maturity = required(r.maturityDate(), "maturityDate");
         LocalDate settlement = required(r.settlementDate(), "settlementDate");
         if (!settlement.isBefore(maturity)) throw new IllegalArgumentException("settlementDate must be before maturityDate");
@@ -185,7 +187,7 @@ public class FinancialCalculatorService {
         double accruedFraction = convention.yearFraction(previousCoupon, settlement)
                 / convention.yearFraction(previousCoupon, nextCoupon);
         double coupon = faceValue * couponRate / frequency;
-        double periodicYield = yield / frequency;
+        double periodicYield = bondYield / frequency;
         double dirtyPrice = 0;
         LocalDate paymentDate = nextCoupon;
         int periods = 0;

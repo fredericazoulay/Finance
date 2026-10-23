@@ -11,6 +11,7 @@ import { PricingService } from '../../services/pricing.service';
 import { PricingFormComponent } from './components/pricing-form/pricing-form.component';
 import { QuoteMonitorComponent } from './components/quote-monitor/quote-monitor.component';
 import { FinancialChartComponent } from './components/financial-chart/financial-chart.component';
+import { BondComparablesComponent } from './components/bond-comparables/bond-comparables.component';
 
 @Component({
   selector: 'app-pricing-page',
@@ -20,7 +21,8 @@ import { FinancialChartComponent } from './components/financial-chart/financial-
     TranslateModule,
     PricingFormComponent,
     QuoteMonitorComponent,
-    FinancialChartComponent
+    FinancialChartComponent,
+    BondComparablesComponent
   ],
   templateUrl: './pricing-page.component.html',
   styleUrls: ['./pricing-page.component.scss']

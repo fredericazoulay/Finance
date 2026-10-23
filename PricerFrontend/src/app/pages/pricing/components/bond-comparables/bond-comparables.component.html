@@ -1,0 +1,80 @@
+<main class="bond-screen">
+  <header class="screen-heading">
+    <div>
+      <p class="eyebrow">Fixed income / valuation</p>
+      <h1>Pricing obligataire</h1>
+    </div>
+    <span class="data-status">Panel importé · pas de flux marché connecté</span>
+  </header>
+
+  <section class="target-section">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">01 / Instrument</p>
+        <h2>Obligation cible</h2>
+      </div>
+      <span class="currency-tag">{{ target.currency || 'Devise' }}</span>
+    </div>
+    <div class="target-grid">
+      <label><span>Obligation cible</span><select [(ngModel)]="target.securityId" (ngModelChange)="selectTarget($event)"><option value="">Sélectionner une obligation importée</option><option *ngFor="let bond of panel" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option></select></label>
+      <label><span>Nom</span><input [(ngModel)]="target.name" placeholder="Nom de l’obligation" /></label>
+      <label><span>Devise</span><select [(ngModel)]="target.currency"><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></label>
+      <label><span>Nominal</span><input type="number" min="0.01" step="0.01" [(ngModel)]="target.faceValue" /></label>
+      <label><span>Coupon annuel (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="target.couponRate" /></label>
+      <label><span>Coupons / an</span><select [(ngModel)]="target.couponFrequency"><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="4">4</option><option [ngValue]="12">12</option></select></label>
+      <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" /></label>
+      <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" /></label>
+      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount"><option value="30/360">30/360</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option></select></label>
+    </div>
+  </section>
+
+  <section class="panel-section">
+    <div class="section-heading panel-heading">
+      <div>
+        <p class="eyebrow">02 / Univers comparable</p>
+        <h2>Panel de marché <span class="count">{{ panel.length }}</span></h2>
+      </div>
+      <div class="panel-actions">
+        <label class="tolerance-control"><span>Écart échéance (mois)</span><input type="number" min="0" max="240" [(ngModel)]="maturityToleranceMonths" /></label>
+        <input #fileInput class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" />
+        <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInput.click()">
+          {{ isImporting ? 'Lecture…' : 'Importer CSV / Excel' }}
+        </button>
+        <button type="button" class="primary-button" [disabled]="isLoading || !panel.length" (click)="price()">
+          {{ isLoading ? 'Calcul…' : 'Calculer le prix' }}
+        </button>
+      </div>
+    </div>
+    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity. Les taux peuvent être saisis en décimal ou avec « % ».</p>
+    <p class="message error" *ngIf="importError">{{ importError }}</p>
+    <p class="message error" *ngIf="error">{{ error }}</p>
+
+    <div class="table-wrap" *ngIf="panelRows.length; else emptyPanel">
+      <table>
+        <thead><tr><th>Obligation</th><th>Émetteur</th><th>Devise</th><th>Échéance</th><th>Notation</th><th>YTM</th><th>Source / date</th><th>Éligibilité</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let row of panelRows" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false">
+            <td><strong>{{ row.securityId }}</strong><small>{{ row.name }}</small></td>
+            <td>{{ row.issuer || '—' }}</td><td>{{ row.currency }}</td><td>{{ row.maturityDate }}</td><td>{{ row.rating || '—' }}</td>
+            <td class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</td>
+            <td>{{ row.source || '—' }}<small>{{ row.asOf || 'Date inconnue' }}</small></td>
+            <td><span *ngIf="row.selected" class="status best">Meilleur YTM</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable</span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #emptyPanel><div class="empty-state"><span class="empty-mark">+</span><strong>Aucune obligation chargée</strong><span>Importez un fichier CSV ou Excel pour constituer le panel.</span></div></ng-template>
+  </section>
+
+  <section class="result-section" *ngIf="result as pricing">
+    <div class="result-lead">
+      <p class="eyebrow">03 / Estimation</p>
+      <h2>Prix estimé de la cible</h2>
+      <p>YTM du comparable au rendement maximal, même devise, échéance à ±{{ pricing.maturityToleranceMonths }} mois.</p>
+    </div>
+    <div class="price-block"><span>Prix clean</span><strong>{{ pricing.valuation.cleanPrice | number:'1.2-4' }}</strong><small>{{ pricing.currency }} / {{ target.faceValue | number:'1.0-2' }} nominal</small></div>
+    <div class="price-block"><span>Prix dirty</span><strong>{{ pricing.valuation.dirtyPrice | number:'1.2-4' }}</strong><small>Intérêts courus : {{ pricing.valuation.accruedInterest | number:'1.2-4' }}</small></div>
+    <div class="winner-block"><span>Meilleur rendement du panel</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
+    <p class="risk-note">Le rendement maximal ne signifie pas nécessairement une meilleure qualité de crédit ni un meilleur profil risque/rendement. Les résultats dépendent de la qualité et de la fraîcheur des données importées.</p>
+  </section>
+</main>

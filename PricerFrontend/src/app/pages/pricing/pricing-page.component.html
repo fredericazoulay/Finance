@@ -1,4 +1,6 @@
-<div class="pricing-layout">
+<app-bond-comparables *ngIf="selectedProduct === 'BOND'"></app-bond-comparables>
+
+<div class="pricing-layout" *ngIf="selectedProduct !== 'BOND'">
   <section class="panel form-panel">
     <div class="panel-header">{{ selectedProductLabel }}</div>
     <app-pricing-form

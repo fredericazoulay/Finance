@@ -1,6 +1,9 @@
 package com.finance.pricer.api.controller;
 
 import com.finance.pricer.api.dto.FinancialCalculatorRequest;
+import com.finance.pricer.api.dto.BondComparablesPricingRequest;
+import com.finance.pricer.api.dto.BondComparablesPricingResponse;
+import com.finance.pricer.api.service.BondComparablesPricingService;
 import com.finance.pricer.api.service.FinancialCalculatorService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +20,14 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/calculators")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:4201"})
 public class FinancialCalculatorController {
     private final FinancialCalculatorService service;
+    private final BondComparablesPricingService bondComparablesPricingService;
 
-    public FinancialCalculatorController(FinancialCalculatorService service) {
+    public FinancialCalculatorController(FinancialCalculatorService service, BondComparablesPricingService bondComparablesPricingService) {
         this.service = service;
+        this.bondComparablesPricingService = bondComparablesPricingService;
     }
 
     @GetMapping
@@ -35,5 +40,11 @@ public class FinancialCalculatorController {
             @PathVariable String calculator,
             @Valid @RequestBody FinancialCalculatorRequest request) {
         return ResponseEntity.ok(service.calculate(calculator, request));
+    }
+
+    @PostMapping("/bonds/comparables/pricing")
+    public ResponseEntity<BondComparablesPricingResponse> priceUsingComparables(
+            @RequestBody BondComparablesPricingRequest request) {
+        return ResponseEntity.ok(bondComparablesPricingService.price(request));
     }
 }
