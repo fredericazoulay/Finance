@@ -20,7 +20,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/calculators")
-@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:4201"})
+@CrossOrigin(origins = {"http://localhost:4200"})
 public class FinancialCalculatorController {
     private final FinancialCalculatorService service;
     private final BondComparablesPricingService bondComparablesPricingService;

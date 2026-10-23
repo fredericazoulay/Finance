@@ -606,7 +606,7 @@ export class BondComparablesComponent {
       }
       const rawDate = text(column);
       if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return rawDate;
-      const dayFirst = rawDate.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+      const dayFirst = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(rawDate);
       if (dayFirst) return `${dayFirst[3]}-${dayFirst[2].padStart(2, '0')}-${dayFirst[1].padStart(2, '0')}`;
       throw new Error(`Ligne ${index + 2} : ${column} doit être une date AAAA-MM-JJ ou JJ/MM/AAAA.`);
     };
