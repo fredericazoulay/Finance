@@ -6,6 +6,45 @@ Propose moi à partir du projet sous C:\Users\fazoulay\VSCode\Finance\PricerFron
 
 Une option est un produit dérivé qui donne à son détenteur un droit, mais pas l'obligation, d'acheter ou de vendre un actif sous-jacent à des conditions prédéfinies.
 
+Le backend possède un modèle Black-Scholes pour le prix, mais pas de sortie Grecs intégrée. 
+Peux-tu générer les Grecs pour chaque option en utilisant les formules standard et les inclure dans le CSV avec les hypothèses explicites ?
+Je vais utiliser son endpoint pour les primes, calculer les Grecs selon les formules standard avec les mêmes hypothèses explicites, et inclure ces hypothèses dans chaque ligne du nouveau CSV.
+
+Je vais examiner le modèle binomial, le type Option et les endpoints actuels pour distinguer ce qui existe déjà de ce qui manque. Point important : Black–Scholes fermé est européen; pour l’exercice américain ou bermudéen, il faudra une méthode à exercice anticipé (l’arbre binomial existe peut-être déjà), puis calculer les Grecs de façon cohérente avec chaque modèle.
+
+Le modèle binomial sait déjà valoriser les options américaines, mais le type d’option ne distingue pas American de Bermudan et les endpoints ne renvoient aucun grec. Je vérifie le factory et les DTO avant de définir l’extension : Black–Scholes analytique pour European, arbre à exercice discret/anticipé et sensibilités numériques pour American/Bermudan.
+
+optionId;optionType;underlyingType;underlyingSecurityId;currency;valuationDate;underlyingSpot;strikePrice;expirationDate;premiumPerUnit;exerciseStyle;quantity;nominal;position;intrinsicValuePerUnit;timeValuePerUnit;moneyness;volatility;riskFreeRate;dividendYield;delta;gamma;vegaPer1PctVol;thetaPerDay;rhoPer1PctRate;underlyingYieldToMaturity;dataSource
+
+Exemple de ligne CSV :
+123;Call;Action;AAPL;USD;2024-06-01;150;155;2024-12-01;5;Européen;10;1000;Long;0;5;0.97;0.2;0.03;0.01;0.5;0.1;0.2;0.01;0.001;0.03;Bloomberg
+
+Explication des colonnes :
+optionId : identifiant unique de l'option.
+optionType : type d'option (Call ou Put).
+underlyingType : type de sous-jacent (Action, Indice, Obligation, etc.).
+underlyingSecurityId : identifiant du sous-jacent.
+currency : devise de l'option.
+valuationDate : date de valorisation.
+underlyingSpot : prix du sous-jacent à la date de valorisation.
+strikePrice : prix d'exercice.
+expirationDate : date d'échéance.
+premiumPerUnit : prime par unité.
+exerciseStyle : style d'exercice (Européen, Américain, Bermudéen).
+quantity : nombre d'unités.
+nominal : nominal total.
+position : sens de la position (Long ou Short).
+intrinsicValuePerUnit : valeur intrinsèque par unité.
+timeValuePerUnit : valeur temps par unité.
+moneyness : moneyness de l'option.
+volatility : volatilité implicite.
+riskFreeRate : taux sans risque.
+dividendYield : rendement du dividende.
+delta, gamma, vegaPer1PctVol, thetaPerDay, rhoPer1PctRate : grecs de l'option.
+underlyingYieldToMaturity : rendement à maturité du sous-jacent (pour les obligations).
+dataSource : source des données.
+
+--------------------------------------------------------------------
 Les principales caractéristiques d'une option sont :
 
 1. Type d'option
