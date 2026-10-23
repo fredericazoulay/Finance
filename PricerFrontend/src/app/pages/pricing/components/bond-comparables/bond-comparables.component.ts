@@ -125,7 +125,7 @@ export class BondComparablesComponent {
       if (generation !== this.importGeneration) return;
       const buffer = await file.arrayBuffer();
       if (generation !== this.importGeneration) return;
-      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, raw: true });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       if (!firstSheet) throw new Error('Le fichier ne contient aucune feuille.');
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: null });
@@ -615,12 +615,12 @@ export class BondComparablesComponent {
       throw new Error(`Ligne ${index + 2} : optionType doit être CALL ou PUT.`);
     }
     const exerciseValue = requiredText('exerciseStyle')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
     const exerciseStyle = exerciseValue === 'EUROPEEN' || exerciseValue === 'EUROPEAN'
       ? 'EUROPEAN'
       : exerciseValue === 'AMERICAIN' || exerciseValue === 'AMERICAN'
         ? 'AMERICAN'
-        : exerciseValue === 'BERMUDEN' || exerciseValue === 'BERMUDAN'
+        : exerciseValue === 'BERMUDEN' || exerciseValue === 'BERMUDEEN' || exerciseValue === 'BERMUDAN'
           ? 'BERMUDAN'
           : null;
     if (!exerciseStyle) throw new Error(`Ligne ${index + 2} : exerciseStyle doit être European, American ou Bermudan.`);
