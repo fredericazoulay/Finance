@@ -60,6 +60,7 @@ export class PricingPageComponent implements OnInit, OnDestroy {
       maturity_years: [1],
       option_type: ['CALL'],
       exercise_style: ['EUROPEAN'],
+      exercise_times_years: ['0.5'],
       face_value: [100],
       coupon_rate: [0.04],
       coupon_frequency: [2],
@@ -131,7 +132,16 @@ export class PricingPageComponent implements OnInit, OnDestroy {
     this.apiError = '';
     this.lastResponse = null;
 
-    const payload = this.pricingService.buildPayload(this.selectedProduct, this.form.getRawValue());
+    let payload: Record<string, unknown>;
+    try {
+      payload = this.pricingService.buildPayload(this.selectedProduct, this.form.getRawValue());
+    } catch (error) {
+      this.isPricing = false;
+      this.apiError = error instanceof Error ? error.message : 'Check the pricing inputs.';
+      this.cdr.detectChanges();
+      return;
+    }
+
     this.pricingService.submitPricing(this.selectedProduct, payload).subscribe({
       next: (response) => {
         // Normalize flat responses where pricing fields are at the root

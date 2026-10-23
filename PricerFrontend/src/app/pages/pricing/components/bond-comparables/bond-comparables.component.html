@@ -23,10 +23,10 @@
       <label><span>Nominal</span><input type="number" min="0.01" step="0.01" [(ngModel)]="target.faceValue" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Coupon annuel (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="target.couponRate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Coupons / an</span><select [(ngModel)]="target.couponFrequency" (ngModelChange)="invalidateResult()"><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="4">4</option><option [ngValue]="12">12</option></select></label>
+      <label><span>Date d’émission</span><input type="date" [(ngModel)]="target.issueDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
-      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30/360</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option></select></label>
-      <label><span>modele</span><select [(ngModel)]="target.model" (ngModelChange)="invalidateResult()"><option value="BLACK_SCHOLES">Black-Scholes</option><option value="BINOMIAL">Binomial</option><option value="AMERICAN">American</option><option value="BERMUDAN">Bermudan</option></select></label>
+      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option></select></label>
     </div>
   </section>
 
@@ -139,6 +139,13 @@
     <div class="price-block"><span>Prix clean</span><strong>{{ pricing.valuation.cleanPrice | number:'1.2-4' }}</strong><small>{{ pricing.currency }} / {{ target.faceValue | number:'1.0-2' }} nominal</small></div>
     <div class="price-block"><span>Prix dirty</span><strong>{{ pricing.valuation.dirtyPrice | number:'1.2-4' }}</strong><small>Intérêts courus : {{ pricing.valuation.accruedInterest | number:'1.2-4' }}</small></div>
     <div class="winner-block"><span>Meilleur rendement du panel</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
+    <div class="analytics-grid">
+      <div class="analytics-item"><span>Duration Macaulay</span><strong>{{ pricing.valuation.macaulayDuration | number:'1.2-4' }} ans</strong></div>
+      <div class="analytics-item"><span>Duration modifiée</span><strong>{{ pricing.valuation.modifiedDuration | number:'1.2-4' }} ans</strong></div>
+      <div class="analytics-item"><span>Convexité</span><strong>{{ pricing.valuation.convexity | number:'1.2-4' }}</strong></div>
+      <div class="analytics-item"><span>DV01</span><strong>{{ pricing.valuation.dv01 | number:'1.2-4' }} {{ pricing.currency }}</strong></div>
+      <div class="analytics-item"><span>YTM de valorisation</span><strong>{{ pricing.valuation.ytm | percent:'1.2-3' }}</strong></div>
+    </div>
     <p class="risk-note">Le rendement maximal ne signifie pas nécessairement une meilleure qualité de crédit ni un meilleur profil risque/rendement. Les résultats dépendent de la qualité et de la fraîcheur des données importées.</p>
   </section>
   </form>

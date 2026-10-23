@@ -87,7 +87,7 @@
           {{ field.label }}
           <span class="suffix-tag" *ngIf="getFieldSuffix(field.key)">{{ getFieldSuffix(field.key) }}</span>
         </span>
-        <select *ngIf="field.options; else marketInput" [formControlName]="field.key">
+        <select *ngIf="field.options; else marketInput" [formControlName]="field.key" (change)="onFieldChange(field.key)">
           <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
         </select>
         <ng-template #marketInput>
@@ -100,25 +100,27 @@
   <div class="subsection" *ngIf="instrumentFields.length">
     <h3>{{ 'instrument_section' | translate }}</h3>
     <div class="grid small-grid">
-      <label *ngFor="let field of instrumentFields">
-        <span class="field-title">
-          {{ field.label }}
-          <span class="suffix-tag" *ngIf="getFieldSuffix(field.key)">{{ getFieldSuffix(field.key) }}</span>
-        </span>
-        <select *ngIf="field.options; else instrumentInput" [formControlName]="field.key">
-          <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
-        </select>
-        <ng-template #instrumentInput>
-          <input
-            [formControlName]="field.key"
-            [attr.type]="field.type || 'number'"
-            *ngIf="field.type !== 'checkbox'; else checkboxInput"
-          />
-        </ng-template>
-        <ng-template #checkboxInput>
-          <input [formControlName]="field.key" type="checkbox" class="checkbox-input" />
-        </ng-template>
-      </label>
+      <ng-container *ngFor="let field of instrumentFields">
+        <label *ngIf="field.key !== 'exercise_times_years' || form.get('exercise_style')?.value === 'BERMUDAN'">
+          <span class="field-title">
+            {{ field.label }}
+            <span class="suffix-tag" *ngIf="getFieldSuffix(field.key)">{{ getFieldSuffix(field.key) }}</span>
+          </span>
+          <select *ngIf="field.options; else instrumentInput" [formControlName]="field.key" (change)="onFieldChange(field.key)">
+            <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+          </select>
+          <ng-template #instrumentInput>
+            <input
+              [formControlName]="field.key"
+              [attr.type]="field.type || 'number'"
+              *ngIf="field.type !== 'checkbox'; else checkboxInput"
+            />
+          </ng-template>
+          <ng-template #checkboxInput>
+            <input [formControlName]="field.key" type="checkbox" class="checkbox-input" />
+          </ng-template>
+        </label>
+      </ng-container>
     </div>
   </div>
 

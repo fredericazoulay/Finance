@@ -174,6 +174,7 @@ Les noms sont normalisés en minuscules et les underscores sont convertis en tir
 		"faceValue": 100.0,
 		"couponRate": 0.04,
 		"couponFrequency": 2,
+		"issueDate": "2020-10-23",
 		"maturityDate": "2031-10-23",
 		"settlementDate": "2026-10-23",
 		"dayCount": "30/360"
@@ -200,12 +201,15 @@ Les noms sont normalisés en minuscules et les underscores sont convertis en tir
 Règles appliquées :
 
 - la tolérance d'échéance vaut 24 mois par défaut; elle doit être comprise entre 0 et 240;
-- la cible doit avoir un identifiant, une devise, une valeur faciale, un coupon, une fréquence et des dates de maturité/règlement valides;
+- la cible doit avoir un identifiant, une devise, une valeur faciale, un coupon, une fréquence et des dates de maturité/règlement valides; `issueDate` est facultative pour les clients existants, mais si elle est fournie, elle doit être antérieure ou égale au règlement;
+- sans `issueDate`, le calendrier régulier des coupons est ancré à la dernière date de coupon précédant le règlement; fournir la date réelle d'émission pour représenter correctement une première période irrégulière;
 - un comparable est exclu si ses données sont incomplètes, si sa devise diffère, si sa maturité est invalide/hors tolérance, si son YTM est invalide ou s'il s'agit de la cible elle-même;
 - parmi les lignes admissibles, le YTM le plus élevé est sélectionné; si plusieurs rendements sont égaux, l'identifiant départage le tri;
-- le YTM sélectionné est appliqué aux flux de la cible pour calculer prix clean, prix dirty, intérêts courus et nombre de jours courus.
+- le YTM sélectionné est appliqué aux flux de la cible pour calculer prix clean, prix dirty, intérêts courus, nombre de jours courus, duration de Macaulay, duration modifiée, convexité et DV01.
 
-La réponse fournit `targetSecurityId`, `currency`, `maturityToleranceMonths`, le `panel` avec indicateurs `eligible`, `selected` et `exclusionReason`, `bestYieldSecurityId`, `appliedYield` et `valuation`. Cette dernière contient `cleanPrice`, `dirtyPrice`, `accruedInterest`, `accruedDays` et `dayCount`. Les champs de panel tels que `source` et `asOf` sont déclaratifs : leur exactitude dépend de l'import réalisé par le client. Si aucune ligne n'est admissible, l'API renvoie une erreur `400`.
+Conventions de jour acceptées : `30/360` (alias historique de 30E/360), `THIRTY_360_US`, `ACT/360` et `ACT/365F`.
+
+La réponse fournit `targetSecurityId`, `currency`, `maturityToleranceMonths`, le `panel` avec indicateurs `eligible`, `selected` et `exclusionReason`, `bestYieldSecurityId`, `appliedYield` et `valuation`. Cette dernière contient `cleanPrice`, `dirtyPrice`, `accruedInterest`, `accruedDays`, `dayCount`, `ytm`, `macaulayDuration`, `modifiedDuration`, `convexity` et `dv01`. Le DV01 est exprimé dans la devise et pour le nominal de la cible transmis. Les champs de panel tels que `source` et `asOf` sont déclaratifs : leur exactitude dépend de l'import réalisé par le client. Si aucune ligne n'est admissible, l'API renvoie une erreur `400`.
 
 ## Modèles et services
 

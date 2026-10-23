@@ -50,12 +50,22 @@ Chart.register(
   styleUrls: ['./amortization-chart.component.scss']
 })
 export class AmortizationChartComponent implements AfterViewInit, OnChanges, OnDestroy {
-  @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartCanvas')
+  set chartCanvas(canvas: ElementRef<HTMLCanvasElement> | undefined) {
+    this.chartCanvasRef = canvas;
+    if (canvas && this.schedule.length) {
+      this.createOrUpdateChart();
+    } else if (!canvas) {
+      this.chart?.destroy();
+      this.chart = null;
+    }
+  }
 
   @Input() schedule: AmortizationRow[] = [];
   @Input() selectedCalculator = 'loan';
 
   private chart: Chart | null = null;
+  private chartCanvasRef?: ElementRef<HTMLCanvasElement>;
   private themeSub?: Subscription;
 
   totalPrincipal = 0;
@@ -75,7 +85,7 @@ export class AmortizationChartComponent implements AfterViewInit, OnChanges, OnD
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['schedule']) {
       this.computeTotals();
-      if (this.chartCanvas) {
+      if (this.chartCanvasRef) {
         this.createOrUpdateChart();
       }
     }
@@ -106,7 +116,7 @@ export class AmortizationChartComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private createOrUpdateChart(): void {
-    if (!this.chartCanvas || !this.schedule || !this.schedule.length) return;
+    if (!this.chartCanvasRef || !this.schedule || !this.schedule.length) return;
 
     if (this.chart) {
       this.chart.destroy();
@@ -115,7 +125,7 @@ export class AmortizationChartComponent implements AfterViewInit, OnChanges, OnD
 
     const config = this.buildConfig();
     if (config) {
-      this.chart = new Chart(this.chartCanvas.nativeElement, config);
+      this.chart = new Chart(this.chartCanvasRef.nativeElement, config);
     }
   }
 

@@ -96,8 +96,8 @@ export class PricingService {
     if (product === 'IRS') {
       return {
         marketFields: [
-          { key: 'tenors', label: 'Tenors' },
-          { key: 'discount_curve_rates', label: 'Discount Curve Rates' },
+          { key: 'tenors', label: 'Tenors (years, comma-separated)', type: 'text' },
+          { key: 'discount_curve_rates', label: 'Curve rates (%, comma-separated)', type: 'text' },
           { key: 'frequency', label: 'Frequency' }
         ],
         instrumentFields: [
@@ -113,8 +113,8 @@ export class PricingService {
     if (product === 'CDS') {
       return {
         marketFields: [
-          { key: 'tenors', label: 'Tenors' },
-          { key: 'discount_curve_rates', label: 'Discount Curve Rates' },
+          { key: 'tenors', label: 'Tenors (years, comma-separated)', type: 'text' },
+          { key: 'discount_curve_rates', label: 'Curve rates (%, comma-separated)', type: 'text' },
           { key: 'frequency', label: 'Frequency' }
         ],
         instrumentFields: [
@@ -177,7 +177,8 @@ export class PricingService {
         { key: 'strike', label: 'Strike' },
         { key: 'maturity_years', label: 'Maturity (Y)' },
         { key: 'option_type', label: 'Option Type', options: ['CALL', 'PUT'] },
-        { key: 'exercise_style', label: 'Exercise Style', options: ['EUROPEAN', 'AMERICAN'] }
+          { key: 'exercise_style', label: 'Exercise Style', options: ['EUROPEAN', 'AMERICAN', 'BERMUDAN'] },
+          { key: 'exercise_times_years', label: 'Bermudan exercise times (years, comma-separated)', type: 'text' }
       ]
     };
   }
@@ -201,12 +202,12 @@ export class PricingService {
         market_data_source: 'Bloomberg',
         pricing_model: 'PAR_SWAP',
         notional: 1000000,
-        fixed_rate: 0.03,
+        fixed_rate: 3,
         maturity_years: 5,
         payment_frequency: 2,
         receiver: true,
-        tenors: [1, 2, 3, 5, 7, 10],
-        discount_curve_rates: [0.018, 0.022, 0.025, 0.029, 0.031, 0.033],
+        tenors: '1, 2, 3, 5, 7, 10',
+        discount_curve_rates: '1.8, 2.2, 2.5, 2.9, 3.1, 3.3',
         frequency: 2
       };
     }
@@ -219,12 +220,12 @@ export class PricingService {
         market_data_source: 'Bloomberg',
         pricing_model: 'IMPLIED_HAZARD',
         notional: 1000000,
-        spread: 0.015,
+        spread: 150,
         maturity_years: 5,
         payment_frequency: 4,
-        recovery_rate: 0.4,
-        tenors: [1, 2, 3, 5, 7, 10],
-        discount_curve_rates: [0.015, 0.018, 0.021, 0.025, 0.028, 0.031],
+        recovery_rate: 40,
+        tenors: '1, 2, 3, 5, 7, 10',
+        discount_curve_rates: '1.5, 1.8, 2.1, 2.5, 2.8, 3.1',
         frequency: 4
       };
     }
@@ -237,8 +238,8 @@ export class PricingService {
         market_data_source: 'Reuters',
         pricing_model: 'FX_FORWARD',
         spot: 1.08,
-        domestic_rate: 0.05,
-        foreign_rate: 0.02,
+        domestic_rate: 5,
+        foreign_rate: 2,
         pair: 'EURUSD',
         maturity_years: 1
       };
@@ -253,10 +254,10 @@ export class PricingService {
         market_data_source: 'Bloomberg',
         pricing_model: 'DISCOUNTED_CASH_FLOW',
         face_value: 100,
-        coupon_rate: 0.04,
+        coupon_rate: 4,
         coupon_frequency: 2,
         maturity_years: 5,
-        yield_to_maturity: 0.035
+        yield_to_maturity: 3.5
       };
     }
 
@@ -269,22 +270,23 @@ export class PricingService {
         market_data_source: 'Bloomberg',
         pricing_model: 'DISCOUNTED_CASH_FLOW',
         forecast_dividend: 2,
-        growth_rate: 0.03,
+        growth_rate: 3,
         underlying_spot: 100,
-        discount_rate: 0.05
+        discount_rate: 5
       };
     }
 
     return {
       ...base,
       underlying_spot: 100,
-      risk_free_rate: 0.05,
-      implied_volatility: 0.2,
-      dividend_yield: 0.01,
+      risk_free_rate: 5,
+      implied_volatility: 20,
+      dividend_yield: 1,
       strike: 100,
       maturity_years: 1,
       option_type: 'CALL',
-      exercise_style: 'EUROPEAN'
+      exercise_style: 'EUROPEAN',
+      exercise_times_years: '0.5'
     };
   }
 
@@ -304,30 +306,33 @@ export class PricingService {
         ...base,
         market_data: {
           underlying_spot: Number(values['underlying_spot']),
-          risk_free_rate: Number(values['risk_free_rate']),
-          implied_volatility: Number(values['implied_volatility']),
-          dividend_yield: Number(values['dividend_yield'])
+          risk_free_rate: this.percentage(values['risk_free_rate'], 'Risk-free rate'),
+          implied_volatility: this.percentage(values['implied_volatility'], 'Volatility'),
+          dividend_yield: this.percentage(values['dividend_yield'], 'Dividend yield')
         },
         instrument: {
           strike: Number(values['strike']),
           maturity_years: Number(values['maturity_years']),
           option_type: values['option_type'],
-          exercise_style: values['exercise_style']
+          exercise_style: values['exercise_style'],
+          ...(values['exercise_style'] === 'BERMUDAN'
+            ? { exercise_times_years: this.numberList(values['exercise_times_years'], 'Bermudan exercise times') }
+            : {})
         }
       };
     }
 
     if (product === 'IRS') {
+      const curve = this.curveData(values);
       return {
         ...base,
         market_data: {
-          tenors: values['tenors'],
-          discount_curve_rates: values['discount_curve_rates'],
+          ...curve,
           frequency: Number(values['frequency'])
         },
         instrument: {
           notional: Number(values['notional']),
-          fixed_rate: Number(values['fixed_rate']),
+          fixed_rate: this.percentage(values['fixed_rate'], 'Fixed rate'),
           maturity_years: Number(values['maturity_years']),
           payment_frequency: Number(values['payment_frequency']),
           receiver: Boolean(values['receiver'])
@@ -336,19 +341,19 @@ export class PricingService {
     }
 
     if (product === 'CDS') {
+      const curve = this.curveData(values);
       return {
         ...base,
         market_data: {
-          tenors: values['tenors'],
-          discount_curve_rates: values['discount_curve_rates'],
+          ...curve,
           frequency: Number(values['frequency'])
         },
         instrument: {
           notional: Number(values['notional']),
-          spread: Number(values['spread']),
+          spread: this.basisPoints(values['spread'], 'Spread'),
           maturity_years: Number(values['maturity_years']),
           payment_frequency: Number(values['payment_frequency']),
-          recovery_rate: Number(values['recovery_rate'])
+          recovery_rate: this.percentage(values['recovery_rate'], 'Recovery rate')
         }
       };
     }
@@ -357,10 +362,10 @@ export class PricingService {
       return {
         model: values['pricing_model'],
         face_value: Number(values['face_value']),
-        coupon_rate: Number(values['coupon_rate']),
+        coupon_rate: this.percentage(values['coupon_rate'], 'Coupon rate'),
         coupon_frequency: Number(values['coupon_frequency']),
         maturity_years: Number(values['maturity_years']),
-        yield_to_maturity: Number(values['yield_to_maturity'])
+        yield_to_maturity: this.percentage(values['yield_to_maturity'], 'Yield to maturity')
       };
     }
 
@@ -368,9 +373,9 @@ export class PricingService {
       return {
         model: values['pricing_model'],
         forecast_dividend: Number(values['forecast_dividend']),
-        growth_rate: Number(values['growth_rate']),
+        growth_rate: this.percentage(values['growth_rate'], 'Growth rate'),
         underlying_spot: Number(values['underlying_spot']),
-        discount_rate: Number(values['discount_rate'])
+        discount_rate: this.percentage(values['discount_rate'], 'Discount rate')
       };
     }
 
@@ -378,14 +383,53 @@ export class PricingService {
       ...base,
       market_data: {
         spot: Number(values['spot']),
-        domestic_rate: Number(values['domestic_rate']),
-        foreign_rate: Number(values['foreign_rate'])
+        domestic_rate: this.percentage(values['domestic_rate'], 'Domestic rate'),
+        foreign_rate: this.percentage(values['foreign_rate'], 'Foreign rate')
       },
       instrument: {
         pair: values['pair'],
         maturity_years: Number(values['maturity_years'])
       }
     };
+  }
+
+  private percentage(value: unknown, label: string): number {
+    const text = typeof value === 'number' || typeof value === 'string' ? String(value).trim() : '';
+    const parsed = Number(text);
+    if (!text || !Number.isFinite(parsed)) throw new Error(`${label} must be a valid percentage.`);
+    return parsed / 100;
+  }
+
+  private basisPoints(value: unknown, label: string): number {
+    const text = typeof value === 'number' || typeof value === 'string' ? String(value).trim() : '';
+    const parsed = Number(text);
+    if (!text || !Number.isFinite(parsed)) throw new Error(`${label} must be a valid number of basis points.`);
+    return parsed / 10000;
+  }
+
+  private numberList(value: unknown, label: string): number[] {
+    let parts: unknown[];
+    if (Array.isArray(value)) parts = value;
+    else if (typeof value === 'number') parts = [value];
+    else if (typeof value === 'string') parts = value.split(/[,;\s]+/).filter(Boolean);
+    else parts = [];
+    const parsed = parts.map(Number);
+    if (!parsed.length || parsed.some(item => !Number.isFinite(item))) {
+      throw new Error(`${label} must be a comma-separated list of numbers.`);
+    }
+    return parsed;
+  }
+
+  private curveData(values: Record<string, any>): { tenors: number[]; discount_curve_rates: number[] } {
+    const tenors = this.numberList(values['tenors'], 'Tenors');
+    const rates = this.numberList(values['discount_curve_rates'], 'Curve rates');
+    if (tenors.length !== rates.length) {
+      throw new Error('Tenors and curve rates must contain the same number of values.');
+    }
+    if (tenors.some((tenor, index) => tenor <= 0 || (index > 0 && tenor <= tenors[index - 1]))) {
+      throw new Error('Tenors must be positive and strictly increasing.');
+    }
+    return { tenors, discount_curve_rates: rates.map(rate => rate / 100) };
   }
 
   formatResultValue(result: PriceResponse | Record<string, unknown> | null | undefined): string {
@@ -416,16 +460,19 @@ export class PricingService {
   calculateChartPoints(product: string, values: Record<string, any>): ChartPoint[] {
     let series: number[];
     if (product === 'IRS' || product === 'CDS') {
-      series = Array.from(values['discount_curve_rates'] || [], Number);
+      series = this.numberList(values['discount_curve_rates'], 'Curve rates').map(rate => rate / 100);
     } else if (product === 'FXC') {
+      const domesticRate = this.percentage(values['domestic_rate'], 'Domestic rate');
+      const foreignRate = this.percentage(values['foreign_rate'], 'Foreign rate');
       series = [
         Number(values['spot']),
-        Number(values['spot']) * (1 + (Number(values['domestic_rate']) - Number(values['foreign_rate'])) * Number(values['maturity_years']))
+        Number(values['spot']) * (1 + (domesticRate - foreignRate) * Number(values['maturity_years']))
       ];
     } else if (product === 'EQTY_OPT') {
       series = [80, 90, 100, 110, 120].map(spot => Math.max(spot - Number(values['strike']), 0));
     } else if (product === 'BOND') {
-      series = [0, 1, 2, 3, 4, 5].map(year => Number(values['face_value']) * Math.pow(1 + Number(values['yield_to_maturity']), -year));
+      const yieldToMaturity = this.percentage(values['yield_to_maturity'], 'Yield to maturity');
+      series = [0, 1, 2, 3, 4, 5].map(year => Number(values['face_value']) * Math.pow(1 + yieldToMaturity, -year));
     } else {
       series = [
         Number(values['forecast_dividend']),

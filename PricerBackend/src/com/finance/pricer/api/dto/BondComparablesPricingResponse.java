@@ -23,6 +23,11 @@ public record BondComparablesPricingResponse(
             double dirtyPrice,
             double accruedInterest,
             long accruedDays,
-            String dayCount
+                        String dayCount,
+                        double ytm,
+                        double macaulayDuration,
+                        double modifiedDuration,
+                        double convexity,
+                        double dv01
     ) {}
 }

@@ -15,6 +15,7 @@ public record BondComparablesPricingRequest(
             Double faceValue,
             Double couponRate,
             Integer couponFrequency,
+            LocalDate issueDate,
             LocalDate maturityDate,
             LocalDate settlementDate,
             String dayCount

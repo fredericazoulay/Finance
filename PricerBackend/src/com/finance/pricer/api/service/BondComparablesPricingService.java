@@ -2,7 +2,11 @@ package com.finance.pricer.api.service;
 
 import com.finance.pricer.api.dto.BondComparablesPricingRequest;
 import com.finance.pricer.api.dto.BondComparablesPricingResponse;
-import com.finance.pricer.api.dto.FinancialCalculatorRequest;
+import com.finance.pricer.core.calendar.BusinessDayConvention;
+import com.finance.pricer.core.calendar.DayCountConvention;
+import com.finance.pricer.core.calendar.FinancialCalendar;
+import com.finance.pricer.fixedincome.bonds.BondAnalytics;
+import com.finance.pricer.fixedincome.bonds.FixedCouponBond;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -10,17 +14,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
 @Service
 public class BondComparablesPricingService {
     private static final int DEFAULT_MATURITY_TOLERANCE_MONTHS = 24;
-    private final FinancialCalculatorService calculatorService;
-
-    public BondComparablesPricingService(FinancialCalculatorService calculatorService) {
-        this.calculatorService = calculatorService;
-    }
 
     public BondComparablesPricingResponse price(BondComparablesPricingRequest request) {
         if (request == null || request.target() == null) {
@@ -96,19 +94,63 @@ public class BondComparablesPricingService {
             private BondComparablesPricingResponse.BondValuation calculateValuation(
                 BondComparablesPricingRequest.TargetBond target,
                 BondComparablesPricingRequest.ComparableBond best) {
-        Map<String, Object> price = calculatorService.calculate("bond", new FinancialCalculatorRequest(
-                null, null, best.yieldToMaturity(), null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, target.faceValue(), target.couponRate(), target.couponFrequency(),
-                target.maturityDate(), target.settlementDate(), target.dayCount(), null, null));
+                FixedCouponBond bond = new FixedCouponBond(
+                    target.securityId(),
+                    target.faceValue(),
+                    target.couponRate(),
+                    target.couponFrequency(),
+                    effectiveIssueDate(target),
+                    target.maturityDate(),
+                    parseDayCount(target.dayCount()),
+                    FinancialCalendar.weekendsOnly(),
+                    BusinessDayConvention.MODIFIED_FOLLOWING);
+                double ytm = best.yieldToMaturity();
+                double dirtyPrice = BondAnalytics.dirtyPriceFromYtm(bond, target.settlementDate(), ytm);
+                double accruedInterest = bond.calculateAccruedInterest(target.settlementDate());
+                double cleanPrice = dirtyPrice - accruedInterest;
 
         return new BondComparablesPricingResponse.BondValuation(
-                number(price, "cleanPrice"),
-                number(price, "dirtyPrice"),
-                number(price, "accruedInterest"),
-                ((Number) price.get("accruedDays")).longValue(),
-                String.valueOf(price.get("dayCount")));
+                    cleanPrice,
+                    dirtyPrice,
+                    accruedInterest,
+                    ChronoUnit.DAYS.between(previousCouponDate(bond, target.settlementDate()), target.settlementDate()),
+                    bond.getDayCountConvention().name(),
+                    ytm,
+                    BondAnalytics.macaulayDuration(bond, target.settlementDate(), ytm),
+                    BondAnalytics.modifiedDuration(bond, target.settlementDate(), ytm),
+                    BondAnalytics.convexity(bond, target.settlementDate(), ytm),
+                    BondAnalytics.dv01(bond, target.settlementDate(), ytm));
     }
+
+                private static LocalDate previousCouponDate(FixedCouponBond bond, LocalDate settlementDate) {
+                return bond.getCashFlows().stream()
+                    .filter(payment -> !payment.periodStart().isAfter(settlementDate)
+                        && settlementDate.isBefore(payment.periodEnd()))
+                    .map(FixedCouponBond.CouponPayment::periodStart)
+                    .findFirst()
+                    .orElse(settlementDate);
+                }
+
+        private static LocalDate effectiveIssueDate(BondComparablesPricingRequest.TargetBond target) {
+            if (target.issueDate() != null) return target.issueDate();
+
+            long couponMonths = 12L / target.couponFrequency();
+            LocalDate previousCoupon = target.maturityDate();
+            while (previousCoupon.isAfter(target.settlementDate())) {
+                previousCoupon = previousCoupon.minusMonths(couponMonths);
+            }
+            return previousCoupon;
+        }
+
+                private static DayCountConvention parseDayCount(String dayCount) {
+                return switch (dayCount.trim().toUpperCase(Locale.ROOT).replace('/', '_')) {
+                    case "30_360", "THIRTY_360", "THIRTY_E_360" -> DayCountConvention.THIRTY_E_360;
+                    case "THIRTY_360_US" -> DayCountConvention.THIRTY_360_US;
+                    case "ACT_360", "ACTUAL_360" -> DayCountConvention.ACT_360;
+                    case "ACT_365F", "ACT_365", "ACTUAL_365", "ACTUAL_365F" -> DayCountConvention.ACT_365F;
+                    default -> throw new IllegalArgumentException("Unsupported dayCount: " + dayCount);
+                };
+                }
 
     private static void validateTarget(BondComparablesPricingRequest.TargetBond target) {
         if (target.securityId() == null || target.securityId().isBlank()) throw new IllegalArgumentException("target.securityId is required");
@@ -118,7 +160,10 @@ public class BondComparablesPricingService {
         if (target.couponFrequency() == null || target.couponFrequency() <= 0 || 12 % target.couponFrequency() != 0) throw new IllegalArgumentException("target.couponFrequency must divide 12");
         LocalDate maturity = Objects.requireNonNull(target.maturityDate(), "target.maturityDate is required");
         LocalDate settlement = Objects.requireNonNull(target.settlementDate(), "target.settlementDate is required");
+        if (target.issueDate() != null && target.issueDate().isAfter(settlement)) throw new IllegalArgumentException("target.issueDate must be on or before settlementDate");
         if (!settlement.isBefore(maturity)) throw new IllegalArgumentException("target settlementDate must be before maturityDate");
+        if (target.dayCount() == null || target.dayCount().isBlank()) throw new IllegalArgumentException("target.dayCount is required");
+        parseDayCount(target.dayCount());
     }
 
     private static String exclusionReason(
@@ -156,8 +201,4 @@ public class BondComparablesPricingService {
         private static String normalizeIdentifier(String value) {
                 return value == null ? "" : value.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
         }
-
-    private static double number(Map<String, Object> values, String key) {
-        return ((Number) values.get(key)).doubleValue();
     }
-}

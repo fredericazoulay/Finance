@@ -22,6 +22,7 @@ export interface BondComparablesRequest {
     faceValue: number;
     couponRate: number;
     couponFrequency: number;
+    issueDate: string;
     maturityDate: string;
     settlementDate: string;
     dayCount: string;
@@ -48,5 +49,10 @@ export interface BondComparablesResponse {
     accruedInterest: number;
     accruedDays: number;
     dayCount: string;
+    ytm: number;
+    macaulayDuration: number;
+    modifiedDuration: number;
+    convexity: number;
+    dv01: number;
   };
 }

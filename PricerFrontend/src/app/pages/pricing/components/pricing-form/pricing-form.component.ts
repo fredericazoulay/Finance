@@ -27,7 +27,6 @@ export class PricingFormComponent implements OnChanges {
   marketFields: FieldConfig[] = [];
   instrumentFields: FieldConfig[] = [];
   productOptions: ProductOption[] = [];
-  pricingModelOptions: string[] = [];
   securityOptions: string[] = [];
 
   isSearchingSecurities = false;
@@ -51,9 +50,23 @@ export class PricingFormComponent implements OnChanges {
     const fields = this.pricingService.getProductFields(this.product);
     this.marketFields = fields.marketFields;
     this.instrumentFields = fields.instrumentFields;
-    this.pricingModelOptions = this.pricingService.getPricingModelOptions(this.product);
     this.securityOptions = this.pricingService.getSecurityOptions(this.product);
     this.securityResults = [];
+  }
+
+  get pricingModelOptions(): string[] {
+    const exerciseStyle = this.form?.get('exercise_style')?.value;
+    return this.product === 'EQTY_OPT' && exerciseStyle !== 'EUROPEAN'
+      ? ['BINOMIAL']
+      : this.pricingService.getPricingModelOptions(this.product);
+  }
+
+  onFieldChange(key: string): void {
+    if (key !== 'exercise_style') return;
+
+    if (this.form.get(key)?.value !== 'EUROPEAN') {
+      this.form.patchValue({ pricing_model: 'BINOMIAL' });
+    }
   }
 
   onProductSelect(newProduct: string): void {

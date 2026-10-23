@@ -137,10 +137,10 @@ export class FinancialChartComponent implements AfterViewInit, OnChanges, OnDest
   private buildOptionsPayoffConfig(textColor: string, gridColor: string): ChartConfiguration {
     const spot = this.effectiveSpot;
     const strike = Number(this.formValues['strike'] || 100);
-    const rate = Number(this.formValues['risk_free_rate'] || 0.05);
-    const vol = Number(this.formValues['implied_volatility'] || 0.2);
+    const rate = this.percentageAsDecimal('risk_free_rate', 5);
+    const vol = this.percentageAsDecimal('implied_volatility', 20);
     const t = Number(this.formValues['maturity_years'] || 1);
-    const q = Number(this.formValues['dividend_yield'] || 0);
+    const q = this.percentageAsDecimal('dividend_yield', 0);
     const isCall = (this.formValues['option_type'] || 'CALL') === 'CALL';
 
     const bs = this.mathService.calculateBlackScholes(spot, strike, rate, vol, t, q, isCall);
@@ -216,8 +216,9 @@ export class FinancialChartComponent implements AfterViewInit, OnChanges, OnDest
 
   private buildYieldCurveConfig(textColor: string, gridColor: string): ChartConfiguration {
     this.greeks = null;
-    const tenors = (this.formValues['tenors'] || [1, 2, 3, 5, 7, 10]) as number[];
-    const rates = (this.formValues['discount_curve_rates'] || [0.018, 0.022, 0.025, 0.029, 0.031, 0.033]) as number[];
+    const tenors = this.numberList('tenors', [1, 2, 3, 5, 7, 10]);
+    const rates = this.numberList('discount_curve_rates', [1.8, 2.2, 2.5, 2.9, 3.1, 3.3])
+      .map(rate => rate / 100);
 
     const labels = tenors.map(t => `${t}Y`);
     const ratePercent = rates.map(r => Number((r * 100).toFixed(3)));
@@ -294,9 +295,9 @@ export class FinancialChartComponent implements AfterViewInit, OnChanges, OnDest
   private buildBondCashFlowConfig(textColor: string, gridColor: string): ChartConfiguration {
     this.greeks = null;
     const maturity = Number(this.formValues['maturity_years'] || 5);
-    const ytm = Number(this.formValues['yield_to_maturity'] || 0.035);
+    const ytm = this.percentageAsDecimal('yield_to_maturity', 3.5);
     const faceValue = Number(this.formValues['face_value'] || 100);
-    const couponRate = Number(this.formValues['coupon_rate'] || 0.04);
+    const couponRate = this.percentageAsDecimal('coupon_rate', 4);
     const annualCoupon = faceValue * couponRate;
 
     const years = Array.from({ length: maturity }, (_, i) => i + 1);
@@ -342,11 +343,28 @@ export class FinancialChartComponent implements AfterViewInit, OnChanges, OnDest
     };
   }
 
+  private percentageAsDecimal(key: string, fallback: number): number {
+    const value = this.formValues[key];
+    const parsed = value == null || value === '' ? fallback : Number(value);
+    return Number.isFinite(parsed) ? parsed / 100 : fallback / 100;
+  }
+
+  private numberList(key: string, fallback: number[]): number[] {
+    const value = this.formValues[key];
+    let parts: unknown[];
+    if (Array.isArray(value)) parts = value;
+    else if (typeof value === 'string') parts = value.split(/[,;\s]+/).filter(Boolean);
+    else parts = fallback;
+
+    const parsed = parts.map(Number).filter(Number.isFinite);
+    return parsed.length ? parsed : fallback;
+  }
+
   private buildForwardCurveConfig(textColor: string, gridColor: string): ChartConfiguration {
     this.greeks = null;
     const spot = Number(this.formValues['spot'] || 1.08);
-    const domRate = Number(this.formValues['domestic_rate'] || 0.05);
-    const forRate = Number(this.formValues['foreign_rate'] || 0.02);
+    const domRate = this.percentageAsDecimal('domestic_rate', 5);
+    const forRate = this.percentageAsDecimal('foreign_rate', 2);
 
     const periods = [0.25, 0.5, 1, 2, 3, 5];
     const forwardPrices = periods.map(t => Number((spot * Math.exp((domRate - forRate) * t)).toFixed(5)));

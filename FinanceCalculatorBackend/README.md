@@ -485,10 +485,11 @@ Laissez vide pour calculer
 Coupon annuel
 5
 
-%
-Fréquence des coupons
+% / $
 
-Semestriellement
+Fréquence des coupons
+Annuellement / Semestriellement / Trimestriellement / Mensuellement
+
 Calculer
 Effacer
 
@@ -497,28 +498,22 @@ Valeur nominale ($)
 100
 Rendement (%)
 6
+
 Coupon annuel
-5
+5 : % / $
 
-%
 Fréquence des coupons
+Annuellement / Semestriellement / Trimestriellement / Mensuellement
 
-Semestriellement
 Date d'échéance
-
 23/10/2029
+
 Date de règlement
-
 23/10/2026
+
 Convention de calcul des jours
+30/360 / Actual/360 / Actual/365 / Actual/Actual
 
-30/360
-
-Actual/360
-
-Actual/365
-
-Actual/Actual
 Calculer
 Effacer
 
@@ -567,3 +562,7 @@ La convention appropriée dépend du type d'obligation et du marché. Les obliga
 
 Puis-je utiliser cette calculatrice pour des obligations zéro coupon ?
 Oui, il suffit de définir le coupon annuel à 0. Les obligations zéro coupon ne versent pas d'intérêts périodiques mais sont vendues à un prix inférieur à la valeur nominale. La calculatrice déterminera le prix en fonction du rendement et du temps jusqu'à l'échéance.
+
+
+Calculatrice de base : nominal, rendement, coupon en pourcentage et fréquence sont présents. Le prix est calculé en résultat, mais il n’est pas une entrée : l’application ne permet pas de laisser un des champs prix, rendement ou échéance vide pour le résoudre. Le coupon en montant fixe ($) n’est pas proposé non plus.
+Tarification avancée : nominal, rendement, coupon, fréquence, date d’échéance, date de règlement et convention de jour sont présents dans le calculateur bond. En revanche, Actual/Actual n’est pas pris en charge par ce calculateur; les conventions existantes sont 30/360, Actual/360 et Actual/365. Le YTM doit être fourni : il n’est pas calculé à partir d’un prix de marché.

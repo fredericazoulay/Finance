@@ -17,9 +17,7 @@ interface BondComparableRow extends BondComparable {
 type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
 type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
-type BondTargetForm = BondComparablesRequest['target'] & {
-  model: 'BLACK_SCHOLES' | 'BINOMIAL' | 'AMERICAN' | 'BERMUDAN';
-};
+type BondTargetForm = BondComparablesRequest['target'];
 
 interface PersistedBondComparablesState {
   version: 1;
@@ -64,10 +62,10 @@ export class BondComparablesComponent {
     faceValue: 100,
     couponRate: 4,
     couponFrequency: 2,
+    issueDate: '',
     maturityDate: '',
     settlementDate: new Date().toISOString().slice(0, 10),
-    dayCount: '30/360',
-    model: 'BLACK_SCHOLES'
+    dayCount: '30/360'
   };
   maturityToleranceMonths = 24;
   panel: BondComparable[] = [];
@@ -155,8 +153,8 @@ export class BondComparablesComponent {
   price(): void {
     if (this.isLoading) return;
     this.error = '';
-    if (!this.target.securityId.trim() || !this.target.currency.trim() || !this.target.maturityDate || !this.target.settlementDate) {
-      this.error = 'Renseignez l’identifiant, la devise et les dates de l’obligation cible.';
+    if (!this.target.securityId.trim() || !this.target.currency.trim() || !this.target.issueDate || !this.target.maturityDate || !this.target.settlementDate) {
+      this.error = 'Renseignez l’identifiant, la devise, la date d’émission et les dates de l’obligation cible.';
       return;
     }
     if (!this.panel.length) {
@@ -174,6 +172,7 @@ export class BondComparablesComponent {
         faceValue: this.target.faceValue,
         couponRate: Number(this.target.couponRate) / 100,
         couponFrequency: this.target.couponFrequency,
+        issueDate: this.target.issueDate,
         maturityDate: this.target.maturityDate,
         settlementDate: this.target.settlementDate,
         dayCount: this.target.dayCount
@@ -433,7 +432,21 @@ export class BondComparablesComponent {
   }
 
   private restorePricingResult(state: Partial<PersistedBondComparablesState>): void {
-    if (state.result && Array.isArray(state.result.panel)) this.result = state.result;
+    const valuation = state.result?.valuation;
+    const metrics = valuation && [
+      valuation.ytm,
+      valuation.macaulayDuration,
+      valuation.modifiedDuration,
+      valuation.convexity,
+      valuation.dv01
+    ];
+    if (state.result && Array.isArray(state.result.panel) && metrics?.every(Number.isFinite)) {
+      this.result = state.result;
+    } else {
+      this.result = null;
+      this.lastCalculatedAt = null;
+      return;
+    }
     if (typeof state.lastCalculatedAt !== 'string') return;
 
     const calculatedAt = new Date(state.lastCalculatedAt);

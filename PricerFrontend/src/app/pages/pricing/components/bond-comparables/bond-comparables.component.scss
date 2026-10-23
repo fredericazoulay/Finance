@@ -83,6 +83,10 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 .price-block strong { font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .price-block small, .winner-block small { color: var(--muted); font-size: 10px; }
 .winner-block strong { color: var(--green); font-size: 15px; }
+.analytics-grid { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.analytics-item { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 5px; }
+.analytics-item span { color: var(--muted); font-size: 10px; }
+.analytics-item strong { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .calculated-at { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
 .risk-note { grid-column: 1 / -1; margin: 12px 0 0; color: #d5c7a5; font-size: 11px; line-height: 1.5; }
 
@@ -94,6 +98,7 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 @media (max-width: 1050px) {
   .target-grid { grid-template-columns: repeat(3, minmax(125px, 1fr)); }
   .result-section { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
+  .analytics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .result-lead { grid-column: 1 / -1; }
   .result-lead p:last-child { max-width: 580px; }
 }
@@ -107,6 +112,7 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
   .panel-action-area { width: 100%; align-items: flex-start; }
   .tolerance-control { width: 100%; }
   .result-section { grid-template-columns: 1fr; gap: 14px; }
+  .analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .result-lead { grid-column: auto; }
   .price-block, .winner-block { min-height: 0; border-left: 0; border-top: 1px solid var(--line); padding: 12px 0 0; }
 }
