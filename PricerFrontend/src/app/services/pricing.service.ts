@@ -20,7 +20,7 @@ export class PricingService {
   ];
 
   constructor(private readonly http: HttpClient) {
-    this.checkApiHealth();
+    this.checkApiHealth().subscribe();
   }
 
   get apiOnline(): boolean {

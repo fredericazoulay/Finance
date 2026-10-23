@@ -12,6 +12,9 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final String STATUS_KEY = "status";
+    private static final String MESSAGE_KEY = "message";
+    private static final String ERROR_STATUS = "ERROR";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
@@ -22,8 +25,8 @@ public class GlobalExceptionHandler {
         });
 
         return ResponseEntity.badRequest().body(Map.of(
-                "status", "ERROR",
-                "message", "Validation failed",
+            STATUS_KEY, ERROR_STATUS,
+            MESSAGE_KEY, "Validation failed",
                 "errors", errors
         ));
     }
@@ -31,16 +34,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleInvalidRequest(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(Map.of(
-                "status", "ERROR",
-                "message", ex.getMessage() == null ? "Invalid request" : ex.getMessage()
+            STATUS_KEY, ERROR_STATUS,
+            MESSAGE_KEY, ex.getMessage() == null ? "Invalid request" : ex.getMessage()
         ));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "status", "ERROR",
-                "message", ex.getMessage()
+            STATUS_KEY, ERROR_STATUS,
+            MESSAGE_KEY, ex.getMessage()
         ));
     }
 }

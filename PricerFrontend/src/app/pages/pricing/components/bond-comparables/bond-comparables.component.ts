@@ -5,12 +5,15 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { BondComparable, BondComparablesResponse } from '../../../../models/bond-comparables.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
+import { PricingService } from '../../../../services/pricing.service';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
   selected: boolean;
   exclusionReason: string | null;
 }
+
+type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
 
 @Component({
   selector: 'app-bond-comparables',
@@ -37,13 +40,25 @@ export class BondComparablesComponent {
   maturityToleranceMonths = 24;
   panel: BondComparable[] = [];
   result: BondComparablesResponse | null = null;
+  lastCalculatedAt: Date | null = null;
   error = '';
   importError = '';
+  exportSuccess = '';
   isLoading = false;
   isImporting = false;
+  isExporting = false;
+  exportError = '';
+  filters: Record<BondColumn, string> = {
+    securityId: '', issuer: '', currency: '', maturityDate: '', rating: '', yieldToMaturity: '', source: '', eligibility: ''
+  };
+  yieldMinimum = '';
+  yieldMaximum = '';
+  sortColumn: BondColumn = 'yieldToMaturity';
+  sortDirection: 1 | -1 = -1;
 
   constructor(
     private readonly comparablesService: BondComparablesService,
+    private readonly pricingService: PricingService,
     private readonly cdr: ChangeDetectorRef
   ) {}
 
@@ -96,6 +111,7 @@ export class BondComparablesComponent {
     if (this.isLoading) return;
     this.error = '';
     this.result = null;
+    this.lastCalculatedAt = null;
     if (!this.target.securityId.trim() || !this.target.currency.trim() || !this.target.maturityDate || !this.target.settlementDate) {
       this.error = 'Renseignez l’identifiant, la devise et les dates de l’obligation cible.';
       return;
@@ -117,16 +133,19 @@ export class BondComparablesComponent {
     })).subscribe({
       next: result => {
         this.result = result;
+        this.lastCalculatedAt = new Date();
+        this.pricingService.setApiOnline(true);
         this.cdr.detectChanges();
       },
       error: (error: HttpErrorResponse) => {
+        this.pricingService.setApiOnline(error instanceof HttpErrorResponse && error.status !== 0);
         const serverMessage = typeof error.error?.message === 'string' ? error.error.message : '';
         if (error.status === 0) {
           this.error = 'API inaccessible. Vérifiez que le backend répond sur le port 9092.';
         } else if (error.status === 403) {
           this.error = 'Accès refusé par le backend (403). Vérifiez l’origine CORS autorisée.';
         } else if (serverMessage === 'No eligible comparable bonds in the panel') {
-          this.error = 'Aucun comparable éligible : vérifiez la devise et la tolérance d’échéance du panel.';
+          this.error = 'Aucun comparable distinct de la cible : vérifiez la devise et l’échéance, augmentez la tolérance ou importez d’autres obligations.';
         } else {
           this.error = serverMessage || 'Le calcul du panel a échoué. Vérifiez les données importées.';
         }
@@ -140,6 +159,134 @@ export class BondComparablesComponent {
       return this.result.panel.map(item => ({ ...item.bond, eligible: item.eligible, selected: item.selected, exclusionReason: item.exclusionReason }));
     }
     return this.panel.map(bond => ({ ...bond, eligible: null, selected: false, exclusionReason: null }));
+  }
+
+  get filteredPanelRows(): BondComparableRow[] {
+    return this.panelRows
+      .filter(row => (Object.keys(this.filters) as BondColumn[]).every(column => {
+        const filter = this.filters[column].trim().toLocaleLowerCase();
+        if (column === 'yieldToMaturity') {
+          const yieldPercent = row.yieldToMaturity * 100;
+          const minimum = this.yieldMinimum === '' ? null : Number(this.yieldMinimum);
+          const maximum = this.yieldMaximum === '' ? null : Number(this.yieldMaximum);
+          return (minimum === null || yieldPercent >= minimum) && (maximum === null || yieldPercent <= maximum);
+        }
+        if (column === 'eligibility') return !filter || this.eligibilityFilterValue(row) === filter;
+        if (column === 'currency') return !filter || row.currency.toLocaleLowerCase() === filter;
+        return !filter || this.columnValue(row, column).toLocaleLowerCase().includes(filter);
+      }))
+      .sort((left, right) => this.compareRows(left, right, this.sortColumn) * this.sortDirection);
+  }
+
+  sortBy(column: BondColumn): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 1 ? -1 : 1;
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = column === 'yieldToMaturity' ? -1 : 1;
+    }
+  }
+
+  sortIndicator(column: BondColumn): string {
+    if (this.sortColumn !== column) return '↕';
+    return this.sortDirection === 1 ? '↑' : '↓';
+  }
+
+  clearFilters(): void {
+    for (const column of Object.keys(this.filters) as BondColumn[]) this.filters[column] = '';
+    this.yieldMinimum = '';
+    this.yieldMaximum = '';
+  }
+
+  invalidateResult(): void {
+    this.result = null;
+    this.lastCalculatedAt = null;
+  }
+
+  async exportXlsx(): Promise<void> {
+    if (!this.filteredPanelRows.length || this.isExporting) return;
+
+    this.isExporting = true;
+    this.exportError = '';
+    this.exportSuccess = '';
+    try {
+      const XLSX = await import('xlsx-js-style');
+      const workbook = XLSX.utils.book_new();
+      this.appendPanelSheet(XLSX, workbook);
+      this.appendPricingSheet(XLSX, workbook);
+
+      const fileDate = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `bond-comparables-${this.target.securityId || 'panel'}-${fileDate}.xlsx`);
+      this.exportSuccess = 'Le fichier Excel a été téléchargé.';
+    } catch {
+      this.exportError = 'L’export Excel a échoué. Réessayez ou vérifiez le navigateur.';
+    } finally {
+      this.isExporting = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private appendPanelSheet(xlsx: typeof import('xlsx-js-style'), workbook: import('xlsx-js-style').WorkBook): void {
+    const rows = this.filteredPanelRows.map(row => ({
+        Identifiant: row.securityId,
+        Nom: row.name,
+        Emetteur: row.issuer ?? '',
+        Devise: row.currency,
+        Echeance: new Date(`${row.maturityDate}T00:00:00`),
+        Notation: row.rating ?? '',
+        YTM: row.yieldToMaturity,
+        PrixMarche: row.marketPrice ?? '',
+        Source: row.source ?? '',
+        DateDonnees: row.asOf && /^\d{4}-\d{2}-\d{2}$/.test(row.asOf) ? new Date(`${row.asOf}T00:00:00`) : row.asOf ?? '',
+        Eligible: row.eligible ?? '',
+        Retenu: row.selected,
+        MotifExclusion: row.exclusionReason ?? ''
+    }));
+    const sheet = xlsx.utils.json_to_sheet(rows);
+    sheet['!cols'] = [
+      { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
+      { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 38 }
+    ];
+    this.stylePanelSheet(xlsx, sheet);
+    xlsx.utils.book_append_sheet(workbook, sheet, 'Panel');
+  }
+
+  private stylePanelSheet(xlsx: typeof import('xlsx-js-style'), sheet: import('xlsx-js-style').WorkSheet): void {
+    const range = xlsx.utils.decode_range(sheet['!ref'] ?? 'A1');
+    for (let column = 0; column <= range.e.c; column++) {
+      const header = sheet[xlsx.utils.encode_cell({ r: 0, c: column })];
+      if (header) header.s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '234B38' } } };
+    }
+    for (let row = 1; row <= range.e.r; row++) {
+      const yieldCell = sheet[xlsx.utils.encode_cell({ r: row, c: 6 })];
+      if (yieldCell) yieldCell.z = '0.00%';
+      const maturityCell = sheet[xlsx.utils.encode_cell({ r: row, c: 4 })];
+      if (maturityCell) maturityCell.z = 'dd/mm/yyyy';
+      const asOfCell = sheet[xlsx.utils.encode_cell({ r: row, c: 9 })];
+      if (asOfCell?.t === 'd') asOfCell.z = 'dd/mm/yyyy';
+    }
+  }
+
+  private appendPricingSheet(xlsx: typeof import('xlsx-js-style'), workbook: import('xlsx-js-style').WorkBook): void {
+    if (!this.result) return;
+    const summary = [{
+      Cible: this.target.securityId,
+      Devise: this.result.currency,
+      ComparableRetenu: this.result.bestYieldSecurityId,
+      YTMApplique: this.result.appliedYield,
+      PrixClean: this.result.valuation.cleanPrice,
+      PrixDirty: this.result.valuation.dirtyPrice,
+      InteretsCourus: this.result.valuation.accruedInterest,
+      JoursCourus: this.result.valuation.accruedDays,
+      DayCount: this.result.valuation.dayCount,
+      ToleranceEcheanceMois: this.result.maturityToleranceMonths
+    }];
+    const sheet = xlsx.utils.json_to_sheet(summary);
+    sheet['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 26 }];
+    for (const [cell, format] of [['D2', '0.00%'], ['E2', '0.0000'], ['F2', '0.0000'], ['G2', '0.0000']] as const) {
+      if (sheet[cell]) sheet[cell].z = format;
+    }
+    xlsx.utils.book_append_sheet(workbook, sheet, 'Pricing');
   }
 
   get currencies(): string[] {
@@ -165,6 +312,7 @@ export class BondComparablesComponent {
       couponFrequency: bond.couponFrequency ?? this.target.couponFrequency
     };
     this.result = null;
+    this.lastCalculatedAt = null;
     this.error = '';
   }
 
@@ -239,5 +387,34 @@ export class BondComparablesComponent {
 
   private normalizeKey(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  private columnValue(row: BondComparableRow, column: BondColumn): string {
+    switch (column) {
+      case 'securityId': return `${row.securityId} ${row.name}`;
+      case 'issuer': return row.issuer ?? '';
+      case 'currency': return row.currency;
+      case 'maturityDate': return row.maturityDate;
+      case 'rating': return row.rating ?? '';
+      case 'yieldToMaturity': return `${row.yieldToMaturity} ${row.yieldToMaturity * 100}`;
+      case 'source': return `${row.source ?? ''} ${row.asOf ?? ''}`;
+      case 'eligibility':
+        if (row.selected) return 'meilleur ytm';
+        if (row.eligible === false) return row.exclusionReason ?? 'exclu';
+        return row.eligible ? 'comparable' : 'a analyser';
+    }
+  }
+
+  private eligibilityFilterValue(row: BondComparableRow): string {
+    if (row.selected) return 'best';
+    if (row.eligible === false) return 'excluded';
+    return row.eligible ? 'eligible' : 'pending';
+  }
+
+  private compareRows(left: BondComparableRow, right: BondComparableRow, column: BondColumn): number {
+    const leftValue = column === 'eligibility' ? this.columnValue(left, column) : left[column];
+    const rightValue = column === 'eligibility' ? this.columnValue(right, column) : right[column];
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') return leftValue - rightValue;
+    return String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
   }
 }

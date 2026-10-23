@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -39,6 +40,12 @@ import java.util.Map;
 @RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:4200")
 public class PricingController {
+        private static final String MESSAGE_KEY = "message";
+        private static final String SUCCESS_STATUS = "SUCCESS";
+        private static final String PRICE_KEY = "price";
+        private static final String CURRENCY_KEY = "currency";
+        private static final String PRICING_MODEL_KEY = "pricing_model";
+        private static final String PRODUCT_KEY = "product";
         private final ObjectMapper objectMapper;
         private final HttpClient yahooClient = HttpClient.newHttpClient();
 
@@ -52,9 +59,9 @@ public class PricingController {
     }
 
         @GetMapping("/securities/search")
-        public ResponseEntity<?> searchSecurities(@RequestParam String q) {
+        public ResponseEntity<Object> searchSecurities(@RequestParam String q) {
                 if (q == null || q.isBlank()) {
-                        return ResponseEntity.badRequest().body(Map.of("message", "Query q is required"));
+                        return ResponseEntity.badRequest().body(Map.of(MESSAGE_KEY, "Query q is required"));
                 }
 
                 try {
@@ -68,17 +75,17 @@ public class PricingController {
                         HttpResponse<String> yahooResponse = yahooClient.send(request, HttpResponse.BodyHandlers.ofString());
                         JsonNode body = objectMapper.readTree(yahooResponse.body());
                         if (yahooResponse.statusCode() >= 200 && yahooResponse.statusCode() < 300) {
-                                return ResponseEntity.ok(body);
+                                return ResponseEntity.ok().body(body);
                         }
                         return ResponseEntity.status(502).body(Map.of(
-                                        "message", "Yahoo Finance search failed",
+                                        MESSAGE_KEY, "Yahoo Finance search failed",
                                         "upstream_status", yahooResponse.statusCode()
                         ));
                 } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
-                        return ResponseEntity.status(502).body(Map.of("message", "Yahoo Finance search interrupted"));
+                        return ResponseEntity.status(502).body(Map.of(MESSAGE_KEY, "Yahoo Finance search interrupted"));
                 } catch (Exception exception) {
-                        return ResponseEntity.status(502).body(Map.of("message", "Yahoo Finance search unavailable"));
+                        return ResponseEntity.status(502).body(Map.of(MESSAGE_KEY, "Yahoo Finance search unavailable"));
                 }
         }
 
@@ -96,8 +103,8 @@ public class PricingController {
 
     @PostMapping({"/v1/blp/pricing/equity-option"})
     public ResponseEntity<BloombergPricingResponse> priceBloombergOption(@Valid @RequestBody BloombergPricingRequest request) {
-        BloombergInstrument instrument = (BloombergInstrument) request.instrument();
-        BloombergMarketData marketData = (BloombergMarketData) request.marketData();
+        BloombergInstrument instrument = request.instrument();
+        BloombergMarketData marketData = request.marketData();
 
         Option option = new Option(
                 instrument.strike(),
@@ -116,23 +123,23 @@ public class PricingController {
 
         BloombergPricingResponse response = new BloombergPricingResponse(
                 request.requestId(),
-                "SUCCESS",
-                OffsetDateTime.now(),
+                SUCCESS_STATUS,
+                OffsetDateTime.now(ZoneOffset.UTC),
                 request.securityId(),
                 request.securityName(),
                 "EQTY_OPT",
                 request.curveName(),
                 request.marketDataSource(),
-                Map.of("price", price, "currency", "USD"),
-                Map.of("pricing_model", model.name())
+                Map.of(PRICE_KEY, price, CURRENCY_KEY, "USD"),
+                Map.of(PRICING_MODEL_KEY, model.name())
         );
         return ResponseEntity.ok(response);
     }
 
     @PostMapping({"/v1/blp/pricing/irs"})
     public ResponseEntity<BloombergPricingResponse> priceBloombergSwap(@Valid @RequestBody BloombergPricingRequest request) {
-        BloombergInstrument instrument = (BloombergInstrument) request.instrument();
-        BloombergMarketData marketData = (BloombergMarketData) request.marketData();
+        BloombergInstrument instrument = request.instrument();
+        BloombergMarketData marketData = request.marketData();
 
         DiscountCurve curve = DiscountCurve.bootstrapParSwaps(
                 marketData.tenors(),
@@ -151,23 +158,23 @@ public class PricingController {
 
         BloombergPricingResponse response = new BloombergPricingResponse(
                 request.requestId(),
-                "SUCCESS",
-                OffsetDateTime.now(),
+                SUCCESS_STATUS,
+                OffsetDateTime.now(ZoneOffset.UTC),
                 request.securityId(),
                 request.securityName(),
                 "IRS",
                 request.curveName(),
                 request.marketDataSource(),
-                Map.of("par_rate", parRate, "present_value", pv, "currency", "USD"),
-                Map.of("pricing_model", request.pricingModel())
+                Map.of("par_rate", parRate, "present_value", pv, CURRENCY_KEY, "USD"),
+                Map.of(PRICING_MODEL_KEY, request.pricingModel())
         );
         return ResponseEntity.ok(response);
     }
 
     @PostMapping({"/v1/blp/pricing/cds"})
     public ResponseEntity<BloombergPricingResponse> priceBloombergCds(@Valid @RequestBody BloombergPricingRequest request) {
-        BloombergInstrument instrument = (BloombergInstrument) request.instrument();
-        BloombergMarketData marketData = (BloombergMarketData) request.marketData();
+        BloombergInstrument instrument = request.instrument();
+        BloombergMarketData marketData = request.marketData();
 
         CreditDefaultSwap cds = new CreditDefaultSwap(
                 instrument.notional(),
@@ -185,23 +192,23 @@ public class PricingController {
 
         BloombergPricingResponse response = new BloombergPricingResponse(
                 request.requestId(),
-                "SUCCESS",
-                OffsetDateTime.now(),
+                SUCCESS_STATUS,
+                OffsetDateTime.now(ZoneOffset.UTC),
                 request.securityId(),
                 request.securityName(),
                 "CDS",
                 request.curveName(),
                 request.marketDataSource(),
-                Map.of("implied_hazard_rate", impliedHazard, "currency", "USD"),
-                Map.of("pricing_model", request.pricingModel())
+                Map.of("implied_hazard_rate", impliedHazard, CURRENCY_KEY, "USD"),
+                Map.of(PRICING_MODEL_KEY, request.pricingModel())
         );
         return ResponseEntity.ok(response);
     }
 
     @PostMapping({"/v1/blp/pricing/fx-forward"})
     public ResponseEntity<BloombergPricingResponse> priceBloombergFxForward(@Valid @RequestBody BloombergPricingRequest request) {
-        BloombergInstrument instrument = (BloombergInstrument) request.instrument();
-        BloombergMarketData marketData = (BloombergMarketData) request.marketData();
+        BloombergInstrument instrument = request.instrument();
+        BloombergMarketData marketData = request.marketData();
 
         double forward = FxForwardPricer.forward(
                 marketData.spot(),
@@ -212,15 +219,15 @@ public class PricingController {
 
         BloombergPricingResponse response = new BloombergPricingResponse(
                 request.requestId(),
-                "SUCCESS",
-                OffsetDateTime.now(),
+                SUCCESS_STATUS,
+                OffsetDateTime.now(ZoneOffset.UTC),
                 request.securityId(),
                 request.securityName(),
                 "FXC",
                 request.curveName(),
                 request.marketDataSource(),
-                Map.of("forward_price", forward, "currency", "USD"),
-                Map.of("pricing_model", request.pricingModel())
+                Map.of("forward_price", forward, CURRENCY_KEY, "USD"),
+                Map.of(PRICING_MODEL_KEY, request.pricingModel())
         );
         return ResponseEntity.ok(response);
     }
@@ -233,10 +240,10 @@ public class PricingController {
         double price = model.price(option, marketData);
 
         return ResponseEntity.ok(Map.of(
-                "product", "EQUITY_OPTION",
-                "pricing_model", model.name(),
-                "price", price,
-                "currency", "USD"
+                PRODUCT_KEY, "EQUITY_OPTION",
+                PRICING_MODEL_KEY, model.name(),
+                PRICE_KEY, price,
+                CURRENCY_KEY, "USD"
         ));
     }
 
@@ -248,10 +255,10 @@ public class PricingController {
         double price = model.price(bond, marketData);
 
         return ResponseEntity.ok(Map.of(
-                "product", "FIXED_INCOME_BOND",
-                "pricing_model", model.name(),
-                "price", price,
-                "currency", "USD"
+                PRODUCT_KEY, "FIXED_INCOME_BOND",
+                PRICING_MODEL_KEY, model.name(),
+                PRICE_KEY, price,
+                CURRENCY_KEY, "USD"
         ));
     }
 
@@ -263,18 +270,18 @@ public class PricingController {
         double price = model.price(stock, marketData);
 
         return ResponseEntity.ok(Map.of(
-                "product", "EQUITY",
-                "pricing_model", model.name(),
-                "price", price,
-                "currency", "USD"
+                PRODUCT_KEY, "EQUITY",
+                PRICING_MODEL_KEY, model.name(),
+                PRICE_KEY, price,
+                CURRENCY_KEY, "USD"
         ));
     }
 
         @PostMapping({"/v1/bloomberg/pricing/irs"})
     public ResponseEntity<Map<String, Object>> priceSwap(@Valid @RequestBody SwapRequest request) {
         DiscountCurve curve = DiscountCurve.bootstrapParSwaps(
-                request.tenors(),
-                request.discountCurveRates(),
+                toPrimitiveArray(request.tenors()),
+                toPrimitiveArray(request.discountCurveRates()),
                 request.frequency()
         );
         double parRate = SwapPricer.parRate(request.maturityYears(), request.paymentFrequency(), curve);
@@ -282,10 +289,10 @@ public class PricingController {
         double pv = SwapPricer.presentValue(swap, curve);
 
         return ResponseEntity.ok(Map.of(
-                "product", "INTEREST_RATE_SWAP",
+                PRODUCT_KEY, "INTEREST_RATE_SWAP",
                 "par_rate", parRate,
                 "present_value", pv,
-                "currency", "USD"
+                CURRENCY_KEY, "USD"
         ));
     }
 
@@ -293,16 +300,16 @@ public class PricingController {
     public ResponseEntity<Map<String, Object>> priceCds(@Valid @RequestBody CdsRequest request) {
         CreditDefaultSwap cds = new CreditDefaultSwap(request.notional(), request.spread(), request.maturityYears(), request.paymentFrequency(), request.recoveryRate());
         DiscountCurve curve = DiscountCurve.bootstrapParSwaps(
-                request.tenors(),
-                request.discountCurveRates(),
+                toPrimitiveArray(request.tenors()),
+                toPrimitiveArray(request.discountCurveRates()),
                 request.frequency()
         );
         double impliedHazard = CdsPricer.impliedHazardRate(cds, curve);
 
         return ResponseEntity.ok(Map.of(
-                "product", "CREDIT_DEFAULT_SWAP",
+                PRODUCT_KEY, "CREDIT_DEFAULT_SWAP",
                 "implied_hazard_rate", impliedHazard,
-                "currency", "USD"
+                CURRENCY_KEY, "USD"
         ));
     }
 
@@ -310,10 +317,10 @@ public class PricingController {
     public ResponseEntity<Map<String, Object>> priceFxForward(@Valid @RequestBody FxForwardRequest request) {
         double forward = FxForwardPricer.forward(request.spot(), request.domesticRate(), request.foreignRate(), request.maturityYears());
         return ResponseEntity.ok(Map.of(
-                "product", "FX_FORWARD",
+                PRODUCT_KEY, "FX_FORWARD",
                 "pair", request.pair(),
                 "forward_price", forward,
-                "currency", "USD"
+                CURRENCY_KEY, "USD"
         ));
     }
 
@@ -346,9 +353,20 @@ public class PricingController {
             @JsonProperty("discount_rate") double discountRate
     ) {}
 
+        private static double[] toPrimitiveArray(List<Double> values) {
+                        if (values == null) return new double[0];
+                        double[] result = new double[values.size()];
+                        for (int index = 0; index < values.size(); index++) {
+                                Double value = values.get(index);
+                                if (value == null) throw new IllegalArgumentException("Curve values cannot be null");
+                                result[index] = value;
+                        }
+                        return result;
+        }
+
     public record SwapRequest(
-            @JsonProperty("tenors") double[] tenors,
-            @JsonProperty("discount_curve_rates") double[] discountCurveRates,
+                        @JsonProperty("tenors") List<Double> tenors,
+                        @JsonProperty("discount_curve_rates") List<Double> discountCurveRates,
             @JsonProperty("frequency") int frequency,
             @JsonProperty("notional") double notional,
             @JsonProperty("fixed_rate") double fixedRate,
@@ -358,8 +376,8 @@ public class PricingController {
     ) {}
 
     public record CdsRequest(
-            @JsonProperty("tenors") double[] tenors,
-            @JsonProperty("discount_curve_rates") double[] discountCurveRates,
+            @JsonProperty("tenors") List<Double> tenors,
+            @JsonProperty("discount_curve_rates") List<Double> discountCurveRates,
             @JsonProperty("frequency") int frequency,
             @JsonProperty("notional") double notional,
             @JsonProperty("spread") double spread,
@@ -378,8 +396,8 @@ public class PricingController {
 
     public record BloombergOptionRequest(
             @JsonProperty("security_name") String securityName,
-            @JsonProperty("product") String product,
-            @JsonProperty("pricing_model") String pricingModel,
+            @JsonProperty(PRODUCT_KEY) String product,
+            @JsonProperty(PRICING_MODEL_KEY) String pricingModel,
             @JsonProperty("market_data") BloombergOptionMarketData marketData,
             @JsonProperty("instrument") BloombergOptionInstrument instrument
     ) {}
@@ -400,15 +418,15 @@ public class PricingController {
 
     public record BloombergSwapRequest(
             @JsonProperty("security_name") String securityName,
-            @JsonProperty("product") String product,
-            @JsonProperty("pricing_model") String pricingModel,
+            @JsonProperty(PRODUCT_KEY) String product,
+            @JsonProperty(PRICING_MODEL_KEY) String pricingModel,
             @JsonProperty("market_data") BloombergSwapMarketData marketData,
             @JsonProperty("instrument") BloombergSwapInstrument instrument
     ) {}
 
     public record BloombergSwapMarketData(
-            @JsonProperty("tenors") double[] tenors,
-            @JsonProperty("discount_curve_rates") double[] discountCurveRates,
+            @JsonProperty("tenors") List<Double> tenors,
+            @JsonProperty("discount_curve_rates") List<Double> discountCurveRates,
             @JsonProperty("frequency") int frequency
     ) {}
 
@@ -422,15 +440,15 @@ public class PricingController {
 
     public record BloombergCdsRequest(
             @JsonProperty("security_name") String securityName,
-            @JsonProperty("product") String product,
-            @JsonProperty("pricing_model") String pricingModel,
+            @JsonProperty(PRODUCT_KEY) String product,
+            @JsonProperty(PRICING_MODEL_KEY) String pricingModel,
             @JsonProperty("market_data") BloombergCdsMarketData marketData,
             @JsonProperty("instrument") BloombergCdsInstrument instrument
     ) {}
 
     public record BloombergCdsMarketData(
-            @JsonProperty("tenors") double[] tenors,
-            @JsonProperty("discount_curve_rates") double[] discountCurveRates,
+            @JsonProperty("tenors") List<Double> tenors,
+            @JsonProperty("discount_curve_rates") List<Double> discountCurveRates,
             @JsonProperty("frequency") int frequency
     ) {}
 
@@ -444,8 +462,8 @@ public class PricingController {
 
     public record BloombergFxForwardRequest(
             @JsonProperty("security_name") String securityName,
-            @JsonProperty("product") String product,
-            @JsonProperty("pricing_model") String pricingModel,
+            @JsonProperty(PRODUCT_KEY) String product,
+            @JsonProperty(PRICING_MODEL_KEY) String pricingModel,
             @JsonProperty("market_data") BloombergFxMarketData marketData,
             @JsonProperty("instrument") BloombergFxInstrument instrument
     ) {}

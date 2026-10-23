@@ -25,7 +25,18 @@ Le parcours s’intégrerait à la page BOND de pricing-page.component.ts, avec 
 
 Le plan détaillé est enregistré dans la mémoire de session. Les décisions encore ouvertes avant implémentation sont la source des obligations et la confirmation du YTM maximal comme règle de sélection. Aucun fichier du projet n’a été modifié.
 -----------------
+Priorités
 
+Exclure l’obligation cible des comparables. La capture montre l’OAT cible aussi sélectionnée comme « Meilleur YTM ». C’est le point le plus important : si aucun autre titre n’est éligible, le calcul devrait s’arrêter et expliquer qu’il faut élargir la tolérance ou importer d’autres obligations, plutôt que de valoriser la cible à partir d’elle-même.
+
+Clarifier l’état de l’API. L’écran indique API OFFLINE alors qu’un résultat de pricing reste affiché. Il faudrait distinguer un résultat précédent d’un résultat fraîchement calculé, avec sa date, et signaler clairement quand l’API est indisponible.
+
+Améliorer les filtres. Les filtres textuels conviennent aux identifiants et émetteurs, mais la devise et l’éligibilité gagneraient à être des listes de choix; le YTM, un filtre numérique avec seuils plutôt qu’une recherche de texte.
+
+Améliorer la lisibilité. À cette résolution, les libellés, filtres et valeurs du tableau sont très petits. Augmenter légèrement la taille du texte et l’espacement des lignes rendrait le panel plus facile à comparer.
+
+Soigner l’export. Ajouter un retour de réussite après téléchargement et formater les dates, rendements et prix dans le fichier Excel rendrait l’export plus directement exploitable.
+-----------------
 Le but est de fournir une estimation précise du prix d'une obligation en utilisant les données de marché disponibles et en identifiant l'obligation la plus performante du panel.
 
 Cette approche permet de comparer les obligations sur des critères homogènes et de déterminer un prix de marché réaliste pour l'obligation cible.
