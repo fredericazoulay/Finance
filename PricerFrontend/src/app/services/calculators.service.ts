@@ -23,7 +23,7 @@ export class CalculatorsService {
         return res;
       }),
       catchError((error: HttpErrorResponse) => {
-        this.pricingService.setApiOnline(false);
+        this.pricingService.setApiOnline(error instanceof HttpErrorResponse && error.status !== 0);
         throw error;
       })
     );
@@ -47,7 +47,7 @@ export class CalculatorsService {
   }
 
   async exportScheduleToExcel(schedule: AmortizationRow[], calculatorId: string): Promise<void> {
-    if (!schedule || !schedule.length) return;
+    if (!schedule?.length) return;
 
     // Load xlsx only when exporting to avoid browser startup warnings about node polyfills.
     const XLSX = await import('xlsx-js-style');

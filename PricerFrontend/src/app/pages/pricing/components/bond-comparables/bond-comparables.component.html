@@ -1,4 +1,5 @@
 <main class="bond-screen">
+  <form class="bond-form" ngNoForm (submit)="onFormSubmit($event)">
   <header class="screen-heading">
     <div>
       <p class="eyebrow">Fixed income / valuation</p>
@@ -46,7 +47,7 @@
           <button type="button" class="secondary-button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportXlsx()">
             {{ isExporting ? 'Export…' : 'Exporter .xlsx' }}
           </button>
-          <button type="button" class="primary-button" [disabled]="isLoading || !panel.length" (click)="price()">
+          <button type="submit" class="primary-button" [disabled]="isLoading || !panel.length">
             {{ isLoading ? 'Calcul…' : 'Calculer le prix' }}
           </button>
         </div>
@@ -76,14 +77,24 @@
             <th><button type="button" class="sort-button" (click)="sortBy('eligibility')">Éligibilité {{ sortIndicator('eligibility') }}</button></th>
           </tr>
           <tr class="filter-row">
-            <td><input [(ngModel)]="filters.securityId" aria-label="Filtrer les obligations" placeholder="Filtrer" /></td>
-            <td><input [(ngModel)]="filters.issuer" aria-label="Filtrer les émetteurs" placeholder="Filtrer" /></td>
-            <td><select [(ngModel)]="filters.currency" aria-label="Filtrer les devises"><option value="">Toutes</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></td>
-            <td><input [(ngModel)]="filters.maturityDate" aria-label="Filtrer les échéances" placeholder="AAAA-MM-JJ" /></td>
-            <td><input [(ngModel)]="filters.rating" aria-label="Filtrer les notations" placeholder="Filtrer" /></td>
-            <td><div class="yield-filter"><input type="number" step="0.01" [(ngModel)]="yieldMinimum" aria-label="YTM minimum en pourcentage" placeholder="Min %" /><input type="number" step="0.01" [(ngModel)]="yieldMaximum" aria-label="YTM maximum en pourcentage" placeholder="Max %" /></div></td>
-            <td><input [(ngModel)]="filters.source" aria-label="Filtrer source et date" placeholder="Filtrer" /></td>
-            <td><select [(ngModel)]="filters.eligibility" aria-label="Filtrer l’éligibilité"><option value="">Toutes</option><option value="best">Meilleur YTM</option><option value="eligible">Comparable</option><option value="excluded">Exclue</option><option value="pending">À analyser</option></select></td>
+            <td><input [(ngModel)]="filters.securityId" (ngModelChange)="persistState()" aria-label="Filtrer les obligations" placeholder="Filtrer" /></td>
+            <td><input [(ngModel)]="filters.issuer" (ngModelChange)="persistState()" aria-label="Filtrer les émetteurs" placeholder="Filtrer" /></td>
+            <td><select [(ngModel)]="filters.currency" (ngModelChange)="persistState()" aria-label="Filtrer les devises"><option value="">Toutes</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></td>
+            <td><input [(ngModel)]="filters.maturityDate" (ngModelChange)="persistState()" aria-label="Filtrer les échéances" placeholder="AAAA-MM-JJ" /></td>
+            <td><input [(ngModel)]="filters.rating" (ngModelChange)="persistState()" aria-label="Filtrer les notations" placeholder="Filtrer" /></td>
+            <td><div class="yield-filter"><input type="number" step="0.01" [(ngModel)]="yieldMinimum" (ngModelChange)="persistState()" aria-label="YTM minimum en pourcentage" placeholder="Min %" /><input type="number" step="0.01" [(ngModel)]="yieldMaximum" (ngModelChange)="persistState()" aria-label="YTM maximum en pourcentage" placeholder="Max %" /></div></td>
+            <td><input [(ngModel)]="filters.source" (ngModelChange)="persistState()" aria-label="Filtrer source et date" placeholder="Filtrer" /></td>
+            <td class="eligibility-filter-cell">
+              <details class="eligibility-filter">
+                <summary aria-label="Filtrer les statuts d’éligibilité">{{ eligibilityFilterLabel }}</summary>
+                <div class="eligibility-options">
+                  <label *ngFor="let option of eligibilityOptions">
+                    <input type="checkbox" [checked]="eligibilityFilters.has(option.value)" [attr.aria-label]="'Filtrer ' + option.label" (change)="toggleEligibilityFilter(option.value, $event)" />
+                    <span>{{ option.label }}</span>
+                  </label>
+                </div>
+              </details>
+            </td>
           </tr>
         </thead>
         <tbody>
@@ -105,11 +116,13 @@
       <p class="eyebrow">03 / Estimation</p>
       <h2>Prix estimé de la cible</h2>
       <p>YTM du comparable au rendement maximal, même devise, échéance à ±{{ pricing.maturityToleranceMonths }} mois.</p>
-      <small class="calculated-at" *ngIf="lastCalculatedAt">Calcul effectué le {{ lastCalculatedAt | date:'dd/MM/yyyy à HH:mm:ss' }}</small>
+      <small class="calculated-at" *ngIf="lastCalculatedAt">Dernier calcul réussi : {{ lastCalculatedAt | date:'dd/MM/yyyy à HH:mm:ss' }}</small>
+      <p class="message stale-result" *ngIf="(apiOnline$ | async) === false">API indisponible. Ce résultat précédent est conservé et n’a pas été recalculé.</p>
     </div>
     <div class="price-block"><span>Prix clean</span><strong>{{ pricing.valuation.cleanPrice | number:'1.2-4' }}</strong><small>{{ pricing.currency }} / {{ target.faceValue | number:'1.0-2' }} nominal</small></div>
     <div class="price-block"><span>Prix dirty</span><strong>{{ pricing.valuation.dirtyPrice | number:'1.2-4' }}</strong><small>Intérêts courus : {{ pricing.valuation.accruedInterest | number:'1.2-4' }}</small></div>
     <div class="winner-block"><span>Meilleur rendement du panel</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
     <p class="risk-note">Le rendement maximal ne signifie pas nécessairement une meilleure qualité de crédit ni un meilleur profil risque/rendement. Les résultats dépendent de la qualité et de la fraîcheur des données importées.</p>
   </section>
+  </form>
 </main>

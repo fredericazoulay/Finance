@@ -43,12 +43,12 @@
   align-items: center;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 0, 0, 0.12);
-  color: #ff7d7d;
+  background: #fce8e8;
+  color: #7f1d1d;
 
   &.online {
-    background: rgba(58, 227, 116, 0.12);
-    color: #7af7a5;
+    background: #dcfce7;
+    color: #14532d;
   }
 
   &.light {
@@ -68,6 +68,11 @@
   }
 }
 
+.pill.control-pill {
+  background: #dcfce7;
+  color: #14532d;
+}
+
 :host-context(body.light-theme) .topbar {
   background: #ffffff;
   border-bottom-color: rgba(7, 20, 29, 0.06);
@@ -78,12 +83,17 @@
   }
 
   .pill {
-    background: rgba(7, 20, 29, 0.04);
-    color: #072024;
+    background: #fce8e8;
+    color: #7f1d1d;
 
     &.online {
-      background: rgba(58, 227, 116, 0.15);
-      color: #0b5028;
+      background: #dcfce7;
+      color: #14532d;
+    }
+
+    &.control-pill {
+      background: #dcfce7;
+      color: #14532d;
     }
   }
 

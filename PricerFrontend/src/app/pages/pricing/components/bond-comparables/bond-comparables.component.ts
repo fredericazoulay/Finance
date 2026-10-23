@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { finalize } from 'rxjs';
-import { BondComparable, BondComparablesResponse } from '../../../../models/bond-comparables.model';
+import { Observable, finalize } from 'rxjs';
+import { BondComparable, BondComparablesRequest, BondComparablesResponse } from '../../../../models/bond-comparables.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 import { PricingService } from '../../../../services/pricing.service';
 
@@ -14,6 +14,23 @@ interface BondComparableRow extends BondComparable {
 }
 
 type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
+type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
+type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
+
+interface PersistedBondComparablesState {
+  version: 1;
+  target: BondComparablesRequest['target'];
+  panel: BondComparable[];
+  result: BondComparablesResponse | null;
+  lastCalculatedAt: string | null;
+  maturityToleranceMonths: number;
+  filters: Record<TextFilterColumn, string>;
+  eligibilityFilters: EligibilityFilter[];
+  yieldMinimum: string;
+  yieldMaximum: string;
+  sortColumn: BondColumn;
+  sortDirection: 1 | -1;
+}
 
 @Component({
   selector: 'app-bond-comparables',
@@ -23,8 +40,16 @@ type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'ratin
   styleUrls: ['./bond-comparables.component.scss']
 })
 export class BondComparablesComponent {
+  private readonly storageKey = 'finance-pricer.bond-comparables.v1';
+  readonly apiOnline$: Observable<boolean>;
   private readonly commonCurrencies = ['AUD', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'JPY', 'USD'];
   private importGeneration = 0;
+  readonly eligibilityOptions = [
+    { value: 'best', label: 'Meilleur YTM' },
+    { value: 'eligible', label: 'Comparable' },
+    { value: 'excluded', label: 'Exclue' },
+    { value: 'pending', label: 'À analyser' }
+  ] as const;
 
   target = {
     securityId: '',
@@ -48,9 +73,10 @@ export class BondComparablesComponent {
   isImporting = false;
   isExporting = false;
   exportError = '';
-  filters: Record<BondColumn, string> = {
-    securityId: '', issuer: '', currency: '', maturityDate: '', rating: '', yieldToMaturity: '', source: '', eligibility: ''
+  filters: Record<TextFilterColumn, string> = {
+    securityId: '', issuer: '', currency: '', maturityDate: '', rating: '', yieldToMaturity: '', source: ''
   };
+  eligibilityFilters = new Set<EligibilityFilter>();
   yieldMinimum = '';
   yieldMaximum = '';
   sortColumn: BondColumn = 'yieldToMaturity';
@@ -60,7 +86,10 @@ export class BondComparablesComponent {
     private readonly comparablesService: BondComparablesService,
     private readonly pricingService: PricingService,
     private readonly cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.apiOnline$ = this.pricingService.apiOnline$;
+    this.restoreState();
+  }
 
   async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
@@ -71,6 +100,7 @@ export class BondComparablesComponent {
     this.isImporting = true;
     this.importError = '';
     this.result = null;
+    this.lastCalculatedAt = null;
     const timeoutId = setTimeout(() => {
       if (generation !== this.importGeneration) return;
       this.importGeneration++;
@@ -102,6 +132,7 @@ export class BondComparablesComponent {
       if (generation === this.importGeneration) {
         this.isImporting = false;
         input.value = '';
+        this.persistState();
         this.cdr.detectChanges();
       }
     }
@@ -110,8 +141,6 @@ export class BondComparablesComponent {
   price(): void {
     if (this.isLoading) return;
     this.error = '';
-    this.result = null;
-    this.lastCalculatedAt = null;
     if (!this.target.securityId.trim() || !this.target.currency.trim() || !this.target.maturityDate || !this.target.settlementDate) {
       this.error = 'Renseignez l’identifiant, la devise et les dates de l’obligation cible.';
       return;
@@ -134,6 +163,7 @@ export class BondComparablesComponent {
       next: result => {
         this.result = result;
         this.lastCalculatedAt = new Date();
+        this.persistState();
         this.pricingService.setApiOnline(true);
         this.cdr.detectChanges();
       },
@@ -163,7 +193,8 @@ export class BondComparablesComponent {
 
   get filteredPanelRows(): BondComparableRow[] {
     return this.panelRows
-      .filter(row => (Object.keys(this.filters) as BondColumn[]).every(column => {
+      .filter(row => !this.eligibilityFilters.size || this.eligibilityFilters.has(this.eligibilityFilterValue(row)))
+      .filter(row => (Object.keys(this.filters) as TextFilterColumn[]).every(column => {
         const filter = this.filters[column].trim().toLocaleLowerCase();
         if (column === 'yieldToMaturity') {
           const yieldPercent = row.yieldToMaturity * 100;
@@ -171,7 +202,6 @@ export class BondComparablesComponent {
           const maximum = this.yieldMaximum === '' ? null : Number(this.yieldMaximum);
           return (minimum === null || yieldPercent >= minimum) && (maximum === null || yieldPercent <= maximum);
         }
-        if (column === 'eligibility') return !filter || this.eligibilityFilterValue(row) === filter;
         if (column === 'currency') return !filter || row.currency.toLocaleLowerCase() === filter;
         return !filter || this.columnValue(row, column).toLocaleLowerCase().includes(filter);
       }))
@@ -185,6 +215,7 @@ export class BondComparablesComponent {
       this.sortColumn = column;
       this.sortDirection = column === 'yieldToMaturity' ? -1 : 1;
     }
+    this.persistState();
   }
 
   sortIndicator(column: BondColumn): string {
@@ -193,14 +224,37 @@ export class BondComparablesComponent {
   }
 
   clearFilters(): void {
-    for (const column of Object.keys(this.filters) as BondColumn[]) this.filters[column] = '';
+    for (const column of Object.keys(this.filters) as TextFilterColumn[]) this.filters[column] = '';
+    this.eligibilityFilters = new Set();
     this.yieldMinimum = '';
     this.yieldMaximum = '';
+    this.persistState();
+  }
+
+  toggleEligibilityFilter(value: EligibilityFilter, event: Event): void {
+    const nextFilters = new Set(this.eligibilityFilters);
+    if ((event.target as HTMLInputElement).checked) nextFilters.add(value);
+    else nextFilters.delete(value);
+    this.eligibilityFilters = nextFilters;
+    this.persistState();
+  }
+
+  get eligibilityFilterLabel(): string {
+    const count = this.eligibilityFilters.size;
+    if (count === 0) return 'Toutes';
+    if (count === 1) return '1 sélectionné';
+    return `${count} sélectionnés`;
   }
 
   invalidateResult(): void {
     this.result = null;
     this.lastCalculatedAt = null;
+    this.persistState();
+  }
+
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    this.price();
   }
 
   async exportXlsx(): Promise<void> {
@@ -260,6 +314,8 @@ export class BondComparablesComponent {
     for (let row = 1; row <= range.e.r; row++) {
       const yieldCell = sheet[xlsx.utils.encode_cell({ r: row, c: 6 })];
       if (yieldCell) yieldCell.z = '0.00%';
+      const marketPriceCell = sheet[xlsx.utils.encode_cell({ r: row, c: 7 })];
+      if (marketPriceCell && typeof marketPriceCell.v === 'number') marketPriceCell.z = '0.0000';
       const maturityCell = sheet[xlsx.utils.encode_cell({ r: row, c: 4 })];
       if (maturityCell) maturityCell.z = 'dd/mm/yyyy';
       const asOfCell = sheet[xlsx.utils.encode_cell({ r: row, c: 9 })];
@@ -279,11 +335,20 @@ export class BondComparablesComponent {
       InteretsCourus: this.result.valuation.accruedInterest,
       JoursCourus: this.result.valuation.accruedDays,
       DayCount: this.result.valuation.dayCount,
-      ToleranceEcheanceMois: this.result.maturityToleranceMonths
+      ToleranceEcheanceMois: this.result.maturityToleranceMonths,
+      EcheanceCible: new Date(`${this.target.maturityDate}T00:00:00`),
+      DateReglement: new Date(`${this.target.settlementDate}T00:00:00`),
+      DateCalcul: this.lastCalculatedAt ?? ''
     }];
     const sheet = xlsx.utils.json_to_sheet(summary);
-    sheet['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 26 }];
-    for (const [cell, format] of [['D2', '0.00%'], ['E2', '0.0000'], ['F2', '0.0000'], ['G2', '0.0000']] as const) {
+    sheet['!cols'] = [
+      { wch: 24 }, { wch: 12 }, { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+      { wch: 14 }, { wch: 14 }, { wch: 26 }, { wch: 16 }, { wch: 16 }, { wch: 20 }
+    ];
+    for (const [cell, format] of [
+      ['D2', '0.00%'], ['E2', '0.0000'], ['F2', '0.0000'], ['G2', '0.0000'],
+      ['K2', 'dd/mm/yyyy'], ['L2', 'dd/mm/yyyy'], ['M2', 'dd/mm/yyyy hh:mm']
+    ] as const) {
       if (sheet[cell]) sheet[cell].z = format;
     }
     xlsx.utils.book_append_sheet(workbook, sheet, 'Pricing');
@@ -314,6 +379,83 @@ export class BondComparablesComponent {
     this.result = null;
     this.lastCalculatedAt = null;
     this.error = '';
+    this.persistState();
+  }
+
+  private restoreState(): void {
+    try {
+      const serialized = localStorage.getItem(this.storageKey);
+      if (!serialized) return;
+
+      const state = JSON.parse(serialized) as Partial<PersistedBondComparablesState>;
+      if (state.version !== 1) return;
+      this.restoreTargetAndPanel(state);
+      this.restorePricingResult(state);
+      this.restoreFilters(state);
+      this.restoreSorting(state);
+    } catch {
+      this.result = null;
+      this.lastCalculatedAt = null;
+    }
+  }
+
+  private restoreTargetAndPanel(state: Partial<PersistedBondComparablesState>): void {
+    if (state.target && typeof state.target === 'object') this.target = { ...this.target, ...state.target };
+    if (Array.isArray(state.panel)) this.panel = state.panel;
+    if (typeof state.maturityToleranceMonths === 'number' && Number.isFinite(state.maturityToleranceMonths)) {
+      this.maturityToleranceMonths = state.maturityToleranceMonths;
+    }
+  }
+
+  private restorePricingResult(state: Partial<PersistedBondComparablesState>): void {
+    if (state.result && Array.isArray(state.result.panel)) this.result = state.result;
+    if (typeof state.lastCalculatedAt !== 'string') return;
+
+    const calculatedAt = new Date(state.lastCalculatedAt);
+    this.lastCalculatedAt = Number.isNaN(calculatedAt.getTime()) ? null : calculatedAt;
+  }
+
+  private restoreFilters(state: Partial<PersistedBondComparablesState>): void {
+    if (state.filters && typeof state.filters === 'object') {
+      for (const column of Object.keys(this.filters) as TextFilterColumn[]) {
+        if (typeof state.filters[column] === 'string') this.filters[column] = state.filters[column];
+      }
+    }
+    if (Array.isArray(state.eligibilityFilters)) {
+      this.eligibilityFilters = new Set(state.eligibilityFilters.filter(value =>
+        this.eligibilityOptions.some(option => option.value === value)
+      ));
+    }
+    if (typeof state.yieldMinimum === 'string') this.yieldMinimum = state.yieldMinimum;
+    if (typeof state.yieldMaximum === 'string') this.yieldMaximum = state.yieldMaximum;
+  }
+
+  private restoreSorting(state: Partial<PersistedBondComparablesState>): void {
+    const columns: BondColumn[] = ['securityId', 'issuer', 'currency', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
+    if (columns.includes(state.sortColumn as BondColumn)) this.sortColumn = state.sortColumn as BondColumn;
+    if (state.sortDirection === 1 || state.sortDirection === -1) this.sortDirection = state.sortDirection;
+  }
+
+  persistState(): void {
+    const state: PersistedBondComparablesState = {
+      version: 1,
+      target: this.target,
+      panel: this.panel,
+      result: this.result,
+      lastCalculatedAt: this.lastCalculatedAt?.toISOString() ?? null,
+      maturityToleranceMonths: this.maturityToleranceMonths,
+      filters: this.filters,
+      eligibilityFilters: [...this.eligibilityFilters],
+      yieldMinimum: this.yieldMinimum,
+      yieldMaximum: this.yieldMaximum,
+      sortColumn: this.sortColumn,
+      sortDirection: this.sortDirection
+    };
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(state));
+    } catch {
+      return;
+    }
   }
 
   private toComparable(row: Record<string, unknown>, index: number, xlsx: typeof import('xlsx-js-style')): BondComparable {
@@ -405,7 +547,7 @@ export class BondComparablesComponent {
     }
   }
 
-  private eligibilityFilterValue(row: BondComparableRow): string {
+  private eligibilityFilterValue(row: BondComparableRow): EligibilityFilter {
     if (row.selected) return 'best';
     if (row.eligible === false) return 'excluded';
     return row.eligible ? 'eligible' : 'pending';

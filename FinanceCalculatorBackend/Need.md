@@ -3,6 +3,113 @@ Détermination du pricing d'une obligation à partir d'un panel d'obligations co
 Prompt :
 Propose moi à partir du projet sous C:\Users\fazoulay\VSCode\Finance\PricerFrontend et C:\Users\fazoulay\VSCode\Finance\PricerBackend un écran qui récupère une liste d'obligation, qui les affichent, qui détermine le pricing d'une obligation à partir d'un panel d'obligations comparables et présente l’obligation ayant le meilleur taux de rendement du panel
 
+
+Une option est un produit dérivé qui donne à son détenteur un droit, mais pas l'obligation, d'acheter ou de vendre un actif sous-jacent à des conditions prédéfinies.
+
+Les principales caractéristiques d'une option sont :
+
+1. Type d'option
+Call : droit d'acheter le sous-jacent.
+Put : droit de vendre le sous-jacent.
+
+2. Sous-jacent
+L'actif sur lequel porte l'option :
+Action
+Indice boursier
+Obligation
+Devise
+Matière première
+Taux d'intérêt, etc.
+
+3. Prix d'exercice (Strike Price)
+Prix auquel le détenteur peut acheter ou vendre le sous-jacent.
+
+4. Date d'échéance (Maturity / Expiration Date)
+Date limite à laquelle l'option peut être exercée ou cesse d'exister.
+
+5. Prime
+Prix payé par l'acheteur de l'option au vendeur lors de la transaction.
+
+6. Style d'exercice
+Européen : exercice uniquement à l'échéance.
+Américain : exercice possible à tout moment jusqu'à l'échéance.
+Bermudéen : exercice possible à certaines dates prédéfinies.
+
+7. Quantité ou Nominal
+Nombre d'unités du sous-jacent couvertes par le contrat.
+
+8. Sens de la position
+Long Option : acheteur de l'option.
+Short Option : vendeur (émetteur) de l'option.
+
+9. Valeur intrinsèque
+Valeur immédiate de l'option si elle était exercée :
+Call : max(Spot - Strike, 0)
+Put : max(Strike - Spot, 0)
+
+10. Valeur temps
+Part de la prime liée au temps restant jusqu'à l'échéance.
+
+11. Moneyness
+Relation entre le prix du sous-jacent et le strike :
+ITM (In The Money) : option dans la monnaie.
+ATM (At The Money) : au niveau du marché.
+OTM (Out Of The Money) : hors de la monnaie.
+
+12. Volatilité
+Mesure de la variabilité attendue du sous-jacent. C'est un facteur majeur de valorisation.
+
+13. Les « Grecs »
+Mesurent la sensibilité du prix de l'option :
+Delta (Δ) : sensibilité au prix du sous-jacent.
+Gamma (Γ) : sensibilité du delta.
+Vega (ν) : sensibilité à la volatilité.
+Theta (Θ) : sensibilité à l'écoulement du temps.
+Rho (ρ) : sensibilité aux taux d'intérêt.
+
+Exemple
+
+Un Call sur l'action XYZ :
+
+Sous-jacent : Action XYZ
+Strike : 100 €
+Échéance : 2027-06-30
+Prime : 5 €
+Style : Européen
+Quantité : 100 actions
+
+Si à l'échéance l'action vaut 120 €, le gain brut est :
+
+max⁡(120−100,0)=20  €\max(120 - 100, 0) = 20\;€max(120−100,0)=20€
+
+Gain net :
+
+20−5=15  €20 - 5 = 15\;€20−5=15€
+
+par action.
+
+En finance de marché, les champs de référence d'une option sont souvent :
+
+Plain Text
+optionType
+underlying
+strike
+expiryDate
+exerciseStyle
+contractSize
+premium
+currency
+settlementType
+volatility
+delta
+gamma
+vega
+theta
+rho
+
+Ces caractéristiques constituent le minimum nécessaire pour identifier, valoriser et gérer le risque d'une option.
+
+-----------------
 Comme tu as passé les choix sans réponse, je pars sur une proposition avec des hypothèses explicites plutôt que de prétendre que le fournisseur ou la règle métier sont déjà décidés : données importées/saisies au départ, même devise et échéance/duration proche, prix cible calculé avec le YTM du comparable au rendement maximal, et ce comparable affiché distinctement. Je vérifie le contrat du calculateur qui gère déjà clean/dirty et date de règlement, puis je formalise le plan et l’écran proposé.
 
 Le calculateur financier apporte bien une meilleure base de prix : il renvoie prix clean, prix dirty et intérêts courus avec date de règlement et convention de décompte, contrairement au endpoint BOND historique. Je retiens donc cette voie pour la cible, tout en gardant une limite nette : il faudra une vraie source ou un import de cotations pour remplir les YTM du panel; la recherche Yahoo seule ne suffit pas.

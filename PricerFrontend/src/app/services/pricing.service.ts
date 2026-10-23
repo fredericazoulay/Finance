@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, map, of, timeout } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of, switchMap, timeout, timer } from 'rxjs';
 import { ChartPoint, FieldConfig, PriceResponse, ProductOption } from '../models/pricing.model';
 
 @Injectable({
@@ -20,7 +20,7 @@ export class PricingService {
   ];
 
   constructor(private readonly http: HttpClient) {
-    this.checkApiHealth().subscribe();
+    timer(0, 30000).pipe(switchMap(() => this.checkApiHealth())).subscribe();
   }
 
   get apiOnline(): boolean {
@@ -33,6 +33,7 @@ export class PricingService {
 
   checkApiHealth(): Observable<boolean> {
     return this.http.get<{ status?: string }>('/api/health').pipe(
+      timeout(5000),
       map(() => {
         this.setApiOnline(true);
         return true;
@@ -65,7 +66,7 @@ export class PricingService {
         return res;
       }),
       catchError((error: HttpErrorResponse) => {
-        this.setApiOnline(false);
+        this.setApiOnline(error instanceof HttpErrorResponse && error.status !== 0);
         throw error;
       })
     );
