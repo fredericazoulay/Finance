@@ -22,3 +22,12 @@ Cas pratiques : trois obligations doivent être pricées.
 Cas simple — de nombreux points de courbe de taux ou de spread.
 Cas intermédiaire — peu de points, mais un univers d'investissement permettant de trouver facilement des obligations comparables.
 Cas complexe — aucun point de courbe pour l'émetteur, peu ou pas de courbes pour les émetteurs comparables et très peu de titres comparables. Les caractéristiques de l'obligation à pricer sont très spécifiques et peu communes (ex : label ESG, call peu commun).
+
+=============================
+
+https://confluence.serv.cdc.fr/pages/viewpage.action?pageId=1626538620
+
+C:\Users\fazoulay\Downloads\ESCP-FINANCE\
+
+=============================
+

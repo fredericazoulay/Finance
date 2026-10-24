@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, finalize, from, map, mergeMap, of, tap, throwError, toArray } from 'rxjs';
+import { Observable, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, throwError, toArray } from 'rxjs';
 import {
   BondComparable,
   BondComparablesRequest,
@@ -13,6 +13,7 @@ import {
 import { OPTION_IMPORT_COLUMNS, OptionImportColumn, OptionImportRecord } from '../../../../models/option-import.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 import { PricingService } from '../../../../services/pricing.service';
+import { AiAssistantService, BondTargetExtractionResponse } from '../../../../services/ai-assistant.service';
 import { AiAnalysisComponent } from '../ai-analysis/ai-analysis.component';
 import { FullOptionGraphsComponent } from '../full-option-graphs/full-option-graphs.component';
 import { BondMarkowitzComponent } from '../bond-markowitz/bond-markowitz.component';
@@ -24,10 +25,11 @@ interface BondComparableRow extends BondComparable {
   exclusionReason: string | null;
 }
 
-type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
+type BondColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
 type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
+type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
 type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
@@ -39,6 +41,23 @@ interface FullOptionGroup {
   rows: OptionImportRecord[];
 }
 
+interface BondGroup {
+  key: string;
+  label: string;
+  rows: BondComparableRow[];
+}
+
+const currentLocalDate = (): string => {
+  const date = new Date();
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const formatCalendarDate = (value: string | null | undefined): string => {
+  if (!value) return '—';
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
 interface PersistedBondComparablesState {
   version: 1;
   target: BondTargetForm;
@@ -60,6 +79,10 @@ interface PersistedBondComparablesState {
   fullOptionColumnOrder?: FullOptionDisplayColumn[];
   fullOptionVisibleColumns?: FullOptionDisplayColumn[];
   alternateFullOptionRows?: boolean;
+  bondGroupColumns?: BondColumn[];
+  bondColumnOrder?: BondColumn[];
+  bondVisibleColumns?: BondColumn[];
+  alternateBondRows?: boolean;
 }
 
 @Component({
@@ -81,6 +104,17 @@ export class BondComparablesComponent {
     { value: 'pending', label: 'À analyser' }
   ] as const;
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus'];
+  readonly bondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
+  readonly bondColumnLabels: Record<BondColumn, string> = {
+    securityId: 'Obligation', issuer: 'Émetteur', currency: 'Devise', issueDate: 'Émission', settlementDate: 'Règlement',
+    maturityDate: 'Échéance', rating: 'Notation', yieldToMaturity: 'YTM', source: 'Source / date', eligibility: 'Éligibilité'
+  };
+  bondColumnOrder: BondColumn[] = [...this.bondColumns];
+  bondVisibleColumns = new Set<BondColumn>(this.bondColumnOrder);
+  alternateBondRows = false;
+  bondGroupColumns: BondColumn[] = [];
+  collapsedBondGroups = new Set<string>();
+  isBondGroupingDragOver = false;
   fullOptionColumnOrder: FullOptionDisplayColumn[] = [...this.fullOptionColumns, 'graphs'];
   fullOptionVisibleColumns = new Set<FullOptionDisplayColumn>(this.fullOptionColumnOrder);
   alternateFullOptionRows = false;
@@ -112,7 +146,7 @@ export class BondComparablesComponent {
     couponFrequency: 2,
     issueDate: '2020-10-23',
     maturityDate: '2029-10-23',
-    settlementDate: new Date().toISOString().slice(0, 10),
+    settlementDate: currentLocalDate(),
     dayCount: '30/360',
     ytm: 6,
     marketPrice: null as number | null
@@ -127,7 +161,7 @@ export class BondComparablesComponent {
     couponFrequency: 2,
     issueDate: '',
     maturityDate: '',
-    settlementDate: new Date().toISOString().slice(0, 10),
+    settlementDate: currentLocalDate(),
     dayCount: '30/360'
   };
   maturityToleranceMonths = 24;
@@ -135,6 +169,11 @@ export class BondComparablesComponent {
   fullOptions: OptionImportRecord[] = [];
   selectedFullOption: OptionImportRecord | null = null;
   fullOptionSearch = '';
+  targetDescription = '';
+  isExtractingTarget = false;
+  targetExtractionError = '';
+  targetExtractionMissingFields: string[] = [];
+  targetExtractionAmbiguities: string[] = [];
   readonly fullOptionLabels: Record<FullOptionColumn, string> = {
     optionId: 'Identifiant option',
     optionType: 'Type d’option',
@@ -182,7 +221,7 @@ export class BondComparablesComponent {
   fullOptionPricingProgress = 0;
   fullOptionPricingSummary = '';
   filters: Record<TextFilterColumn, string> = {
-    securityId: '', issuer: '', currency: '', maturityDate: '', rating: '', yieldToMaturity: '', source: ''
+    securityId: '', issuer: '', currency: '', issueDate: '', settlementDate: '', maturityDate: '', rating: '', yieldToMaturity: '', source: ''
   };
   eligibilityFilters = new Set<EligibilityFilter>();
   yieldMinimum = '';
@@ -193,6 +232,7 @@ export class BondComparablesComponent {
   constructor(
     private readonly comparablesService: BondComparablesService,
     private readonly pricingService: PricingService,
+    private readonly aiAssistantService: AiAssistantService,
     private readonly cdr: ChangeDetectorRef
   ) {
     this.apiOnline$ = this.pricingService.apiOnline$;
@@ -227,6 +267,53 @@ export class BondComparablesComponent {
     this.selectedFullOption = option;
     this.fullOptionSearch = '';
     this.setMode('comparables-full-graphs');
+  }
+
+  extractTargetFromDescription(): void {
+    const description = this.targetDescription.trim();
+    if (!description || this.isExtractingTarget) return;
+
+    this.isExtractingTarget = true;
+    this.targetExtractionError = '';
+    this.targetExtractionMissingFields = [];
+    this.targetExtractionAmbiguities = [];
+    this.aiAssistantService.extractBondTarget(description).pipe(finalize(() => {
+      this.isExtractingTarget = false;
+    })).subscribe({
+      next: extraction => this.applyTargetExtraction(extraction),
+      error: (error: HttpErrorResponse) => {
+        if (typeof error.error?.message === 'string') {
+          this.targetExtractionError = error.error.message;
+        } else if (error.status === 0) {
+          this.targetExtractionError = 'API indisponible. Vérifiez que le backend répond sur le port 9092.';
+        } else {
+          this.targetExtractionError = 'L’extraction IA a échoué. Vérifiez la description puis réessayez.';
+        }
+      }
+    });
+  }
+
+  private applyTargetExtraction(extraction: BondTargetExtractionResponse): void {
+    this.target = {
+      securityId: extraction.securityId ?? '',
+      name: extraction.name ?? '',
+      currency: extraction.currency ?? '',
+      faceValue: extraction.faceValue ?? 0,
+      couponRate: extraction.couponRate == null ? 0 : extraction.couponRate * 100,
+      couponFrequency: extraction.couponFrequency ?? 0,
+      issueDate: extraction.issueDate,
+      maturityDate: extraction.maturityDate ?? '',
+      settlementDate: extraction.settlementDate ?? '',
+      dayCount: extraction.dayCount ?? ''
+    };
+    const labels: Record<string, string> = {
+      securityId: 'Identifiant', currency: 'Devise', faceValue: 'Nominal', couponRate: 'Coupon annuel',
+      couponFrequency: 'Fréquence du coupon', maturityDate: 'Échéance', settlementDate: 'Date de règlement',
+      dayCount: 'Convention de jours'
+    };
+    this.targetExtractionMissingFields = extraction.missingFields.map(field => labels[field] ?? field);
+    this.targetExtractionAmbiguities = extraction.ambiguities;
+    this.invalidateResult();
   }
 
   get searchedFullOptions(): OptionImportRecord[] {
@@ -294,7 +381,7 @@ export class BondComparablesComponent {
     Object.assign(this.advancedForm, {
       solveFor: 'PRICE', faceValue: 100, couponRate: 5, couponFrequency: 2,
       issueDate: '2020-10-23', maturityDate: '2029-10-23',
-      settlementDate: new Date().toISOString().slice(0, 10), dayCount: '30/360',
+      settlementDate: currentLocalDate(), dayCount: '30/360',
       ytm: 6, marketPrice: null
     });
     this.directResult = null;
@@ -308,16 +395,30 @@ export class BondComparablesComponent {
     this.isDirectPricing = true;
     this.comparablesService.priceDirectly(request).pipe(finalize(() => {
       this.isDirectPricing = false;
+      this.cdr.detectChanges();
     })).subscribe({
       next: result => {
         this.directResult = result;
         this.pricingService.setApiOnline(true);
+        this.cdr.detectChanges();
       },
-      error: (error: HttpErrorResponse) => {
-        this.pricingService.setApiOnline(error.status !== 0);
-        this.directError = typeof error.error?.message === 'string'
-          ? error.error.message
-          : 'Le calcul obligataire a échoué. Vérifiez les paramètres puis réessayez.';
+      error: (error: unknown) => {
+        if (error instanceof TimeoutError) {
+          this.pricingService.setApiOnline(false);
+          this.directError = 'Le backend n’a pas répondu dans les 15 secondes. Le calcul a été réinitialisé.';
+        } else if (error instanceof HttpErrorResponse) {
+          this.pricingService.setApiOnline(error.status !== 0);
+          if (typeof error.error?.message === 'string') {
+            this.directError = error.error.message;
+          } else if (error.status === 0) {
+            this.directError = 'API inaccessible. Vérifiez que le backend répond sur le port 9092.';
+          } else {
+            this.directError = 'Le calcul obligataire a échoué. Vérifiez les paramètres puis réessayez.';
+          }
+        } else {
+          this.directError = 'Le calcul obligataire a échoué. Vérifiez les paramètres puis réessayez.';
+        }
+        this.cdr.detectChanges();
       }
     });
   }
@@ -398,8 +499,12 @@ export class BondComparablesComponent {
   price(): void {
     if (this.isLoading) return;
     this.error = '';
-    if (!this.target.securityId.trim() || !this.target.currency.trim() || !this.target.issueDate || !this.target.maturityDate || !this.target.settlementDate) {
-      this.error = 'Renseignez l’identifiant, la devise, la date d’émission et les dates de l’obligation cible.';
+    const validCouponFrequency = [1, 2, 3, 4, 6, 12].includes(Number(this.target.couponFrequency));
+    if (!this.target.securityId.trim() || !this.target.currency.trim() ||
+        !Number.isFinite(Number(this.target.faceValue)) || Number(this.target.faceValue) <= 0 ||
+        !Number.isFinite(Number(this.target.couponRate)) || Number(this.target.couponRate) < 0 ||
+        !validCouponFrequency || !this.target.maturityDate || !this.target.settlementDate || !this.target.dayCount) {
+      this.error = 'Complétez l’identifiant, la devise, le nominal, le coupon, la fréquence, l’échéance, le règlement et la convention de jours.';
       return;
     }
     if (!this.panel.length) {
@@ -417,12 +522,12 @@ export class BondComparablesComponent {
         faceValue: this.target.faceValue,
         couponRate: Number(this.target.couponRate) / 100,
         couponFrequency: this.target.couponFrequency,
-        issueDate: this.target.issueDate,
+        issueDate: this.target.issueDate || null,
         maturityDate: this.target.maturityDate,
         settlementDate: this.target.settlementDate,
         dayCount: this.target.dayCount
       },
-      panel: this.panel,
+      panel: this.panel.map(bond => this.toPricingBond(bond)),
       maturityToleranceMonths: Number(this.maturityToleranceMonths)
     }).pipe(finalize(() => {
       this.isLoading = false;
@@ -454,7 +559,15 @@ export class BondComparablesComponent {
 
   get panelRows(): BondComparableRow[] {
     if (this.result) {
-      return this.result.panel.map(item => ({ ...item.bond, eligible: item.eligible, selected: item.selected, exclusionReason: item.exclusionReason }));
+      const importedBonds = new Map(this.panel.map(bond => [bond.securityId, bond]));
+      return this.result.panel.map(item => ({
+        ...item.bond,
+        issueDate: item.bond.issueDate ?? importedBonds.get(item.bond.securityId)?.issueDate,
+        settlementDate: item.bond.settlementDate ?? importedBonds.get(item.bond.securityId)?.settlementDate,
+        eligible: item.eligible,
+        selected: item.selected,
+        exclusionReason: item.exclusionReason
+      }));
     }
     return this.panel.map(bond => ({ ...bond, eligible: null, selected: false, exclusionReason: null }));
   }
@@ -491,6 +604,147 @@ export class BondComparablesComponent {
           : String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
         return comparison * this.fullOptionSortDirection;
       });
+  }
+
+  get visibleBondColumns(): BondColumn[] {
+    return this.bondColumnOrder.filter(column => this.bondVisibleColumns.has(column));
+  }
+
+  get visibleBondColumnCount(): number {
+    return Math.max(1, this.visibleBondColumns.length);
+  }
+
+  bondColumnLabel(column: BondColumn): string {
+    return this.bondColumnLabels[column];
+  }
+
+  moveBondColumn(column: BondColumn, offset: -1 | 1): void {
+    const index = this.bondColumnOrder.indexOf(column);
+    const targetIndex = index + offset;
+    if (index < 0 || targetIndex < 0 || targetIndex >= this.bondColumnOrder.length) return;
+    const nextOrder = [...this.bondColumnOrder];
+    [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+    this.bondColumnOrder = nextOrder;
+    this.persistState();
+  }
+
+  setBondColumnVisibility(column: BondColumn, event: Event): void {
+    const nextVisibleColumns = new Set(this.bondVisibleColumns);
+    if ((event.target as HTMLInputElement).checked) nextVisibleColumns.add(column);
+    else nextVisibleColumns.delete(column);
+    this.bondVisibleColumns = nextVisibleColumns;
+    this.persistState();
+  }
+
+  selectAllBondColumns(): void {
+    this.bondVisibleColumns = new Set(this.bondColumnOrder);
+    this.persistState();
+  }
+
+  deselectAllBondColumns(): void {
+    this.bondVisibleColumns = new Set();
+    this.persistState();
+  }
+
+  applyDefaultBondColumns(): void {
+    this.bondColumnOrder = [...this.bondColumns];
+    this.bondVisibleColumns = new Set(this.bondColumnOrder);
+    this.persistState();
+  }
+
+  toggleAlternateBondRows(): void {
+    this.alternateBondRows = !this.alternateBondRows;
+    this.persistState();
+  }
+
+  get groupedPanelRows(): BondGroup[] {
+    const groups = new Map<string, BondGroup>();
+    for (const row of this.filteredPanelRows) {
+      const values = this.bondGroupColumns.map(column => this.columnValue(row, column) || '—');
+      const key = JSON.stringify(values);
+      const group = groups.get(key) ?? {
+        key,
+        label: this.bondGroupColumns.map((column, index) => `${this.bondColumnLabel(column)} : ${values[index]}`).join(' · '),
+        rows: []
+      };
+      group.rows.push(row);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }
+
+  startBondColumnDrag(column: BondColumn, event: DragEvent): void {
+    event.dataTransfer?.setData('text/plain', `bond-column:${column}`);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  startBondGroupDrag(column: BondColumn, event: DragEvent): void {
+    event.dataTransfer?.setData('text/plain', `bond-group:${column}`);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  allowBondColumnDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isBondGroupingDragOver = true;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = event.dataTransfer.effectAllowed === 'move' ? 'move' : 'copy';
+  }
+
+  dropBondColumn(event: DragEvent): void {
+    event.preventDefault();
+    this.isBondGroupingDragOver = false;
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    const isGroupedColumn = payload.startsWith('bond-group:');
+    const column = payload.replace(/^bond-(column|group):/, '') as BondColumn;
+    if (!this.bondColumns.includes(column)) return;
+    if (isGroupedColumn) {
+      this.bondGroupColumns = [...this.bondGroupColumns.filter(groupColumn => groupColumn !== column), column];
+    } else if (!this.bondGroupColumns.includes(column)) {
+      this.bondGroupColumns = [...this.bondGroupColumns, column];
+    }
+    this.persistState();
+  }
+
+  dropBondGroupColumn(event: DragEvent, targetColumn: BondColumn): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    const column = payload.replace(/^bond-(column|group):/, '') as BondColumn;
+    if (!this.bondColumns.includes(column) || column === targetColumn) return;
+    const nextColumns = this.bondGroupColumns.filter(groupColumn => groupColumn !== column);
+    const targetIndex = nextColumns.indexOf(targetColumn);
+    if (targetIndex === -1) return;
+    nextColumns.splice(targetIndex, 0, column);
+    this.bondGroupColumns = nextColumns;
+    this.persistState();
+  }
+
+  isBondGroupCollapsed(key: string): boolean {
+    return this.collapsedBondGroups.has(key);
+  }
+
+  toggleBondGroup(key: string): void {
+    const nextCollapsedGroups = new Set(this.collapsedBondGroups);
+    if (nextCollapsedGroups.has(key)) nextCollapsedGroups.delete(key);
+    else nextCollapsedGroups.add(key);
+    this.collapsedBondGroups = nextCollapsedGroups;
+  }
+
+  collapseAllBondGroups(): void {
+    this.collapsedBondGroups = new Set(this.groupedPanelRows.map(group => group.key));
+  }
+
+  expandAllBondGroups(): void {
+    this.collapsedBondGroups = new Set();
+  }
+
+  removeBondGroupColumn(column: BondColumn): void {
+    this.bondGroupColumns = this.bondGroupColumns.filter(groupColumn => groupColumn !== column);
+    this.persistState();
+  }
+
+  clearBondGrouping(): void {
+    this.bondGroupColumns = [];
+    this.persistState();
   }
 
   get visibleFullOptionDisplayColumns(): FullOptionDisplayColumn[] {
@@ -703,25 +957,63 @@ export class BondComparablesComponent {
     });
   }
 
-  async exportFullOptionsXlsx(): Promise<void> {
+  async exportFullOptions(format: LightExportFormat): Promise<void> {
     if (!this.filteredFullOptions.length || this.isFullOptionsExporting) return;
 
     this.isFullOptionsExporting = true;
     this.fullOptionsExportError = '';
     this.fullOptionsExportSuccess = '';
     try {
-      const XLSX = window.XLSX;
-      const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparables full');
-      XLSX.writeFile(workbook, `comparables-full-${new Date().toISOString().slice(0, 10)}.xlsx`, { bookType: 'xlsx' });
-      this.fullOptionsExportSuccess = 'Le fichier XLSX a été téléchargé.';
+      if (format === 'csv') this.downloadFullOptionsCsv();
+      if (format === 'xlsx') this.downloadFullOptionsXlsx();
+      if (format === 'pdf') await this.downloadFullOptionsPdf();
+      this.fullOptionsExportSuccess = `Le fichier ${format.toUpperCase()} a été téléchargé.`;
     } catch {
-      this.fullOptionsExportError = 'L’export XLSX a échoué. Vérifiez le navigateur puis réessayez.';
+      this.fullOptionsExportError = `L’export ${format.toUpperCase()} a échoué. Vérifiez le navigateur puis réessayez.`;
     } finally {
       this.isFullOptionsExporting = false;
       this.cdr.detectChanges();
     }
+  }
+
+  private fullOptionsExportFileName(extension: LightExportFormat): string {
+    const fileDate = new Date().toISOString().slice(0, 10);
+    return `comparables-full-${fileDate}.${extension}`;
+  }
+
+  private downloadFullOptionsXlsx(): void {
+    const XLSX = window.XLSX;
+    const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparables full');
+    XLSX.writeFile(workbook, this.fullOptionsExportFileName('xlsx'), { bookType: 'xlsx' });
+  }
+
+  private downloadFullOptionsCsv(): void {
+    const XLSX = window.XLSX;
+    const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
+    const csv = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+    this.downloadBlob(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }), this.fullOptionsExportFileName('csv'));
+  }
+
+  private async downloadFullOptionsPdf(): Promise<void> {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+    const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    document.setFontSize(14);
+    document.text('Comparables full', 10, 12);
+    document.setFontSize(8);
+    document.text(`${this.filteredFullOptions.length} options exportees`, 10, 18);
+    autoTable(document, {
+      startY: 22,
+      head: [[...this.fullOptionColumns]],
+      body: this.filteredFullOptions.map(option => this.fullOptionColumns.map(column => String(option[column] ?? ''))),
+      styles: { fontSize: 5, cellPadding: 1.2, overflow: 'linebreak' },
+      headStyles: { fillColor: [35, 75, 56], fontSize: 5 },
+      horizontalPageBreak: true,
+      horizontalPageBreakRepeat: 0,
+      margin: { left: 8, right: 8, top: 22, bottom: 10 }
+    });
+    document.save(this.fullOptionsExportFileName('pdf'));
   }
 
   private priceFullOption(option: OptionImportRecord): Observable<number> {
@@ -773,6 +1065,19 @@ export class BondComparablesComponent {
     return this.sortDirection === 1 ? '↑' : '↓';
   }
 
+  sourceLabel(row: BondComparable): string {
+    const source = row.source ?? '';
+    return source.replace(/\s*[\/|]\s*\d{4}-\d{2}-\d{2}$/, '').trim() || source;
+  }
+
+  sourceDate(row: BondComparable): string {
+    return this.sourceDateValue(row) || 'Date inconnue';
+  }
+
+  private sourceDateValue(row: BondComparable): string {
+    return row.asOf ?? row.source?.match(/(?:^|\s[\/|]\s*)(\d{4}-\d{2}-\d{2})$/)?.[1] ?? '';
+  }
+
   clearFilters(): void {
     for (const column of Object.keys(this.filters) as TextFilterColumn[]) this.filters[column] = '';
     this.eligibilityFilters = new Set();
@@ -807,27 +1112,91 @@ export class BondComparablesComponent {
     this.price();
   }
 
-  async exportLightOptionsXlsx(): Promise<void> {
+  async exportLightOptions(format: LightExportFormat): Promise<void> {
     if (!this.filteredPanelRows.length || this.isExporting) return;
 
     this.isExporting = true;
     this.exportError = '';
     this.exportSuccess = '';
     try {
-      const XLSX = window.XLSX;
-      const workbook = XLSX.utils.book_new();
-      this.appendPanelSheet(XLSX, workbook);
-      this.appendPricingSheet(XLSX, workbook);
-
-      const fileDate = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, `bond-comparables-${this.target.securityId || 'panel'}-${fileDate}.xlsx`);
-      this.exportSuccess = 'Le fichier Excel a été téléchargé.';
+      if (format === 'xlsx') this.downloadLightXlsx();
+      if (format === 'csv') this.downloadLightCsv();
+      if (format === 'pdf') await this.downloadLightPdf();
+      this.exportSuccess = `Le fichier ${format.toUpperCase()} a été téléchargé.`;
     } catch {
-      this.exportError = 'L’export Excel a échoué. Réessayez ou vérifiez le navigateur.';
+      this.exportError = `L’export ${format.toUpperCase()} a échoué. Réessayez ou vérifiez le navigateur.`;
     } finally {
       this.isExporting = false;
       this.cdr.detectChanges();
     }
+  }
+
+  private exportFileName(extension: LightExportFormat): string {
+    const targetId = this.target.securityId?.replace(/[^a-zA-Z0-9._-]+/g, '-') || 'panel';
+    const fileDate = new Date().toISOString().slice(0, 10);
+    return `bond-comparables-${targetId}-${fileDate}.${extension}`;
+  }
+
+  private downloadLightXlsx(): void {
+    const XLSX = window.XLSX;
+    const workbook = XLSX.utils.book_new();
+    this.appendPanelSheet(XLSX, workbook);
+    this.appendPricingSheet(XLSX, workbook);
+    XLSX.writeFile(workbook, this.exportFileName('xlsx'));
+  }
+
+  private downloadLightCsv(): void {
+    const XLSX = window.XLSX;
+    const worksheet = XLSX.utils.json_to_sheet(this.filteredPanelRows.map(row => ({
+      Identifiant: row.securityId,
+      Nom: row.name,
+      Emetteur: row.issuer ?? '',
+      Devise: row.currency,
+      Emission: row.issueDate ?? '',
+      Reglement: row.settlementDate ?? this.target.settlementDate,
+      Echeance: row.maturityDate,
+      Notation: row.rating ?? '',
+      YTM: `${(row.yieldToMaturity * 100).toFixed(3)}%`,
+      PrixMarche: row.marketPrice ?? '',
+      Source: this.sourceLabel(row),
+      DateDonnees: this.sourceDateValue(row),
+      Eligible: row.eligible ?? '',
+      Retenu: row.selected,
+      MotifExclusion: row.exclusionReason ?? ''
+    })));
+    const csv = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+    this.downloadBlob(blob, this.exportFileName('csv'));
+  }
+
+  private async downloadLightPdf(): Promise<void> {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+    const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    document.setFontSize(15);
+    document.text('Comparables obligataires', 12, 14);
+    document.setFontSize(9);
+    document.text(`Cible : ${this.target.securityId || 'Panel'} | Reglement : ${this.target.settlementDate || '-'}`, 12, 20);
+    autoTable(document, {
+      startY: 25,
+      head: [['Obligation', 'Nom', 'Emetteur', 'Devise', 'Emission', 'Reglement', 'Echeance', 'Notation', 'YTM', 'Source', 'Date donnees']],
+      body: this.filteredPanelRows.map(row => [
+        row.securityId, row.name, row.issuer ?? '', row.currency, row.issueDate ?? '', row.settlementDate ?? this.target.settlementDate,
+        row.maturityDate, row.rating ?? '', `${(row.yieldToMaturity * 100).toFixed(3)}%`, this.sourceLabel(row), this.sourceDateValue(row)
+      ]),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [35, 75, 56] },
+      margin: { left: 10, right: 10 }
+    });
+    document.save(this.exportFileName('pdf'));
+  }
+
+  private downloadBlob(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   private appendPanelSheet(xlsx: typeof import('xlsx-js-style'), workbook: import('xlsx-js-style').WorkBook): void {
@@ -836,20 +1205,22 @@ export class BondComparablesComponent {
         Nom: row.name,
         Emetteur: row.issuer ?? '',
         Devise: row.currency,
+        Emission: row.issueDate ? new Date(`${row.issueDate}T00:00:00`) : '',
+        Reglement: (row.settlementDate ?? this.target.settlementDate) ? new Date(`${row.settlementDate ?? this.target.settlementDate}T00:00:00`) : '',
         Echeance: new Date(`${row.maturityDate}T00:00:00`),
         Notation: row.rating ?? '',
         YTM: row.yieldToMaturity,
         PrixMarche: row.marketPrice ?? '',
-        Source: row.source ?? '',
-        DateDonnees: row.asOf && /^\d{4}-\d{2}-\d{2}$/.test(row.asOf) ? new Date(`${row.asOf}T00:00:00`) : row.asOf ?? '',
+        Source: this.sourceLabel(row),
+        DateDonnees: this.sourceDateValue(row) ? new Date(`${this.sourceDateValue(row)}T00:00:00`) : '',
         Eligible: row.eligible ?? '',
         Retenu: row.selected,
         MotifExclusion: row.exclusionReason ?? ''
     }));
     const sheet = xlsx.utils.json_to_sheet(rows);
     sheet['!cols'] = [
-      { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
-      { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 38 }
+      { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 38 }
     ];
     this.stylePanelSheet(xlsx, sheet);
     xlsx.utils.book_append_sheet(workbook, sheet, 'Panel');
@@ -862,13 +1233,15 @@ export class BondComparablesComponent {
       if (header) header.s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '234B38' } } };
     }
     for (let row = 1; row <= range.e.r; row++) {
-      const yieldCell = sheet[xlsx.utils.encode_cell({ r: row, c: 6 })];
+      const yieldCell = sheet[xlsx.utils.encode_cell({ r: row, c: 8 })];
       if (yieldCell) yieldCell.z = '0.00%';
-      const marketPriceCell = sheet[xlsx.utils.encode_cell({ r: row, c: 7 })];
+      const marketPriceCell = sheet[xlsx.utils.encode_cell({ r: row, c: 9 })];
       if (marketPriceCell && typeof marketPriceCell.v === 'number') marketPriceCell.z = '0.0000';
-      const maturityCell = sheet[xlsx.utils.encode_cell({ r: row, c: 4 })];
-      if (maturityCell) maturityCell.z = 'dd/mm/yyyy';
-      const asOfCell = sheet[xlsx.utils.encode_cell({ r: row, c: 9 })];
+      for (const column of [4, 5, 6, 11]) {
+        const dateCell = sheet[xlsx.utils.encode_cell({ r: row, c: column })];
+        if (dateCell?.t === 'd') dateCell.z = 'dd/mm/yyyy';
+      }
+      const asOfCell = sheet[xlsx.utils.encode_cell({ r: row, c: 11 })];
       if (asOfCell?.t === 'd') asOfCell.z = 'dd/mm/yyyy';
     }
   }
@@ -921,7 +1294,9 @@ export class BondComparablesComponent {
       securityId: bond.securityId,
       name: bond.name || bond.securityId,
       currency: bond.currency.toUpperCase(),
+      issueDate: bond.issueDate ?? '',
       maturityDate: bond.maturityDate,
+      settlementDate: bond.settlementDate ?? currentLocalDate(),
       faceValue: bond.faceValue ?? this.target.faceValue,
       couponRate: bond.couponRate == null ? this.target.couponRate : bond.couponRate * 100,
       couponFrequency: bond.couponFrequency ?? this.target.couponFrequency
@@ -930,6 +1305,12 @@ export class BondComparablesComponent {
     this.lastCalculatedAt = null;
     this.error = '';
     this.persistState();
+  }
+
+  private toPricingBond(bond: BondComparable): BondComparable {
+    const pricingBond = { ...bond };
+    delete pricingBond.settlementDate;
+    return pricingBond;
   }
 
   private restoreState(): void {
@@ -956,6 +1337,12 @@ export class BondComparablesComponent {
     if (typeof state.maturityToleranceMonths === 'number' && Number.isFinite(state.maturityToleranceMonths)) {
       this.maturityToleranceMonths = state.maturityToleranceMonths;
     }
+  }
+
+  formatCalendarDate(value: string | null | undefined): string {
+    if (!value) return '—';
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+    return match?.[1] ?? value;
   }
 
   private restorePricingResult(state: Partial<PersistedBondComparablesState>): void {
@@ -988,6 +1375,7 @@ export class BondComparablesComponent {
       ));
     }
     this.restoreYieldFilters(state);
+    this.restoreBondTablePreferences(state);
     this.restoreFullOptionFilters(state);
     this.restoreFullOptionGrouping(state);
     this.restoreFullOptionColumnPreferences(state);
@@ -1034,12 +1422,26 @@ export class BondComparablesComponent {
     }
   }
 
+  private restoreBondTablePreferences(state: Partial<PersistedBondComparablesState>): void {
+    if (Array.isArray(state.bondGroupColumns)) {
+      this.bondGroupColumns = [...new Set(state.bondGroupColumns.filter(column => this.bondColumns.includes(column)))];
+    }
+    if (typeof state.alternateBondRows === 'boolean') this.alternateBondRows = state.alternateBondRows;
+    if (Array.isArray(state.bondColumnOrder)) {
+      const restoredOrder = [...new Set(state.bondColumnOrder.filter(column => this.bondColumns.includes(column)))];
+      this.bondColumnOrder = [...restoredOrder, ...this.bondColumnOrder.filter(column => !restoredOrder.includes(column))];
+    }
+    if (Array.isArray(state.bondVisibleColumns)) {
+      this.bondVisibleColumns = new Set(state.bondVisibleColumns.filter(column => this.bondColumns.includes(column)));
+    }
+  }
+
   private isFullOptionDisplayColumn(value: unknown): value is FullOptionDisplayColumn {
     return value === 'graphs' || (typeof value === 'string' && this.fullOptionColumns.includes(value as FullOptionColumn));
   }
 
   private restoreSorting(state: Partial<PersistedBondComparablesState>): void {
-    const columns: BondColumn[] = ['securityId', 'issuer', 'currency', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
+    const columns = this.bondColumns;
     if (columns.includes(state.sortColumn as BondColumn)) this.sortColumn = state.sortColumn as BondColumn;
     if (state.sortDirection === 1 || state.sortDirection === -1) this.sortDirection = state.sortDirection;
     if (this.fullOptionColumns.includes(state.fullOptionSortColumn as FullOptionColumn)) {
@@ -1071,7 +1473,11 @@ export class BondComparablesComponent {
       fullOptionGroupColumns: this.fullOptionGroupColumns,
       fullOptionColumnOrder: this.fullOptionColumnOrder,
       fullOptionVisibleColumns: [...this.fullOptionVisibleColumns],
-      alternateFullOptionRows: this.alternateFullOptionRows
+      alternateFullOptionRows: this.alternateFullOptionRows,
+      bondGroupColumns: this.bondGroupColumns,
+      bondColumnOrder: this.bondColumnOrder,
+      bondVisibleColumns: [...this.bondVisibleColumns],
+      alternateBondRows: this.alternateBondRows
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));
@@ -1099,6 +1505,10 @@ export class BondComparablesComponent {
       if (!value) throw new Error(`Ligne ${index + 2} : colonne ${label} manquante.`);
       return value;
     };
+    const hasDateValue = (...keys: string[]): boolean => keys.some(key => {
+      const value = values.get(this.normalizeKey(key));
+      return value !== null && value !== undefined && !(typeof value === 'string' && !value.trim());
+    });
     const rate = (label: string, ...keys: string[]): number => {
       const value = text(...keys);
       if (!value) throw new Error(`Ligne ${index + 2} : colonne ${label} manquante.`);
@@ -1107,7 +1517,7 @@ export class BondComparablesComponent {
       if (!Number.isFinite(parsed)) throw new Error(`Ligne ${index + 2} : ${label} doit être un nombre.`);
       return hasPercent || Math.abs(parsed) > 1 ? parsed / 100 : parsed;
     };
-    const dateValue = (...keys: string[]): string => {
+    const dateValue = (label: string, ...keys: string[]): string => {
       const raw = keys.map(key => values.get(this.normalizeKey(key))).find(value => value !== null && value !== undefined);
       if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
         return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-${String(raw.getDate()).padStart(2, '0')}`;
@@ -1120,8 +1530,16 @@ export class BondComparablesComponent {
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
       const parsed = new Date(value);
       if (!Number.isNaN(parsed.getTime())) return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
-      throw new Error(`Ligne ${index + 2} : échéance invalide, format attendu AAAA-MM-JJ.`);
+      throw new Error(`Ligne ${index + 2} : ${label} invalide, format attendu AAAA-MM-JJ.`);
     };
+    const issueDate = hasDateValue('emissionDate', 'issueDate')
+      ? dateValue('date d’émission', 'emissionDate', 'issueDate')
+      : undefined;
+    const settlementDate = hasDateValue('settlementDate', 'dateSettlement', 'date de règlement')
+      ? dateValue('date de règlement', 'settlementDate', 'dateSettlement', 'date de règlement')
+      : undefined;
+    const sourceText = text('source');
+    const sourceDate = sourceText.match(/\s*[\/|]\s*(\d{4}-\d{2}-\d{2})$/);
     const optionalNumber = (...keys: string[]): number | undefined => {
       const value = text(...keys);
       if (!value) return undefined;
@@ -1135,7 +1553,9 @@ export class BondComparablesComponent {
       name: text('name', 'securityName', 'description') || securityId,
       issuer: text('issuer') || undefined,
       currency: requiredText('currency', 'currency', 'ccy').toUpperCase(),
-      maturityDate: dateValue('maturityDate', 'maturity', 'maturityDate'),
+      issueDate,
+      settlementDate,
+      maturityDate: dateValue('échéance', 'maturityDate', 'maturity'),
       yieldToMaturity: rate('yieldToMaturity', 'yieldToMaturity', 'ytm'),
       faceValue: optionalNumber('faceValue', 'faceValue', 'nominal'),
       couponFrequency: optionalNumber('couponFrequency', 'couponFrequency', 'frequency'),
@@ -1144,8 +1564,8 @@ export class BondComparablesComponent {
         : rate('couponRate', 'couponRate', 'coupon'),
       marketPrice: optionalNumber('marketPrice', 'price'),
       rating: text('rating') || undefined,
-      source: text('source') || 'Import utilisateur',
-      asOf: text('asOf', 'quoteDate', 'date') || undefined
+      source: sourceText.replace(/\s*[\/|]\s*\d{4}-\d{2}-\d{2}$/, '').trim() || sourceText || 'Import utilisateur',
+      asOf: text('asOf', 'quoteDate', 'date') || sourceDate?.[1] || undefined
     };
   }
 
@@ -1291,6 +1711,8 @@ export class BondComparablesComponent {
       case 'securityId': return `${row.securityId} ${row.name}`;
       case 'issuer': return row.issuer ?? '';
       case 'currency': return row.currency;
+      case 'issueDate': return row.issueDate ?? '';
+      case 'settlementDate': return row.settlementDate ?? this.target.settlementDate;
       case 'maturityDate': return row.maturityDate;
       case 'rating': return row.rating ?? '';
       case 'yieldToMaturity': return `${row.yieldToMaturity} ${row.yieldToMaturity * 100}`;
@@ -1309,8 +1731,8 @@ export class BondComparablesComponent {
   }
 
   private compareRows(left: BondComparableRow, right: BondComparableRow, column: BondColumn): number {
-    const leftValue = column === 'eligibility' ? this.columnValue(left, column) : left[column];
-    const rightValue = column === 'eligibility' ? this.columnValue(right, column) : right[column];
+    const leftValue = column === 'eligibility' || column === 'settlementDate' ? this.columnValue(left, column) : left[column];
+    const rightValue = column === 'eligibility' || column === 'settlementDate' ? this.columnValue(right, column) : right[column];
     if (typeof leftValue === 'number' && typeof rightValue === 'number') return leftValue - rightValue;
     return String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
   }

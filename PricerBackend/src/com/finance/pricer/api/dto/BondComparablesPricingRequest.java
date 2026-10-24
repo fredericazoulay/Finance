@@ -32,6 +32,7 @@ public record BondComparablesPricingRequest(
             Double marketPrice,
             String rating,
             String source,
-            String asOf
+                        String asOf,
+                        LocalDate issueDate
     ) {}
 }

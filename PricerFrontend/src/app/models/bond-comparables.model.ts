@@ -3,6 +3,8 @@ export interface BondComparable {
   name: string;
   issuer?: string;
   currency: string;
+  issueDate?: string;
+  settlementDate?: string;
   maturityDate: string;
   yieldToMaturity: number;
   faceValue?: number;
@@ -22,7 +24,7 @@ export interface BondComparablesRequest {
     faceValue: number;
     couponRate: number;
     couponFrequency: number;
-    issueDate: string;
+    issueDate: string | null;
     maturityDate: string;
     settlementDate: string;
     dayCount: string;

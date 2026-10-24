@@ -48,7 +48,7 @@
   </section>
 
   <section class="calculator-section" *ngIf="activeMode === 'advanced'">
-    <div class="section-heading">
+    <div class="section-heading advanced-section-heading">
       <div><p class="eyebrow">02 / Valorisation datée</p><h2>Tarification des obligations</h2></div>
       <span class="currency-tag">{{ directCurrency }}</span>
     </div>
@@ -93,17 +93,28 @@
       </div>
       <span class="currency-tag">{{ target.currency || 'Devise' }}</span>
     </div>
+    <div class="target-extraction">
+      <label for="target-description">Description de l’obligation cible</label>
+      <textarea id="target-description" [(ngModel)]="targetDescription" maxlength="5000" rows="3" placeholder="Ex. Obligation EUR de nominal 100, coupon annuel 4 %, échéance 2032-06-30..."></textarea>
+      <p class="import-hint">La description sera transmise au fournisseur IA configuré. Les champs extraits restent à vérifier; aucun pricing n’est lancé automatiquement.</p>
+      <button type="button" class="secondary-button" [disabled]="isExtractingTarget || !targetDescription.trim()" (click)="extractTargetFromDescription()">
+        {{ isExtractingTarget ? 'Extraction…' : 'Extraire les caractéristiques' }}
+      </button>
+      <p class="message error" role="alert" *ngIf="targetExtractionError">{{ targetExtractionError }}</p>
+      <p class="message warning" *ngIf="targetExtractionMissingFields.length">À compléter manuellement : {{ targetExtractionMissingFields.join(', ') }}.</p>
+      <p class="message warning" *ngIf="targetExtractionAmbiguities.length">À vérifier : {{ targetExtractionAmbiguities.join(' ') }}</p>
+    </div>
     <div class="target-grid">
       <label><span>Obligation cible</span><select [(ngModel)]="target.securityId" (ngModelChange)="selectTarget($event)"><option value="">Sélectionner une obligation importée</option><option *ngFor="let bond of panel" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option></select></label>
       <label><span>Nom</span><input [(ngModel)]="target.name" (ngModelChange)="invalidateResult()" placeholder="Nom de l’obligation" /></label>
-      <label><span>Devise</span><select [(ngModel)]="target.currency" (ngModelChange)="invalidateResult()"><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></label>
+      <label><span>Devise</span><select [(ngModel)]="target.currency" (ngModelChange)="invalidateResult()"><option value="">Sélectionner</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></label>
       <label><span>Nominal</span><input type="number" min="0.01" step="0.01" [(ngModel)]="target.faceValue" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Coupon annuel (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="target.couponRate" (ngModelChange)="invalidateResult()" /></label>
-      <label><span>Coupons / an</span><select [(ngModel)]="target.couponFrequency" (ngModelChange)="invalidateResult()"><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="4">4</option><option [ngValue]="12">12</option></select></label>
+      <label><span>Coupons / an</span><select [(ngModel)]="target.couponFrequency" (ngModelChange)="invalidateResult()"><option [ngValue]="0">Sélectionner</option><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="3">3</option><option [ngValue]="4">4</option><option [ngValue]="6">6</option><option [ngValue]="12">12</option></select></label>
       <label><span>Date d’émission</span><input type="date" [(ngModel)]="target.issueDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
-      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option><option value="ACT_ACT_ICMA">ACT/ACT ICMA</option><option value="ACT_ACT_ISDA">ACT/ACT ISDA</option></select></label>
+      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="">Sélectionner</option><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option><option value="ACT_ACT_ICMA">ACT/ACT ICMA</option><option value="ACT_ACT_ISDA">ACT/ACT ISDA</option></select></label>
     </div>
   </section>
 
@@ -122,16 +133,23 @@
           <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputLight.click()">
             {{ isImporting ? 'Lecture…' : 'Importer Light CSV / Excel' }}
           </button>
-          <button type="button" class="secondary-button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportLightOptionsXlsx()">
-            {{ isExporting ? 'Export…' : 'Exporter .xlsx' }}
-          </button>
+          <details class="column-picker export-menu" [class.disabled]="!filteredPanelRows.length || isExporting">
+            <summary class="secondary-button">{{ isExporting ? 'Export…' : 'Exporter' }}</summary>
+            <div class="column-picker-menu export-menu-options">
+              <button type="button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportLightOptions('csv')">CSV (.csv)</button>
+              <button type="button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportLightOptions('xlsx')">Excel (.xlsx)</button>
+              <button type="button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportLightOptions('pdf')">PDF (.pdf)</button>
+            </div>
+          </details>
           <button type="submit" class="primary-button" [disabled]="isLoading || !panel.length">
             {{ isLoading ? 'Calcul…' : 'Calculer le prix' }}
           </button>
         </div>
       </div>
     </div>
-    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity. Les taux peuvent être saisis en décimal ou avec « % ».</p>
+    <p class="import-hint">Colonnes requises :  
+      securityId; currency; maturityDate (AAAA-MM-JJ); yieldToMaturity; emissionDate (AAAA-MM-JJ); issuer; rating; source; settlementDate (AAAA-MM-JJ).
+      Les taux peuvent être saisis en décimal ou avec « % ».</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" *ngIf="error">{{ error }}</p>
     <p class="message error" *ngIf="exportError">{{ exportError }}</p>
@@ -139,31 +157,71 @@
 
     <div class="table-toolbar" *ngIf="panelRows.length">
       <span>{{ filteredPanelRows.length }} / {{ panelRows.length }} obligations affichées</span>
-      <button type="button" class="clear-filters" (click)="clearFilters()">Effacer les filtres</button>
+      <div class="table-toolbar-actions">
+        <button type="button" class="alternate-toggle" [class.active]="alternateBondRows" [attr.aria-pressed]="alternateBondRows" (click)="toggleAlternateBondRows()">Alternate</button>
+        <details class="column-picker">
+          <summary>Colonnes</summary>
+          <div class="column-picker-menu">
+            <div class="column-picker-actions">
+              <button type="button" (click)="selectAllBondColumns()">Tout sélectionner</button>
+              <button type="button" (click)="deselectAllBondColumns()">Tout désélectionner</button>
+              <button type="button" (click)="applyDefaultBondColumns()">Défaut</button>
+            </div>
+            <ol class="column-picker-list">
+              <li *ngFor="let column of bondColumnOrder">
+                <label class="column-picker-option">
+                  <input type="checkbox" [checked]="bondVisibleColumns.has(column)" (change)="setBondColumnVisibility(column, $event)" />
+                  <span>{{ bondColumnLabel(column) }}</span>
+                </label>
+                <span class="column-picker-order">
+                  <button type="button" [disabled]="bondColumnOrder[0] === column" [attr.aria-label]="'Monter ' + bondColumnLabel(column)" (click)="moveBondColumn(column, -1)">↑</button>
+                  <button type="button" [disabled]="bondColumnOrder[bondColumnOrder.length - 1] === column" [attr.aria-label]="'Descendre ' + bondColumnLabel(column)" (click)="moveBondColumn(column, 1)">↓</button>
+                </span>
+              </li>
+            </ol>
+          </div>
+        </details>
+        <button type="button" class="clear-filters" (click)="clearFilters()">Effacer les filtres</button>
+      </div>
     </div>
-    <div class="table-wrap" *ngIf="panelRows.length; else emptyPanel">
+    <div
+      class="full-option-grouping-dropzone"
+      *ngIf="panelRows.length"
+      [class.drag-over]="isBondGroupingDragOver"
+      (dragover)="allowBondColumnDrop($event)"
+      (dragleave)="isBondGroupingDragOver = false"
+      (drop)="dropBondColumn($event)">
+      <span class="grouping-label">Regrouper par</span>
+      <ng-container *ngIf="bondGroupColumns.length; else bondGroupingPlaceholder">
+        <span class="grouping-summary">{{ groupedPanelRows.length }} groupes · {{ filteredPanelRows.length }} lignes</span>
+        <span class="grouping-chip" *ngFor="let column of bondGroupColumns" (dragover)="allowBondColumnDrop($event)" (drop)="dropBondGroupColumn($event, column)">
+          <button type="button" class="grouping-drag-handle" draggable="true" (dragstart)="startBondGroupDrag(column, $event)" [attr.aria-label]="'Déplacer ' + bondColumnLabel(column)" title="Déplacer le champ">⠿</button>
+          {{ bondColumnLabel(column) }}
+          <button type="button" [attr.aria-label]="'Retirer ' + bondColumnLabel(column) + ' du regroupement'" (click)="removeBondGroupColumn(column)">×</button>
+        </span>
+        <button type="button" class="clear-grouping" (click)="collapseAllBondGroups()">Tout réduire</button>
+        <button type="button" class="clear-grouping" (click)="expandAllBondGroups()">Tout développer</button>
+        <button type="button" class="clear-grouping" (click)="clearBondGrouping()">Effacer le regroupement</button>
+      </ng-container>
+      <ng-template #bondGroupingPlaceholder><span class="grouping-placeholder">Glissez ici une ou plusieurs colonnes du tableau</span></ng-template>
+    </div>
+    <div class="table-wrap bond-comparable-table" *ngIf="panelRows.length; else emptyPanel">
       <table>
         <thead>
           <tr class="header-row">
-            <th><button type="button" class="sort-button" (click)="sortBy('securityId')">Obligation {{ sortIndicator('securityId') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('issuer')">Émetteur {{ sortIndicator('issuer') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('currency')">Devise {{ sortIndicator('currency') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('maturityDate')">Échéance {{ sortIndicator('maturityDate') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('rating')">Notation {{ sortIndicator('rating') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('yieldToMaturity')">YTM {{ sortIndicator('yieldToMaturity') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('source')">Source / date {{ sortIndicator('source') }}</button></th>
-            <th><button type="button" class="sort-button" (click)="sortBy('eligibility')">Éligibilité {{ sortIndicator('eligibility') }}</button></th>
+            <th *ngFor="let column of visibleBondColumns">
+              <button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startBondColumnDrag(column, $event)" (click)="sortBy(column)" [title]="'Glisser ' + bondColumnLabel(column) + ' dans Regrouper par'">{{ bondColumnLabel(column) }} {{ sortIndicator(column) }}</button>
+            </th>
           </tr>
           <tr class="filter-row">
-            <td><input [(ngModel)]="filters.securityId" (ngModelChange)="persistState()" aria-label="Filtrer les obligations" placeholder="Filtrer" /></td>
-            <td><input [(ngModel)]="filters.issuer" (ngModelChange)="persistState()" aria-label="Filtrer les émetteurs" placeholder="Filtrer" /></td>
-            <td><select [(ngModel)]="filters.currency" (ngModelChange)="persistState()" aria-label="Filtrer les devises"><option value="">Toutes</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></td>
-            <td><input [(ngModel)]="filters.maturityDate" (ngModelChange)="persistState()" aria-label="Filtrer les échéances" placeholder="AAAA-MM-JJ" /></td>
-            <td><input [(ngModel)]="filters.rating" (ngModelChange)="persistState()" aria-label="Filtrer les notations" placeholder="Filtrer" /></td>
-            <td><div class="yield-filter"><input type="number" step="0.01" [(ngModel)]="yieldMinimum" (ngModelChange)="persistState()" aria-label="YTM minimum en pourcentage" placeholder="Min %" /><input type="number" step="0.01" [(ngModel)]="yieldMaximum" (ngModelChange)="persistState()" aria-label="YTM maximum en pourcentage" placeholder="Max %" /></div></td>
-            <td><input [(ngModel)]="filters.source" (ngModelChange)="persistState()" aria-label="Filtrer source et date" placeholder="Filtrer" /></td>
-            <td class="eligibility-filter-cell">
-              <details class="eligibility-filter">
+            <td *ngFor="let column of visibleBondColumns" [ngSwitch]="column">
+              <select *ngSwitchCase="'currency'" [(ngModel)]="filters.currency" (ngModelChange)="persistState()" aria-label="Filtrer les devises"><option value="">Toutes</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select>
+              <input *ngSwitchCase="'issueDate'" [(ngModel)]="filters.issueDate" (ngModelChange)="persistState()" aria-label="Filtrer les émissions" placeholder="AAAA-MM-JJ" />
+              <input *ngSwitchCase="'settlementDate'" [(ngModel)]="filters.settlementDate" (ngModelChange)="persistState()" aria-label="Filtrer les règlements" placeholder="AAAA-MM-JJ" />
+              <input *ngSwitchCase="'maturityDate'" [(ngModel)]="filters.maturityDate" (ngModelChange)="persistState()" aria-label="Filtrer les échéances" placeholder="AAAA-MM-JJ" />
+              <input *ngSwitchCase="'rating'" [(ngModel)]="filters.rating" (ngModelChange)="persistState()" aria-label="Filtrer les notations" placeholder="Filtrer" />
+              <div *ngSwitchCase="'yieldToMaturity'" class="yield-filter"><input type="number" step="0.01" [(ngModel)]="yieldMinimum" (ngModelChange)="persistState()" aria-label="YTM minimum en pourcentage" placeholder="Min %" /><input type="number" step="0.01" [(ngModel)]="yieldMaximum" (ngModelChange)="persistState()" aria-label="YTM maximum en pourcentage" placeholder="Max %" /></div>
+              <details *ngSwitchCase="'eligibility'" class="eligibility-filter">
                 <summary aria-label="Filtrer les statuts d’éligibilité">{{ eligibilityFilterLabel }}</summary>
                 <div class="eligibility-options">
                   <label *ngFor="let option of eligibilityOptions">
@@ -172,17 +230,40 @@
                   </label>
                 </div>
               </details>
+              <input *ngSwitchCase="'securityId'" [(ngModel)]="filters.securityId" (ngModelChange)="persistState()" aria-label="Filtrer les obligations" placeholder="Filtrer" />
+              <input *ngSwitchCase="'issuer'" [(ngModel)]="filters.issuer" (ngModelChange)="persistState()" aria-label="Filtrer les émetteurs" placeholder="Filtrer" />
+              <input *ngSwitchCase="'source'" [(ngModel)]="filters.source" (ngModelChange)="persistState()" aria-label="Filtrer source et date" placeholder="Filtrer" />
             </td>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of filteredPanelRows" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false">
-            <td><strong>{{ row.securityId }}</strong><small>{{ row.name }}</small></td>
-            <td>{{ row.issuer || '—' }}</td><td>{{ row.currency }}</td><td>{{ row.maturityDate }}</td><td>{{ row.rating || '—' }}</td>
-            <td class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</td>
-            <td>{{ row.source || '—' }}<small>{{ row.asOf || 'Date inconnue' }}</small></td>
-            <td><span *ngIf="row.selected" class="status best">Meilleur YTM</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable</span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span></td>
-          </tr>
+          <ng-template #bondPanelCell let-row let-column="column">
+            <ng-container [ngSwitch]="column">
+              <ng-container *ngSwitchCase="'securityId'"><strong>{{ row.securityId }}</strong><small>{{ row.name }}</small></ng-container>
+              <ng-container *ngSwitchCase="'issuer'">{{ row.issuer || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'currency'">{{ row.currency }}</ng-container>
+              <ng-container *ngSwitchCase="'issueDate'">{{ row.issueDate || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'settlementDate'">{{ formatCalendarDate(row.settlementDate || target.settlementDate) }}</ng-container>
+              <ng-container *ngSwitchCase="'maturityDate'">{{ row.maturityDate }}</ng-container>
+              <ng-container *ngSwitchCase="'rating'">{{ row.rating || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'yieldToMaturity'"><span class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'source'">{{ sourceLabel(row) || '—' }}<small>{{ sourceDate(row) }}</small></ng-container>
+              <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Meilleur YTM</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable</span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span></ng-container>
+            </ng-container>
+          </ng-template>
+          <ng-container *ngIf="bondGroupColumns.length; else ungroupedBondRows">
+            <ng-container *ngFor="let group of groupedPanelRows">
+              <tr class="full-option-group-row"><th [attr.colspan]="visibleBondColumnCount"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isBondGroupCollapsed(group.key)" (click)="toggleBondGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isBondGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
+              <tr *ngFor="let row of group.rows; let rowIndex = index" [hidden]="isBondGroupCollapsed(group.key)" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
+                <td *ngFor="let column of visibleBondColumns"><ng-container *ngTemplateOutlet="bondPanelCell; context: { $implicit: row, column: column }"></ng-container></td>
+              </tr>
+            </ng-container>
+          </ng-container>
+          <ng-template #ungroupedBondRows>
+            <tr *ngFor="let row of filteredPanelRows; let rowIndex = index" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
+              <td *ngFor="let column of visibleBondColumns"><ng-container *ngTemplateOutlet="bondPanelCell; context: { $implicit: row, column: column }"></ng-container></td>
+            </tr>
+          </ng-template>
         </tbody>
       </table>
     </div>
@@ -224,9 +305,14 @@
           <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
             {{ isImporting ? 'Lecture…' : 'Importer Full CSV / Excel' }}
           </button>
-          <button type="button" class="secondary-button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptionsXlsx()">
-            {{ isFullOptionsExporting ? 'Export…' : 'Exporter .xlsx' }}
-          </button>
+          <details class="column-picker export-menu" [class.disabled]="isFullOptionsExporting || !filteredFullOptions.length">
+            <summary class="secondary-button">{{ isFullOptionsExporting ? 'Export…' : 'Exporter' }}</summary>
+            <div class="column-picker-menu export-menu-options">
+              <button type="button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptions('csv')">CSV (.csv)</button>
+              <button type="button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptions('xlsx')">Excel (.xlsx)</button>
+              <button type="button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptions('pdf')">PDF (.pdf)</button>
+            </div>
+          </details>
           <button type="button" class="primary-button" [disabled]="isFullOptionPricing || !filteredFullOptions.length" (click)="calculateFullOptionPrices()">
             {{ isFullOptionPricing ? 'Calcul… ' + fullOptionPricingProgress + ' / ' + filteredFullOptions.length : 'Calculer le prix' }}
           </button>

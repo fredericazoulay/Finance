@@ -308,6 +308,18 @@ Configure the backend environment before asking a question:
 
 The API key stays on the server and is never sent to the browser. The endpoint returns `503` when no key is configured and `502` when the provider is unavailable or returns an unusable response.
 
+### POST /api/v1/ai/extract-bond-target
+
+Extracts explicitly stated target-bond fields from a description. Unknown values remain `null`; the server returns `missingFields` and `ambiguities` for user review. Coupon rate is returned as a decimal fraction. The endpoint never prices the bond or selects a comparable.
+
+```json
+{
+  "description": "Obligation FR001, libellée en EUR, nominal 100, coupon annuel 4 %, échéance 2030-06-01, règlement 2026-10-24, convention 30/360."
+}
+```
+
+The response contains the extracted target fields plus `missingFields` and `ambiguities`. The frontend pre-fills the target form, which the user must review before running the existing comparable-pricing calculation. The API key remains server-side; no provider call occurs when it is not configured.
+
 ---
 
 ## Swagger/OpenAPI

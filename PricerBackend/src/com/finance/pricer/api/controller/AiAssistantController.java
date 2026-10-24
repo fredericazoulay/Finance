@@ -2,6 +2,8 @@ package com.finance.pricer.api.controller;
 
 import com.finance.pricer.api.dto.AiAnswerResponse;
 import com.finance.pricer.api.dto.AiQuestionRequest;
+import com.finance.pricer.api.dto.BondTargetExtractionRequest;
+import com.finance.pricer.api.dto.BondTargetExtractionResponse;
 import com.finance.pricer.api.service.AiAssistantService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -24,5 +26,11 @@ public class AiAssistantController {
     @PostMapping("/ask")
     public ResponseEntity<AiAnswerResponse> ask(@Valid @RequestBody AiQuestionRequest request) {
         return ResponseEntity.ok(new AiAnswerResponse(service.answer(request.question(), request.context())));
+    }
+
+    @PostMapping("/extract-bond-target")
+    public ResponseEntity<BondTargetExtractionResponse> extractBondTarget(
+            @Valid @RequestBody BondTargetExtractionRequest request) {
+        return ResponseEntity.ok(service.extractBondTarget(request.description()));
     }
 }
