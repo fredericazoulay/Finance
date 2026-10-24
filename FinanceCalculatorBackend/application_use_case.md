@@ -31,3 +31,25 @@ C:\Users\fazoulay\Downloads\ESCP-FINANCE\
 
 =============================
 
+Je vais comparer les contrôles et colonnes de « Comparables light » à ceux de « Comparables full », puis suivre le modèle Full pour comprendre comment définir « ELIGIBLE » sans confondre éligibilité et statut de pricing. Hypothèse: le champ d’écart se réutilise directement, mais la nouvelle colonne doit être dérivée ou importée selon le modèle Full.
+
+
+
+
+Le Full représente des options, contrairement au panel obligataire Light. Je vérifie comment ses lignes sont tarifées et si elles se rattachent à une obligation importée; cela déterminera une règle d’éligibilité cohérente plutôt qu’un statut arbitraire.
+
+
+
+
+
+La colonne Full contient des options dont le sous-jacent est une obligation, tandis que le champ d’écart de maturité ne concerne que l’éligibilité du sous-jacent. Je vérifie les données d’import et la validation de pricing pour ancrer la règle Full sur les mêmes critères que Light: devise, obligation cible distincte et échéance dans la tolérance.
+
+Les options synthétiques référencent bien des obligations présentes dans le panel (underlyingSecurityId), ce qui permet d’évaluer « ELIGIBLE » avec les critères Light plutôt qu’avec le statut de pricing. Je vérifie les filtres, le tri et le regroupement Full pour intégrer une colonne calculée sans la rendre obsolète quand la cible ou la tolérance change.
+
+
+
+
+
+Les jeux de données confirment la règle: les options Full référencent un underlyingSecurityId de type BOND, et celui-ci peut être comparé au panel importé avec la tolérance du backend. J’ajoute le contrôle Full et une colonne calculée sur la devise, l’identité et la maturité de l’obligation sous-jacente; quand le panel manque, le statut restera « À analyser ».
+
+En résumé, l’objectif est de s’assurer que la colonne « ELIGIBLE » reflète correctement l’éligibilité du sous-jacent obligataire, en s’appuyant sur les critères de validation du Full tout en restant cohérent avec le modèle Light. Cela implique de vérifier la devise, l’obligation cible et l’échéance, et de ne pas confondre éligibilité et statut de pricing.

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, map, of, switchMap, timeout, timer } from 'rxjs';
-import { ChartPoint, FieldConfig, PriceResponse, ProductOption } from '../models/pricing.model';
+import { ChartPoint, FieldConfig, PriceResponse, PricingBatchItemResult, ProductOption } from '../models/pricing.model';
 
 @Injectable({
   providedIn: 'root'
@@ -67,6 +67,20 @@ export class PricingService {
       }),
       catchError((error: HttpErrorResponse) => {
         this.setApiOnline(error instanceof HttpErrorResponse && error.status !== 0);
+        throw error;
+      })
+    );
+  }
+
+  submitPricingBatch(payloads: Record<string, unknown>[]): Observable<PricingBatchItemResult[]> {
+    return this.http.post<PricingBatchItemResult[]>('/api/v1/blp/pricing/equity-option/batch', { requests: payloads }).pipe(
+      timeout(60000),
+      map(responses => {
+        this.setApiOnline(true);
+        return responses;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.setApiOnline(error.status !== 0);
         throw error;
       })
     );

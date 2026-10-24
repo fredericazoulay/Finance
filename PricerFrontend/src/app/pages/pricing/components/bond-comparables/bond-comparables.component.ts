@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, throwError, toArray } from 'rxjs';
+import { Observable, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, toArray } from 'rxjs';
 import {
   BondComparable,
   BondComparablesRequest,
@@ -11,6 +11,7 @@ import {
   BondDirectPricingResponse
 } from '../../../../models/bond-comparables.model';
 import { OPTION_IMPORT_COLUMNS, OptionImportColumn, OptionImportRecord } from '../../../../models/option-import.model';
+import { PricingBatchItemResult } from '../../../../models/pricing.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 import { PricingService } from '../../../../services/pricing.service';
 import { AiAssistantService, BondTargetExtractionResponse } from '../../../../services/ai-assistant.service';
@@ -32,8 +33,9 @@ type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
 type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
-type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
+type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus' | 'eligible';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
+type FullOptionValue = string | number | boolean | null | undefined;
 
 interface FullOptionGroup {
   key: string;
@@ -103,7 +105,7 @@ export class BondComparablesComponent {
     { value: 'excluded', label: 'Exclue' },
     { value: 'pending', label: 'À analyser' }
   ] as const;
-  readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus'];
+  readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus', 'eligible'];
   readonly bondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
   readonly bondColumnLabels: Record<BondColumn, string> = {
     securityId: 'Obligation', issuer: 'Émetteur', currency: 'Devise', issueDate: 'Émission', settlementDate: 'Règlement',
@@ -203,7 +205,8 @@ export class BondComparablesComponent {
     underlyingYieldToMaturity: 'YTM du sous-jacent',
     dataSource: 'Source des données',
     calculatedPremiumPerUnit: 'Prime calculée par unité',
-    pricingStatus: 'Statut du pricing'
+    pricingStatus: 'Statut du pricing',
+    eligible: 'ELIGIBLE'
   };
   result: BondComparablesResponse | null = null;
   lastCalculatedAt: Date | null = null;
@@ -593,12 +596,12 @@ export class BondComparablesComponent {
     return this.fullOptions
       .filter(option => this.visibleFullOptionDataColumns.every(column => {
         const filter = this.fullOptionFilters[column]?.trim().toLocaleLowerCase();
-        return !filter || String(option[column] ?? '').toLocaleLowerCase().includes(filter);
+        return !filter || String(this.fullOptionValue(option, column) ?? '').toLocaleLowerCase().includes(filter);
       }))
       .slice()
       .sort((left, right) => {
-        const leftValue = left[this.fullOptionSortColumn];
-        const rightValue = right[this.fullOptionSortColumn];
+        const leftValue = this.fullOptionValue(left, this.fullOptionSortColumn);
+        const rightValue = this.fullOptionValue(right, this.fullOptionSortColumn);
         const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
           ? leftValue - rightValue
           : String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
@@ -807,7 +810,7 @@ export class BondComparablesComponent {
   get groupedFullOptions(): FullOptionGroup[] {
     const groups = new Map<string, FullOptionGroup>();
     for (const option of this.filteredFullOptions) {
-      const values = this.fullOptionGroupColumns.map(column => String(option[column] ?? '—'));
+      const values = this.fullOptionGroupColumns.map(column => String(this.fullOptionValue(option, column) ?? '—'));
       const key = JSON.stringify(values);
       const group = groups.get(key) ?? {
         key,
@@ -919,31 +922,96 @@ export class BondComparablesComponent {
     this.persistState();
   }
 
+  fullOptionCellValue(option: OptionImportRecord, column: FullOptionColumn): string | number | boolean {
+    if (column === 'eligible') {
+      const eligible = this.fullOptionEligible(option);
+      if (eligible === null) return 'À analyser';
+      return eligible ? 'Oui' : 'Non';
+    }
+    return option[column] ?? '—';
+  }
+
+  private fullOptionValue(option: OptionImportRecord, column: FullOptionColumn): FullOptionValue {
+    if (column === 'eligible') return this.fullOptionCellValue(option, column);
+    return option[column as keyof OptionImportRecord];
+  }
+
+  private fullOptionEligible(option: OptionImportRecord): boolean | null {
+    if (!this.panel.length) return null;
+    if (!this.target.securityId || !this.target.currency || !this.target.maturityDate || !this.target.settlementDate) return null;
+    if (option.underlyingType !== 'BOND') return false;
+
+    const underlyingId = this.normalizeKey(option.underlyingSecurityId);
+    const targetId = this.normalizeKey(this.target.securityId);
+    if (underlyingId === targetId) return false;
+
+    const bond = this.panel.find(candidate => this.normalizeKey(candidate.securityId) === underlyingId);
+    if (!bond || bond.currency.trim().toUpperCase() !== this.target.currency.trim().toUpperCase()) return false;
+    if (!bond.maturityDate || bond.maturityDate <= this.target.settlementDate) return false;
+    if (!Number.isFinite(bond.yieldToMaturity) || bond.yieldToMaturity <= -Number(this.target.couponFrequency)) return false;
+
+    const normalizedTargetName = this.normalizeKey(this.target.name);
+    const sameName = normalizedTargetName !== '' &&
+      normalizedTargetName === this.normalizeKey(bond.name) &&
+      bond.maturityDate === this.target.maturityDate &&
+      (bond.couponRate == null || Math.abs(Number(this.target.couponRate) / 100 - bond.couponRate) < 1e-8);
+    if (sameName) return false;
+
+    const targetMonths = this.monthsBetween(this.target.settlementDate, this.target.maturityDate);
+    const bondMonths = this.monthsBetween(this.target.settlementDate, bond.maturityDate);
+    return targetMonths !== null && bondMonths !== null && targetMonths >= 0 && bondMonths >= 0 &&
+      Math.abs(targetMonths - bondMonths) <= Number(this.maturityToleranceMonths);
+  }
+
+  private monthsBetween(startDate: string, endDate: string): number | null {
+    const start = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate);
+    const end = /^(\d{4})-(\d{2})-(\d{2})$/.exec(endDate);
+    if (!start || !end) return null;
+    const [startYear, startMonth, startDay] = start.slice(1).map(Number);
+    const [endYear, endMonth, endDay] = end.slice(1).map(Number);
+    const wholeMonths = (endYear - startYear) * 12 + endMonth - startMonth;
+    return wholeMonths - (endDay < startDay ? 1 : 0);
+  }
+
   calculateFullOptionPrices(): void {
     const rows = this.filteredFullOptions.map(option => ({ option, index: this.fullOptions.indexOf(option) }));
     if (!rows.length || this.isFullOptionPricing) return;
 
-    this.isFullOptionPricing = true;
-    this.fullOptionPricingProgress = 0;
-    this.fullOptionPricingSummary = '';
-    from(rows).pipe(
-      mergeMap(({ option, index }) => this.priceFullOption(option).pipe(
-        map(price => ({ index, price, status: 'Calculé' })),
-        catchError(error => of({
-          index,
+    const validRows: Array<{ option: OptionImportRecord; index: number; payload: Record<string, unknown> }> = [];
+    const failedRows: Array<{ index: number; price: number | null; status: string }> = [];
+    for (const row of rows) {
+      try {
+        validRows.push({ ...row, payload: this.fullOptionPricingPayload(row.option) });
+      } catch (error) {
+        failedRows.push({
+          index: row.index,
           price: null,
           status: error instanceof Error ? error.message : 'Échec du calcul'
-        }))
+        });
+      }
+    }
+
+    const batches: typeof validRows[] = [];
+    for (let index = 0; index < validRows.length; index += 100) {
+      batches.push(validRows.slice(index, index + 100));
+    }
+
+    this.isFullOptionPricing = true;
+    this.fullOptionPricingSummary = '';
+    this.fullOptionPricingProgress = failedRows.length;
+    if (failedRows.length) this.applyFullOptionPricingResults(failedRows);
+    from(batches).pipe(
+      mergeMap(batch => this.pricingService.submitPricingBatch(batch.map(row => row.payload)).pipe(
+        map(responses => this.fullOptionBatchResults(batch, responses)),
+        catchError(error => of(batch.map(row => ({
+          index: row.index,
+          price: null,
+          status: this.fullOptionBatchErrorMessage(error)
+        }))))
       ), 4),
-      tap(result => {
-        const updated = [...this.fullOptions];
-        updated[result.index] = {
-          ...updated[result.index],
-          calculatedPremiumPerUnit: result.price,
-          pricingStatus: result.status
-        };
-        this.fullOptions = updated;
-        this.fullOptionPricingProgress++;
+      tap(results => {
+        this.applyFullOptionPricingResults(results);
+        this.fullOptionPricingProgress += results.length;
       }),
       toArray(),
       finalize(() => {
@@ -951,10 +1019,43 @@ export class BondComparablesComponent {
         this.persistState();
         this.cdr.detectChanges();
       })
-    ).subscribe(results => {
+    ).subscribe(batchResults => {
+      const results = [...failedRows, ...batchResults.flat()];
       const calculated = results.filter(result => result.price !== null).length;
-      this.fullOptionPricingSummary = `${calculated} / ${results.length} prix calculés`;
+      this.fullOptionPricingSummary = `${calculated} / ${rows.length} prix calculés`;
     });
+  }
+
+  private fullOptionBatchResults(
+    batch: Array<{ option: OptionImportRecord; index: number; payload: Record<string, unknown> }>,
+    responses: PricingBatchItemResult[]
+  ): Array<{ index: number; price: number | null; status: string }> {
+    const responseById = new Map(responses.map(response => [response.request_id, response]));
+    return batch.map(row => {
+      const response = responseById.get(row.option.optionId);
+      const price = response?.response?.result?.['price'];
+      return typeof price === 'number' && Number.isFinite(price)
+        ? { index: row.index, price, status: 'Calculé' }
+        : { index: row.index, price: null, status: response?.error || 'Prix absent de la réponse de pricing' };
+    });
+  }
+
+  private fullOptionBatchErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse && typeof error.error?.message === 'string') return error.error.message;
+    if (error instanceof Error) return error.message;
+    return 'Échec du lot de pricing';
+  }
+
+  private applyFullOptionPricingResults(results: Array<{ index: number; price: number | null; status: string }>): void {
+    const updated = [...this.fullOptions];
+    for (const result of results) {
+      updated[result.index] = {
+        ...updated[result.index],
+        calculatedPremiumPerUnit: result.price,
+        pricingStatus: result.status
+      };
+    }
+    this.fullOptions = updated;
   }
 
   async exportFullOptions(format: LightExportFormat): Promise<void> {
@@ -983,7 +1084,7 @@ export class BondComparablesComponent {
 
   private downloadFullOptionsXlsx(): void {
     const XLSX = window.XLSX;
-    const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
+    const worksheet = XLSX.utils.json_to_sheet(this.fullOptionsExportRows(), { header: [...this.fullOptionColumns] });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparables full');
     XLSX.writeFile(workbook, this.fullOptionsExportFileName('xlsx'), { bookType: 'xlsx' });
@@ -991,7 +1092,7 @@ export class BondComparablesComponent {
 
   private downloadFullOptionsCsv(): void {
     const XLSX = window.XLSX;
-    const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
+    const worksheet = XLSX.utils.json_to_sheet(this.fullOptionsExportRows(), { header: [...this.fullOptionColumns] });
     const csv = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
     this.downloadBlob(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }), this.fullOptionsExportFileName('csv'));
   }
@@ -1006,7 +1107,7 @@ export class BondComparablesComponent {
     autoTable(document, {
       startY: 22,
       head: [[...this.fullOptionColumns]],
-      body: this.filteredFullOptions.map(option => this.fullOptionColumns.map(column => String(option[column] ?? ''))),
+      body: this.filteredFullOptions.map(option => this.fullOptionColumns.map(column => String(this.fullOptionValue(option, column) ?? ''))),
       styles: { fontSize: 5, cellPadding: 1.2, overflow: 'linebreak' },
       headStyles: { fillColor: [35, 75, 56], fontSize: 5 },
       horizontalPageBreak: true,
@@ -1016,15 +1117,21 @@ export class BondComparablesComponent {
     document.save(this.fullOptionsExportFileName('pdf'));
   }
 
-  private priceFullOption(option: OptionImportRecord): Observable<number> {
+  private fullOptionsExportRows(): Record<string, unknown>[] {
+    return this.filteredFullOptions.map(option => Object.fromEntries(
+      this.fullOptionColumns.map(column => [column, this.fullOptionValue(option, column)])
+    ));
+  }
+
+  private fullOptionPricingPayload(option: OptionImportRecord): Record<string, unknown> {
     if (option.exerciseStyle === 'BERMUDAN') {
-      return throwError(() => new Error('Calendrier d’exercice Bermudan absent des données importées'));
+      throw new Error('Calendrier d’exercice Bermudan absent des données importées');
     }
     const valuationTime = Date.parse(`${option.valuationDate}T00:00:00Z`);
     const expirationTime = Date.parse(`${option.expirationDate}T00:00:00Z`);
     const maturityYears = (expirationTime - valuationTime) / (365 * 24 * 60 * 60 * 1000);
     if (!Number.isFinite(maturityYears) || maturityYears <= 0) {
-      return throwError(() => new Error('Dates de valorisation ou d’expiration invalides'));
+      throw new Error('Dates de valorisation ou d’expiration invalides');
     }
 
     const payload = this.pricingService.buildPayload('EQTY_OPT', {
@@ -1043,11 +1150,7 @@ export class BondComparablesComponent {
       option_type: option.optionType,
       exercise_style: option.exerciseStyle
     });
-    return this.pricingService.submitPricing('EQTY_OPT', payload).pipe(map(response => {
-      const price = response.result?.['price'];
-      if (typeof price !== 'number' || !Number.isFinite(price)) throw new Error('Prix absent de la réponse de pricing');
-      return price;
-    }));
+    return payload;
   }
 
   sortBy(column: BondColumn): void {
@@ -1418,7 +1521,9 @@ export class BondComparablesComponent {
       this.fullOptionColumnOrder = [...restoredOrder, ...this.fullOptionColumnOrder.filter(column => !restoredOrder.includes(column))];
     }
     if (Array.isArray(state.fullOptionVisibleColumns)) {
-      this.fullOptionVisibleColumns = new Set(state.fullOptionVisibleColumns.filter(column => this.isFullOptionDisplayColumn(column)));
+      const visibleColumns = state.fullOptionVisibleColumns.filter(column => this.isFullOptionDisplayColumn(column));
+      if (!state.fullOptionVisibleColumns.includes('eligible')) visibleColumns.push('eligible');
+      this.fullOptionVisibleColumns = new Set(visibleColumns);
     }
   }
 

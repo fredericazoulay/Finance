@@ -9,6 +9,12 @@ export interface PriceResponse {
   timestamp?: string;
 }
 
+export interface PricingBatchItemResult {
+  request_id: string;
+  response: PriceResponse | null;
+  error: string | null;
+}
+
 export interface ProductOption {
   code: string;
   label: string;

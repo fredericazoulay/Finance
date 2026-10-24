@@ -300,6 +300,7 @@
           <h2>Comparables full <span class="count">{{ fullOptions.length }}</span></h2>
         </div>
         <div class="panel-actions">
+          <label class="tolerance-control"><span>Écart échéance (mois)</span><input type="number" min="0" max="240" [(ngModel)]="maturityToleranceMonths" (ngModelChange)="invalidateResult()" aria-label="Écart échéance en mois" /></label>
           <label class="visually-hidden" for="bond-panel-file-full">Fichier complet CSV ou Excel</label>
           <input #fileInputFull id="bond-panel-file-full" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'full')" />
           <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
@@ -376,7 +377,7 @@
       <div class="table-wrap full-option-table" *ngIf="fullOptions.length; else emptyFullOptions">
         <table>
           <thead>
-            <tr><th *ngFor="let column of visibleFullOptionDataColumns"><button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startFullOptionColumnDrag(column, $event)" (click)="sortFullOptionsBy(column)" [title]="'Glisser ' + fullOptionLabels[column] + ' dans Regrouper par'">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column === 'underlyingYieldToMaturity' ? 'YTM sous-jacent' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th *ngIf="fullOptionVisibleColumns.has('graphs')">Graphiques</th></tr>
+            <tr><th *ngFor="let column of visibleFullOptionDataColumns"><button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startFullOptionColumnDrag(column, $event)" (click)="sortFullOptionsBy(column)" [title]="'Glisser ' + fullOptionLabels[column] + ' dans Regrouper par'">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column === 'underlyingYieldToMaturity' ? 'YTM sous-jacent' : column === 'eligible' ? 'ELIGIBLE' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th *ngIf="fullOptionVisibleColumns.has('graphs')">Graphiques</th></tr>
             <tr class="filter-row"><td *ngFor="let column of visibleFullOptionDataColumns"><input [(ngModel)]="fullOptionFilters[column]" (ngModelChange)="persistState()" [attr.aria-label]="'Filtrer ' + column" placeholder="Filtrer" /></td><td *ngIf="fullOptionVisibleColumns.has('graphs')"></td></tr>
           </thead>
           <tbody>
@@ -384,14 +385,14 @@
               <ng-container *ngFor="let group of groupedFullOptions">
                 <tr class="full-option-group-row"><th [attr.colspan]="visibleFullOptionColumnCount"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isFullOptionGroupCollapsed(group.key)" (click)="toggleFullOptionGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isFullOptionGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
                 <tr *ngFor="let option of group.rows; let rowIndex = index" [hidden]="isFullOptionGroupCollapsed(group.key)" [class.alternate-row]="alternateFullOptionRows && rowIndex % 2 === 1">
-                  <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
+                  <td *ngFor="let column of visibleFullOptionDataColumns">{{ fullOptionCellValue(option, column) }}</td>
                   <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
                 </tr>
               </ng-container>
             </ng-container>
             <ng-template #ungroupedFullOptions>
               <tr *ngFor="let option of filteredFullOptions; let rowIndex = index" [class.alternate-row]="alternateFullOptionRows && rowIndex % 2 === 1">
-                <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
+                <td *ngFor="let column of visibleFullOptionDataColumns">{{ fullOptionCellValue(option, column) }}</td>
                 <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
               </tr>
             </ng-template>
@@ -436,7 +437,7 @@
         <div class="full-option-characteristics">
           <div class="full-option-characteristic" *ngFor="let column of fullOptionColumns">
             <span>{{ fullOptionLabels[column] }}</span>
-            <strong>{{ option[column] ?? '—' }}</strong>
+            <strong>{{ fullOptionCellValue(option, column) }}</strong>
           </div>
         </div>
       </ng-container>

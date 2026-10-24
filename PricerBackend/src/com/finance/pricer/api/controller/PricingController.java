@@ -21,6 +21,8 @@ import com.finance.pricer.Stock;
 import com.finance.pricer.SwapPricer;
 import com.finance.pricer.api.dto.BloombergInstrument;
 import com.finance.pricer.api.dto.BloombergMarketData;
+import com.finance.pricer.api.dto.BloombergPricingBatchRequest;
+import com.finance.pricer.api.dto.BloombergPricingBatchResult;
 import com.finance.pricer.api.dto.BloombergPricingRequest;
 import com.finance.pricer.api.dto.BloombergPricingResponse;
 import jakarta.validation.Valid;
@@ -106,6 +108,23 @@ public class PricingController {
 
     @PostMapping({"/v1/blp/pricing/equity-option"})
     public ResponseEntity<BloombergPricingResponse> priceBloombergOption(@Valid @RequestBody BloombergPricingRequest request) {
+                return ResponseEntity.ok(priceBloombergOptionResponse(request));
+        }
+
+        @PostMapping("/v1/blp/pricing/equity-option/batch")
+        public List<BloombergPricingBatchResult> priceBloombergOptionBatch(
+                        @Valid @RequestBody BloombergPricingBatchRequest batch) {
+                return batch.requests().stream().map(request -> {
+                        try {
+                                return new BloombergPricingBatchResult(request.requestId(), priceBloombergOptionResponse(request), null);
+                        } catch (RuntimeException exception) {
+                                String error = exception.getMessage() == null ? "Pricing failed" : exception.getMessage();
+                                return new BloombergPricingBatchResult(request.requestId(), null, error);
+                        }
+                }).toList();
+        }
+
+        private BloombergPricingResponse priceBloombergOptionResponse(BloombergPricingRequest request) {
         BloombergInstrument instrument = request.instrument();
         BloombergMarketData marketData = request.marketData();
 
@@ -126,7 +145,7 @@ public class PricingController {
         double price = model.price(option, md);
         OptionGreeks greeks = OptionGreekCalculator.calculate(option, md, model, price);
 
-        BloombergPricingResponse response = new BloombergPricingResponse(
+        return new BloombergPricingResponse(
                 request.requestId(),
                 SUCCESS_STATUS,
                 OffsetDateTime.now(ZoneOffset.UTC),
@@ -139,7 +158,6 @@ public class PricingController {
                 Map.of(PRICING_MODEL_KEY, model.name(), "exercise_style", option.exerciseStyle().name(),
                         "greek_units", greekUnits())
         );
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping({"/v1/blp/pricing/irs"})
