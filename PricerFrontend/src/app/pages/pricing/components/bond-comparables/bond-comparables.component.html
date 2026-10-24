@@ -237,7 +237,31 @@
       <p class="message success" *ngIf="fullOptionPricingSummary">{{ fullOptionPricingSummary }}</p>
       <div class="table-toolbar" *ngIf="fullOptions.length">
         <span>{{ filteredFullOptions.length }} / {{ fullOptions.length }} lignes affichées</span>
-        <button type="button" class="clear-filters" (click)="clearFullOptionFilters()">Effacer les filtres</button>
+        <div class="table-toolbar-actions">
+          <details class="column-picker">
+            <summary>Colonnes</summary>
+            <div class="column-picker-menu">
+              <div class="column-picker-actions">
+                <button type="button" (click)="selectAllFullOptionColumns()">Tout sélectionner</button>
+                <button type="button" (click)="deselectAllFullOptionColumns()">Tout désélectionner</button>
+                <button type="button" (click)="applyDefaultFullOptionColumns()">Défaut</button>
+              </div>
+              <ol class="column-picker-list">
+                <li *ngFor="let column of fullOptionColumnOrder">
+                  <label class="column-picker-option">
+                    <input type="checkbox" [checked]="fullOptionVisibleColumns.has(column)" (change)="setFullOptionColumnVisibility(column, $event)" />
+                    <span>{{ fullOptionDisplayLabel(column) }}</span>
+                  </label>
+                  <span class="column-picker-order">
+                    <button type="button" [disabled]="fullOptionColumnOrder[0] === column" [attr.aria-label]="'Monter ' + fullOptionDisplayLabel(column)" (click)="moveFullOptionColumn(column, -1)">↑</button>
+                    <button type="button" [disabled]="fullOptionColumnOrder[fullOptionColumnOrder.length - 1] === column" [attr.aria-label]="'Descendre ' + fullOptionDisplayLabel(column)" (click)="moveFullOptionColumn(column, 1)">↓</button>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </details>
+          <button type="button" class="clear-filters" (click)="clearFullOptionFilters()">Effacer les filtres</button>
+        </div>
       </div>
       <div
         class="full-option-grouping-dropzone"
@@ -248,10 +272,14 @@
         (drop)="dropFullOptionColumn($event)">
         <span class="grouping-label">Regrouper par</span>
         <ng-container *ngIf="fullOptionGroupColumns.length; else groupingPlaceholder">
-          <span class="grouping-chip" *ngFor="let column of fullOptionGroupColumns">
+          <span class="grouping-summary">{{ groupedFullOptions.length }} groupes · {{ filteredFullOptions.length }} lignes</span>
+          <span class="grouping-chip" *ngFor="let column of fullOptionGroupColumns" (dragover)="allowFullOptionColumnDrop($event)" (drop)="dropFullOptionGroupColumn($event, column)">
+            <button type="button" class="grouping-drag-handle" draggable="true" (dragstart)="startFullOptionGroupDrag(column, $event)" [attr.aria-label]="'Déplacer ' + fullOptionLabels[column]" title="Déplacer le champ">⠿</button>
             {{ fullOptionLabels[column] }}
             <button type="button" [attr.aria-label]="'Retirer ' + fullOptionLabels[column] + ' du regroupement'" (click)="removeFullOptionGroupColumn(column)">×</button>
           </span>
+          <button type="button" class="clear-grouping" (click)="collapseAllFullOptionGroups()">Tout réduire</button>
+          <button type="button" class="clear-grouping" (click)="expandAllFullOptionGroups()">Tout développer</button>
           <button type="button" class="clear-grouping" (click)="clearFullOptionGrouping()">Effacer le regroupement</button>
         </ng-container>
         <ng-template #groupingPlaceholder><span class="grouping-placeholder">Glissez ici une ou plusieurs colonnes du tableau</span></ng-template>
@@ -259,23 +287,23 @@
       <div class="table-wrap full-option-table" *ngIf="fullOptions.length; else emptyFullOptions">
         <table>
           <thead>
-            <tr><th *ngFor="let column of fullOptionColumns"><button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startFullOptionColumnDrag(column, $event)" (click)="sortFullOptionsBy(column)" [title]="'Glisser ' + fullOptionLabels[column] + ' dans Regrouper par'">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th>Graphiques</th></tr>
-            <tr class="filter-row"><td *ngFor="let column of fullOptionColumns"><input [(ngModel)]="fullOptionFilters[column]" (ngModelChange)="persistState()" [attr.aria-label]="'Filtrer ' + column" placeholder="Filtrer" /></td><td></td></tr>
+            <tr><th *ngFor="let column of visibleFullOptionDataColumns"><button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startFullOptionColumnDrag(column, $event)" (click)="sortFullOptionsBy(column)" [title]="'Glisser ' + fullOptionLabels[column] + ' dans Regrouper par'">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column === 'underlyingYieldToMaturity' ? 'YTM sous-jacent' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th *ngIf="fullOptionVisibleColumns.has('graphs')">Graphiques</th></tr>
+            <tr class="filter-row"><td *ngFor="let column of visibleFullOptionDataColumns"><input [(ngModel)]="fullOptionFilters[column]" (ngModelChange)="persistState()" [attr.aria-label]="'Filtrer ' + column" placeholder="Filtrer" /></td><td *ngIf="fullOptionVisibleColumns.has('graphs')"></td></tr>
           </thead>
           <tbody>
             <ng-container *ngIf="fullOptionGroupColumns.length; else ungroupedFullOptions">
               <ng-container *ngFor="let group of groupedFullOptions">
-                <tr class="full-option-group-row"><th [attr.colspan]="fullOptionColumns.length + 1">{{ group.label }} <span>{{ group.rows.length }} lignes</span></th></tr>
-                <tr *ngFor="let option of group.rows">
-                  <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
-                  <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
+                <tr class="full-option-group-row"><th [attr.colspan]="visibleFullOptionColumnCount"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isFullOptionGroupCollapsed(group.key)" (click)="toggleFullOptionGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isFullOptionGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
+                <tr *ngFor="let option of group.rows" [hidden]="isFullOptionGroupCollapsed(group.key)">
+                  <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
+                  <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
                 </tr>
               </ng-container>
             </ng-container>
             <ng-template #ungroupedFullOptions>
               <tr *ngFor="let option of filteredFullOptions">
-                <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
-                <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
+                <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
+                <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
               </tr>
             </ng-template>
           </tbody>

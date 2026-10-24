@@ -137,3 +137,49 @@
     }
   }
 }
+
+:host-context(body.rainbow-theme) .sidebar {
+  background: #211f37;
+  border-right-color: rgba(255, 174, 98, 0.24);
+
+  .menu-title { color: #c1a7ca; }
+  .menu-divider { border-top-color: rgba(255, 174, 98, 0.18); }
+  .nav-button {
+    background: #2b2943;
+    border-color: rgba(204, 164, 226, 0.2);
+    color: #f0e7f4;
+    &:hover { background: #38314e; border-color: rgba(255, 174, 98, 0.55); }
+    &.active { background: #493b4b; border-color: #ffae62; color: #ffe1a1; box-shadow: 0 0 12px rgba(255, 174, 98, 0.16); }
+  }
+}
+
+:host-context(body.neon-theme) .sidebar {
+  background: #10252d;
+  border-right-color: rgba(64, 239, 221, 0.2);
+
+  .menu-title { color: #8dbdb9; }
+  .menu-divider { border-top-color: rgba(64, 239, 221, 0.16); }
+  .nav-button {
+    background: #15323a;
+    border-color: rgba(64, 239, 221, 0.2);
+    color: #d7f5ef;
+    &:hover { background: #1b4147; border-color: rgba(64, 239, 221, 0.55); }
+    &.active { background: #164b4a; border-color: #40efdd; color: #b5fff2; box-shadow: 0 0 14px rgba(64, 239, 221, 0.17); }
+  }
+}
+
+:host-context(body.pop-theme) .sidebar {
+  background: #e3f0e9;
+  border-right-color: #ccddd5;
+  color: #25373b;
+
+  .menu-title { color: #5f7777; }
+  .menu-divider { border-top-color: #cbdcd4; }
+  .nav-button {
+    background: #fffdf6;
+    border-color: #d6e1d7;
+    color: #25373b;
+    &:hover { background: #e6f6f0; border-color: #57bda5; }
+    &.active { background: #ffe28a; border-color: #e7ac45; color: #303b35; box-shadow: 0 2px 9px rgba(196, 139, 54, 0.18); }
+  }
+}

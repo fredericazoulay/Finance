@@ -29,6 +29,7 @@ type BondTargetForm = BondComparablesRequest['target'];
 type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'ai-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
+type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
 
 interface FullOptionGroup {
   key: string;
@@ -54,6 +55,8 @@ interface PersistedBondComparablesState {
   fullOptionSortColumn?: FullOptionColumn;
   fullOptionSortDirection?: 1 | -1;
   fullOptionGroupColumns?: FullOptionColumn[];
+  fullOptionColumnOrder?: FullOptionDisplayColumn[];
+  fullOptionVisibleColumns?: FullOptionDisplayColumn[];
 }
 
 @Component({
@@ -75,10 +78,13 @@ export class BondComparablesComponent {
     { value: 'pending', label: 'À analyser' }
   ] as const;
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus'];
+  fullOptionColumnOrder: FullOptionDisplayColumn[] = [...this.fullOptionColumns, 'graphs'];
+  fullOptionVisibleColumns = new Set<FullOptionDisplayColumn>(this.fullOptionColumnOrder);
   fullOptionFilters: Partial<Record<FullOptionColumn, string>> = {};
   fullOptionSortColumn: FullOptionColumn = 'optionId';
   fullOptionSortDirection: 1 | -1 = 1;
   fullOptionGroupColumns: FullOptionColumn[] = [];
+  collapsedFullOptionGroups = new Set<string>();
   isFullOptionGroupingDragOver = false;
   activeMode: BondScreenMode = 'basic';
   directResult: BondDirectPricingResponse | null = null;
@@ -426,7 +432,7 @@ export class BondComparablesComponent {
 
   get filteredFullOptions(): OptionImportRecord[] {
     return this.fullOptions
-      .filter(option => this.fullOptionColumns.every(column => {
+      .filter(option => this.visibleFullOptionDataColumns.every(column => {
         const filter = this.fullOptionFilters[column]?.trim().toLocaleLowerCase();
         return !filter || String(option[column] ?? '').toLocaleLowerCase().includes(filter);
       }))
@@ -439,6 +445,58 @@ export class BondComparablesComponent {
           : String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
         return comparison * this.fullOptionSortDirection;
       });
+  }
+
+  get visibleFullOptionDisplayColumns(): FullOptionDisplayColumn[] {
+    return this.fullOptionColumnOrder.filter(column => this.fullOptionVisibleColumns.has(column));
+  }
+
+  get visibleFullOptionDataColumns(): FullOptionColumn[] {
+    return this.visibleFullOptionDisplayColumns.filter((column): column is FullOptionColumn => column !== 'graphs');
+  }
+
+  get visibleFullOptionColumnCount(): number {
+    return Math.max(1, this.visibleFullOptionDisplayColumns.length);
+  }
+
+  fullOptionDisplayLabel(column: FullOptionDisplayColumn): string {
+    return column === 'graphs' ? 'Graphiques' : this.fullOptionLabels[column];
+  }
+
+  moveFullOptionColumn(column: FullOptionDisplayColumn, offset: -1 | 1): void {
+    const index = this.fullOptionColumnOrder.indexOf(column);
+    const targetIndex = index + offset;
+    if (index < 0 || targetIndex < 0 || targetIndex >= this.fullOptionColumnOrder.length) return;
+    const nextOrder = [...this.fullOptionColumnOrder];
+    [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+    this.fullOptionColumnOrder = nextOrder;
+    this.persistState();
+  }
+
+  setFullOptionColumnVisibility(column: FullOptionDisplayColumn, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const nextVisibleColumns = new Set(this.fullOptionVisibleColumns);
+    if (checked) nextVisibleColumns.add(column);
+    else nextVisibleColumns.delete(column);
+    this.fullOptionVisibleColumns = nextVisibleColumns;
+    this.persistState();
+  }
+
+  selectAllFullOptionColumns(): void {
+    this.fullOptionVisibleColumns = new Set(this.fullOptionColumnOrder);
+    this.persistState();
+  }
+
+  deselectAllFullOptionColumns(): void {
+    this.fullOptionVisibleColumns = new Set();
+    this.persistState();
+  }
+
+  applyDefaultFullOptionColumns(): void {
+    const defaultOrder: FullOptionDisplayColumn[] = [...this.fullOptionColumns, 'graphs'];
+    this.fullOptionColumnOrder = defaultOrder;
+    this.fullOptionVisibleColumns = new Set([...defaultOrder.slice(0, 10), ...defaultOrder.slice(-3)]);
+    this.persistState();
   }
 
   get groupedFullOptions(): FullOptionGroup[] {
@@ -458,23 +516,72 @@ export class BondComparablesComponent {
   }
 
   startFullOptionColumnDrag(column: FullOptionColumn, event: DragEvent): void {
-    event.dataTransfer?.setData('text/plain', column);
+    event.dataTransfer?.setData('text/plain', `column:${column}`);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  startFullOptionGroupDrag(column: FullOptionColumn, event: DragEvent): void {
+    event.dataTransfer?.setData('text/plain', `group:${column}`);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 
   allowFullOptionColumnDrop(event: DragEvent): void {
     event.preventDefault();
     this.isFullOptionGroupingDragOver = true;
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = event.dataTransfer.effectAllowed === 'move' ? 'move' : 'copy';
+    }
   }
 
   dropFullOptionColumn(event: DragEvent): void {
     event.preventDefault();
     this.isFullOptionGroupingDragOver = false;
-    const column = event.dataTransfer?.getData('text/plain') as FullOptionColumn | undefined;
-    if (!column || !this.fullOptionColumns.includes(column) || this.fullOptionGroupColumns.includes(column)) return;
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    const isGroupedColumn = payload.startsWith('group:');
+    const column = payload.replace(/^(column|group):/, '') as FullOptionColumn;
+    if (!this.fullOptionColumns.includes(column)) return;
+    if (isGroupedColumn) {
+      this.fullOptionGroupColumns = [...this.fullOptionGroupColumns.filter(groupColumn => groupColumn !== column), column];
+      this.persistState();
+      return;
+    }
+    if (this.fullOptionGroupColumns.includes(column)) return;
     this.fullOptionGroupColumns = [...this.fullOptionGroupColumns, column];
     this.persistState();
+  }
+
+  dropFullOptionGroupColumn(event: DragEvent, targetColumn: FullOptionColumn): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    const column = payload.replace(/^(column|group):/, '') as FullOptionColumn;
+    if (!this.fullOptionColumns.includes(column) || column === targetColumn) return;
+
+    const nextColumns = this.fullOptionGroupColumns.filter(groupColumn => groupColumn !== column);
+    const targetIndex = nextColumns.indexOf(targetColumn);
+    if (targetIndex === -1) return;
+    nextColumns.splice(targetIndex, 0, column);
+    this.fullOptionGroupColumns = nextColumns;
+    this.persistState();
+  }
+
+  isFullOptionGroupCollapsed(key: string): boolean {
+    return this.collapsedFullOptionGroups.has(key);
+  }
+
+  toggleFullOptionGroup(key: string): void {
+    const nextCollapsedGroups = new Set(this.collapsedFullOptionGroups);
+    if (nextCollapsedGroups.has(key)) nextCollapsedGroups.delete(key);
+    else nextCollapsedGroups.add(key);
+    this.collapsedFullOptionGroups = nextCollapsedGroups;
+  }
+
+  collapseAllFullOptionGroups(): void {
+    this.collapsedFullOptionGroups = new Set(this.groupedFullOptions.map(group => group.key));
+  }
+
+  expandAllFullOptionGroups(): void {
+    this.collapsedFullOptionGroups = new Set();
   }
 
   removeFullOptionGroupColumn(column: FullOptionColumn): void {
@@ -842,6 +949,7 @@ export class BondComparablesComponent {
       }
     }
     this.restoreFullOptionGrouping(state);
+    this.restoreFullOptionColumnPreferences(state);
   }
 
   private restoreFullOptionGrouping(state: Partial<PersistedBondComparablesState>): void {
@@ -850,6 +958,20 @@ export class BondComparablesComponent {
         this.fullOptionColumns.includes(column)
       ))];
     }
+  }
+
+  private restoreFullOptionColumnPreferences(state: Partial<PersistedBondComparablesState>): void {
+    if (Array.isArray(state.fullOptionColumnOrder)) {
+      const restoredOrder = [...new Set(state.fullOptionColumnOrder.filter(column => this.isFullOptionDisplayColumn(column)))];
+      this.fullOptionColumnOrder = [...restoredOrder, ...this.fullOptionColumnOrder.filter(column => !restoredOrder.includes(column))];
+    }
+    if (Array.isArray(state.fullOptionVisibleColumns)) {
+      this.fullOptionVisibleColumns = new Set(state.fullOptionVisibleColumns.filter(column => this.isFullOptionDisplayColumn(column)));
+    }
+  }
+
+  private isFullOptionDisplayColumn(value: unknown): value is FullOptionDisplayColumn {
+    return value === 'graphs' || (typeof value === 'string' && this.fullOptionColumns.includes(value as FullOptionColumn));
   }
 
   private restoreSorting(state: Partial<PersistedBondComparablesState>): void {
@@ -882,7 +1004,9 @@ export class BondComparablesComponent {
       fullOptionFilters: this.fullOptionFilters,
       fullOptionSortColumn: this.fullOptionSortColumn,
       fullOptionSortDirection: this.fullOptionSortDirection,
-      fullOptionGroupColumns: this.fullOptionGroupColumns
+      fullOptionGroupColumns: this.fullOptionGroupColumns,
+      fullOptionColumnOrder: this.fullOptionColumnOrder,
+      fullOptionVisibleColumns: [...this.fullOptionVisibleColumns]
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));

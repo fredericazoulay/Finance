@@ -12,10 +12,25 @@
   color: #072024;
 }
 
+:host-context(body.rainbow-theme) {
+  background: #171b2b;
+  color: #f2eff8;
+}
+
+:host-context(body.neon-theme) {
+  background: #0a1820;
+  color: #e4fff8;
+}
+
+:host-context(body.pop-theme) {
+  background: #f1f7f3;
+  color: #25373b;
+}
+
 .terminal-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  grid-template-rows: 64px 1fr;
+  grid-template-rows: minmax(68px, auto) 1fr;
   height: 100vh;
   overflow: hidden;
 }

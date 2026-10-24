@@ -1,29 +1,47 @@
 <header class="topbar">
   <div class="brand">
-    <span class="dot green"></span>
-    <span>Finance Pricer Terminal</span>
+    <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="brand-name">Finance Pricer <span>Terminal</span></span>
   </div>
   <div class="status">
-    <span>{{ 'theme' | translate }}</span>
-    <span class="pill control-pill" [class.light]="themeService.isLightTheme">
-      <select id="theme-select" class="theme-select" [attr.aria-label]="'theme' | translate" (change)="setTheme($any($event.target).value === 'LIGHT')" [value]="themeService.isLightTheme ? 'LIGHT' : 'DARK'">
+    <label class="control-group">
+      <span class="control-label">{{ 'login' | translate }}</span>
+      <span class="control-shell">
+        <select id="login-select" class="theme-select" [attr.aria-label]="'login' | translate" (change)="setLogin($any($event.target).value)" [value]="login">
+        <option value="user1">Frederic - ADMIN</option>
+        <option value="user2">Frederic - USER</option>
+        </select>
+      </span>
+    </label>
+    <label class="control-group">
+      <span class="control-label">{{ 'theme' | translate }}</span>
+      <span class="control-shell theme-shell">
+        <select id="theme-select" class="theme-select" [attr.aria-label]="'theme' | translate" (change)="setTheme($any($event.target).value)" [value]="themeService.theme">
         <option value="LIGHT">LIGHT</option>
         <option value="DARK">DARK</option>
-      </select>
-    </span>
-    <span>{{ 'language' | translate }}</span>
-    <span class="pill control-pill" [class.light]="themeService.isLightTheme">
-      <select id="lang-select" class="theme-select" [attr.aria-label]="'language' | translate" (change)="setLanguage($any($event.target).value)" [value]="language">
+        <option value="RAINBOW">RAINBOW</option>
+        <option value="NEON">NEON</option>
+        <option value="POP">POP</option>
+        </select>
+      </span>
+    </label>
+    <label class="control-group">
+      <span class="control-label">{{ 'language' | translate }}</span>
+      <span class="control-shell language-shell">
+        <select id="language-select" class="theme-select" [attr.aria-label]="'language' | translate" (change)="setLanguage($any($event.target).value)" [value]="language">
         <option value="en">EN</option>
         <option value="fr">FR</option>
-      </select>
-    </span>
-    <span>{{ 'api' | translate }}</span>
+        </select>
+      </span>
+    </label>
+    <div class="api-status">
+      <span class="control-label">{{ 'api' | translate }}</span>
     <ng-container *ngIf="(pricingService.apiOnline$ | async) as isOnline; else offlinePill">
-      <span class="pill online">ONLINE</span>
+        <span class="api-indicator online"><span></span>ONLINE</span>
     </ng-container>
     <ng-template #offlinePill>
-      <span class="pill">OFFLINE</span>
+        <span class="api-indicator"><span></span>OFFLINE</span>
     </ng-template>
+    </div>
   </div>
 </header>
