@@ -65,6 +65,7 @@ export class CalculatorsPageComponent implements OnInit, OnDestroy {
       }
       this.calculatorError = '';
       this.calculatorResult = null;
+      this.cdr.markForCheck();
     });
   }
 

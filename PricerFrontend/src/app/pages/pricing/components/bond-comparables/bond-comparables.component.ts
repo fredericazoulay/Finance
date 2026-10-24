@@ -15,6 +15,8 @@ import { BondComparablesService } from '../../../../services/bond-comparables.se
 import { PricingService } from '../../../../services/pricing.service';
 import { AiAnalysisComponent } from '../ai-analysis/ai-analysis.component';
 import { FullOptionGraphsComponent } from '../full-option-graphs/full-option-graphs.component';
+import { BondMarkowitzComponent } from '../bond-markowitz/bond-markowitz.component';
+import { BondPortfoliosComponent } from '../bond-portfolios/bond-portfolios.component';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
@@ -26,7 +28,7 @@ type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'ratin
 type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
-type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'ai-analysis';
+type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
@@ -57,12 +59,13 @@ interface PersistedBondComparablesState {
   fullOptionGroupColumns?: FullOptionColumn[];
   fullOptionColumnOrder?: FullOptionDisplayColumn[];
   fullOptionVisibleColumns?: FullOptionDisplayColumn[];
+  alternateFullOptionRows?: boolean;
 }
 
 @Component({
   selector: 'app-bond-comparables',
   standalone: true,
-  imports: [CommonModule, FormsModule, AiAnalysisComponent, FullOptionGraphsComponent],
+  imports: [CommonModule, FormsModule, AiAnalysisComponent, FullOptionGraphsComponent, BondMarkowitzComponent, BondPortfoliosComponent],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
 })
@@ -80,6 +83,7 @@ export class BondComparablesComponent {
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus'];
   fullOptionColumnOrder: FullOptionDisplayColumn[] = [...this.fullOptionColumns, 'graphs'];
   fullOptionVisibleColumns = new Set<FullOptionDisplayColumn>(this.fullOptionColumnOrder);
+  alternateFullOptionRows = false;
   fullOptionFilters: Partial<Record<FullOptionColumn, string>> = {};
   fullOptionSortColumn: FullOptionColumn = 'optionId';
   fullOptionSortDirection: 1 | -1 = 1;
@@ -489,6 +493,11 @@ export class BondComparablesComponent {
 
   deselectAllFullOptionColumns(): void {
     this.fullOptionVisibleColumns = new Set();
+    this.persistState();
+  }
+
+  toggleAlternateFullOptionRows(): void {
+    this.alternateFullOptionRows = !this.alternateFullOptionRows;
     this.persistState();
   }
 
@@ -961,6 +970,9 @@ export class BondComparablesComponent {
   }
 
   private restoreFullOptionColumnPreferences(state: Partial<PersistedBondComparablesState>): void {
+    if (typeof state.alternateFullOptionRows === 'boolean') {
+      this.alternateFullOptionRows = state.alternateFullOptionRows;
+    }
     if (Array.isArray(state.fullOptionColumnOrder)) {
       const restoredOrder = [...new Set(state.fullOptionColumnOrder.filter(column => this.isFullOptionDisplayColumn(column)))];
       this.fullOptionColumnOrder = [...restoredOrder, ...this.fullOptionColumnOrder.filter(column => !restoredOrder.includes(column))];
@@ -1006,7 +1018,8 @@ export class BondComparablesComponent {
       fullOptionSortDirection: this.fullOptionSortDirection,
       fullOptionGroupColumns: this.fullOptionGroupColumns,
       fullOptionColumnOrder: this.fullOptionColumnOrder,
-      fullOptionVisibleColumns: [...this.fullOptionVisibleColumns]
+      fullOptionVisibleColumns: [...this.fullOptionVisibleColumns],
+      alternateFullOptionRows: this.alternateFullOptionRows
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));

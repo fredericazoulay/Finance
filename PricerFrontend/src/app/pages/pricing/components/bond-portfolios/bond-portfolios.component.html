@@ -1,0 +1,106 @@
+<section class="portfolio-workspace">
+  <aside class="portfolio-rail" aria-label="Liste des portefeuilles">
+    <div class="rail-heading"><p class="eyebrow">Gestion</p><h2>Portefeuilles</h2></div>
+    <div class="portfolio-list" *ngIf="portfolios.length; else noPortfolios">
+      <button type="button" class="portfolio-entry" *ngFor="let portfolio of portfolios" [class.selected]="activePortfolioId === portfolio.id" (click)="activePortfolioId = portfolio.id; portfolioPendingDeletion = ''; error = ''">
+        <strong>{{ portfolio.name }}</strong><span>{{ portfolioSummary(portfolio) }}</span>
+      </button>
+    </div>
+    <ng-template #noPortfolios><p class="rail-empty">Créez un portefeuille pour commencer.</p></ng-template>
+    <div class="create-portfolio">
+      <label for="new-portfolio-name">Nouveau portefeuille</label>
+      <input id="new-portfolio-name" [(ngModel)]="newPortfolioName" [ngModelOptions]="{standalone: true}" placeholder="Ex. Obligations EUR" />
+      <button type="button" class="primary-button" (click)="createPortfolio()">＋ Créer</button>
+    </div>
+  </aside>
+
+  <div class="portfolio-main" *ngIf="activePortfolio as portfolio; else portfolioWelcome">
+    <header class="portfolio-heading">
+      <div><p class="eyebrow">Suivi des positions · {{ portfolio.positions.length }} lignes</p><h2>{{ portfolio.name }}</h2></div>
+      <div class="heading-actions">
+        <button type="button" class="danger-button" *ngIf="portfolioPendingDeletion !== portfolio.id" (click)="requestPortfolioDeletion(portfolio.id)" aria-label="Supprimer ce portefeuille">Supprimer</button>
+        <div class="delete-confirm" *ngIf="portfolioPendingDeletion === portfolio.id"><span>Supprimer ce portefeuille ?</span><button type="button" class="danger-button" (click)="deletePortfolio()">Confirmer</button><button type="button" class="quiet-button" (click)="portfolioPendingDeletion = ''">Annuler</button></div>
+      </div>
+    </header>
+
+    <div class="portfolio-kpis">
+      <article class="kpi"><span>Valeur de marché</span><strong>{{ marketValueLabel }}</strong><small>Prix coté × nominal / 100</small></article>
+      <article class="kpi"><span>Obligations</span><strong>{{ portfolio.positions.length }}</strong><small>{{ currencySummaries.length }} devise{{ currencySummaries.length === 1 ? '' : 's' }}</small></article>
+      <article class="kpi"><span>Positions valorisées</span><strong>{{ pricedPositionCount }}</strong><small>Prix courant renseigné</small></article>
+      <article class="kpi shock-kpi"><label for="rate-shock">Choc de taux</label><div><input id="rate-shock" type="number" min="-1000" max="1000" step="25" [(ngModel)]="rateShockBps" [ngModelOptions]="{standalone: true}" /> <span>pb</span></div><small>Parallèle, approximation duration</small></article>
+    </div>
+
+    <section class="add-position-section" aria-labelledby="add-position-title">
+      <div class="section-heading"><div><p class="eyebrow">Construction</p><h3 id="add-position-title">Ajouter une obligation</h3></div><span class="source-note">Données importées ou saisie manuelle</span></div>
+      <div class="position-form">
+        <label class="instrument-select"><span>Instrument du panel</span><select [ngModel]="selectedBondId" [ngModelOptions]="{standalone: true}" (ngModelChange)="selectInstrument($event)"><option value="">Saisie manuelle</option><option *ngFor="let bond of bonds" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.currency }} · {{ bond.maturityDate }}</option></select></label>
+        <label><span>Identifiant</span><input [(ngModel)]="positionDraft.securityId" [ngModelOptions]="{standalone: true}" placeholder="ISIN / ticker" /></label>
+        <label><span>Émetteur</span><input [(ngModel)]="positionDraft.issuer" [ngModelOptions]="{standalone: true}" placeholder="Émetteur" /></label>
+        <label><span>Devise</span><input [(ngModel)]="positionDraft.currency" [ngModelOptions]="{standalone: true}" maxlength="3" /></label>
+        <label><span>Échéance</span><input type="date" [(ngModel)]="positionDraft.maturityDate" [ngModelOptions]="{standalone: true}" /></label>
+        <label><span>Nominal détenu</span><input type="number" min="0.01" step="1000" [(ngModel)]="positionDraft.nominal" [ngModelOptions]="{standalone: true}" /></label>
+        <label><span>Prix courant / 100</span><input type="number" min="0.001" step="0.001" [(ngModel)]="positionDraft.marketPrice" [ngModelOptions]="{standalone: true}" placeholder="Optionnel" /></label>
+        <label><span>Prix de revient / 100</span><input type="number" min="0.001" step="0.001" [(ngModel)]="positionDraft.costPrice" [ngModelOptions]="{standalone: true}" placeholder="Optionnel" /></label>
+        <label><span>YTM (%)</span><input type="number" step="0.01" [(ngModel)]="positionDraft.yieldPercent" [ngModelOptions]="{standalone: true}" placeholder="Optionnel" /></label>
+        <label><span>Duration modifiée (ans)</span><input type="number" min="0" step="0.01" [(ngModel)]="positionDraft.modifiedDuration" [ngModelOptions]="{standalone: true}" placeholder="Pour le DV01" /></label>
+      </div>
+      <div class="form-actions"><p class="message error" *ngIf="error">{{ error }}</p><button type="button" class="primary-button" (click)="addPosition()">＋ Ajouter à {{ portfolio.name }}</button></div>
+    </section>
+
+    <section class="portfolio-analytics" aria-label="Synthèse et sensibilités du portefeuille">
+      <div class="section-heading"><div><p class="eyebrow">Risque & allocation</p><h3>Expositions par devise</h3></div><span class="source-note">Aucune conversion FX agrégée</span></div>
+      <div class="currency-grid" *ngIf="currencySummaries.length; else noExposure">
+        <article class="currency-panel" *ngFor="let summary of currencySummaries">
+          <header><strong>{{ summary.currency }}</strong><span>{{ summary.pricedCount }} / {{ summary.positionCount }} valorisées</span></header>
+          <div class="currency-metrics">
+            <div><span>Valeur de marché</span><strong>{{ summary.marketValue | currency:summary.currency:'code':'1.0-0' }}</strong></div>
+            <div><span>YTM moyenne pondérée</span><strong>{{ summary.weightedYield === null ? '—' : (summary.weightedYield | percent:'1.2-2') }}</strong></div>
+            <div><span>Duration moyenne pondérée</span><strong>{{ summary.weightedDuration === null ? '—' : (summary.weightedDuration | number:'1.2-2') + ' ans' }}</strong></div>
+            <div><span>DV01 estimé</span><strong>{{ summary.durationCount ? (summary.dv01 | currency:summary.currency:'code':'1.2-2') : '—' }}</strong></div>
+            <div><span>P&L latent</span><strong [class.positive]="summary.unrealizedPnl !== null && summary.unrealizedPnl >= 0" [class.negative]="summary.unrealizedPnl !== null && summary.unrealizedPnl < 0">{{ summary.unrealizedPnl === null ? '—' : (summary.unrealizedPnl | currency:summary.currency:'code':'1.0-0') }}</strong></div>
+            <div><span>Impact du choc {{ rateShockBps }} pb</span><strong [class.negative]="summary.rateShockPnl < 0" [class.positive]="summary.rateShockPnl > 0">{{ summary.durationCount ? (summary.rateShockPnl | currency:summary.currency:'code':'1.0-0') : '—' }}</strong></div>
+          </div>
+          <div class="allocation-list" *ngIf="summary.allocations.length; else noPricedBonds">
+            <div class="allocation-row" *ngFor="let allocation of summary.allocations">
+              <span [title]="allocation.position.securityId">{{ allocation.position.securityId }}</span>
+              <div class="allocation-track"><span [style.width.%]="allocation.weight"></span></div>
+              <strong>{{ allocation.weight | number:'1.0-1' }}%</strong>
+            </div>
+          </div>
+          <ng-template #noPricedBonds><p class="empty-inline">Renseignez un prix courant pour afficher l’allocation.</p></ng-template>
+        </article>
+      </div>
+      <ng-template #noExposure><p class="empty-inline">Ajoutez des obligations pour calculer les expositions.</p></ng-template>
+      <p class="risk-disclaimer">Le DV01 et le scénario de taux sont des approximations de premier ordre : ΔP ≈ −DV01 × choc (pb), à partir de la duration modifiée saisie. Ils excluent convexité, mouvements de spread, défaut, liquidité et change. Le P&L latent compare uniquement les prix courant et de revient saisis.</p>
+    </section>
+
+    <section class="holdings-section" aria-labelledby="holdings-title">
+      <div class="section-heading"><div><p class="eyebrow">Positions</p><h3 id="holdings-title">Obligations détenues</h3></div><span class="source-note">Éditez les données pour mettre à jour les impacts</span></div>
+      <div class="holdings-table-wrap" *ngIf="portfolio.positions.length; else emptyHoldings">
+        <table class="holdings-table">
+          <thead><tr><th>Obligation</th><th>Devise</th><th>Nominal</th><th>Prix courant / 100</th><th>Valeur de marché</th><th>Prix de revient / 100</th><th>P&L latent</th><th>YTM</th><th>Duration modifiée</th><th>DV01 estimé</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let position of portfolio.positions">
+              <td><strong>{{ position.securityId }}</strong><small>{{ position.issuer || '—' }} · {{ position.maturityDate || 'Échéance inconnue' }}</small></td>
+              <td>{{ position.currency }}</td>
+              <td><input type="number" min="0.01" step="1000" [(ngModel)]="position.nominal" [ngModelOptions]="{standalone: true}" (ngModelChange)="persist()" [attr.aria-label]="'Nominal ' + position.securityId" /></td>
+              <td><input type="number" min="0.001" step="0.001" [(ngModel)]="position.marketPrice" [ngModelOptions]="{standalone: true}" (ngModelChange)="persist()" [attr.aria-label]="'Prix courant ' + position.securityId" /></td>
+              <td>{{ positionMarketValue(position) === null ? '—' : (positionMarketValue(position) | currency:position.currency:'code':'1.0-0') }}</td>
+              <td><input type="number" min="0.001" step="0.001" [(ngModel)]="position.costPrice" [ngModelOptions]="{standalone: true}" (ngModelChange)="persist()" [attr.aria-label]="'Prix de revient ' + position.securityId" /></td>
+              <td [class.positive]="(positionPnl(position) ?? 0) >= 0" [class.negative]="(positionPnl(position) ?? 0) < 0">{{ positionPnl(position) === null ? '—' : (positionPnl(position) | currency:position.currency:'code':'1.0-0') }}</td>
+              <td><div class="editable-with-unit"><input type="number" step="0.01" [ngModel]="position.yieldToMaturity === null ? null : position.yieldToMaturity * 100" [ngModelOptions]="{standalone: true}" (ngModelChange)="position.yieldToMaturity = $event === null ? null : $event / 100; persist()" [attr.aria-label]="'YTM ' + position.securityId" /><span>%</span></div></td>
+              <td><input type="number" min="0" step="0.01" [(ngModel)]="position.modifiedDuration" [ngModelOptions]="{standalone: true}" (ngModelChange)="persist()" [attr.aria-label]="'Duration modifiée ' + position.securityId" /></td>
+              <td>{{ positionDv01(position) === null ? '—' : (positionDv01(position) | currency:position.currency:'code':'1.2-2') }}</td>
+              <td><button type="button" class="remove-position" (click)="removePosition(position.id)" [attr.aria-label]="'Supprimer ' + position.securityId" title="Supprimer l’obligation">×</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #emptyHoldings><p class="empty-inline">Ce portefeuille ne contient aucune obligation.</p></ng-template>
+    </section>
+  </div>
+
+  <ng-template #portfolioWelcome>
+    <section class="portfolio-welcome"><p class="eyebrow">Gestion de portefeuille obligataire</p><h2>Créez un portefeuille</h2><p>Suivez positions, expositions par devise, P&L latent et sensibilités aux taux à partir des données de votre panel.</p></section>
+  </ng-template>
+</section>

@@ -5,7 +5,7 @@
       <p class="eyebrow">Fixed income / valuation</p>
       <h1>Pricing obligataire</h1>
     </div>
-    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' ? 'Données complètes des instruments importées' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : 'Calcul direct · taux en pourcentage' }}</span>
+    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : 'Calcul direct · taux en pourcentage' }}</span>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
@@ -14,6 +14,8 @@
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-light'" [class.active]="activeMode === 'comparables-light'" (click)="setMode('comparables-light')">Comparables light</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full'" [class.active]="activeMode === 'comparables-full'" (click)="setMode('comparables-full')">Comparables full</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full-graphs'" [class.active]="activeMode === 'comparables-full-graphs'" (click)="setMode('comparables-full-graphs')">Graphiques full</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full-markowitz'" [class.active]="activeMode === 'comparables-full-markowitz'" (click)="setMode('comparables-full-markowitz')">Markovitz</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'portfolios'" [class.active]="activeMode === 'portfolios'" (click)="setMode('portfolios')">Portefeuilles</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'ai-analysis'" [class.active]="activeMode === 'ai-analysis'" (click)="setMode('ai-analysis')">Analyse IA</button>
   </div>
 
@@ -58,7 +60,7 @@
       <label><span>Date d’émission</span><input type="date" [(ngModel)]="advancedForm.issueDate" /></label>
       <label><span>Date d’échéance</span><input type="date" [(ngModel)]="advancedForm.maturityDate" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="advancedForm.settlementDate" /></label>
-      <label><span>Convention de calcul des jours</span><select [(ngModel)]="advancedForm.dayCount"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">Actual/360</option><option value="ACT/365F">Actual/365F</option><option value="ACT/ACT">Actual/Actual</option></select></label>
+      <label><span>Convention de calcul des jours</span><select [(ngModel)]="advancedForm.dayCount"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">Actual/360</option><option value="ACT/365F">Actual/365F</option><option value="ACT_ACT_ICMA">Actual/Actual ICMA</option><option value="ACT_ACT_ISDA">Actual/Actual ISDA</option></select></label>
       <label *ngIf="advancedForm.solveFor === 'PRICE'"><span>Rendement à l’échéance (%)</span><input type="number" step="0.01" [(ngModel)]="advancedForm.ytm" /></label>
       <label *ngIf="advancedForm.solveFor === 'YTM'"><span>Prix clean de marché ({{ directCurrency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="advancedForm.marketPrice" /></label>
     </div>
@@ -101,7 +103,7 @@
       <label><span>Date d’émission</span><input type="date" [(ngModel)]="target.issueDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
-      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option></select></label>
+      <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option><option value="ACT_ACT_ICMA">ACT/ACT ICMA</option><option value="ACT_ACT_ISDA">ACT/ACT ISDA</option></select></label>
     </div>
   </section>
 
@@ -238,6 +240,7 @@
       <div class="table-toolbar" *ngIf="fullOptions.length">
         <span>{{ filteredFullOptions.length }} / {{ fullOptions.length }} lignes affichées</span>
         <div class="table-toolbar-actions">
+          <button type="button" class="alternate-toggle" [class.active]="alternateFullOptionRows" [attr.aria-pressed]="alternateFullOptionRows" (click)="toggleAlternateFullOptionRows()">Alternate</button>
           <details class="column-picker">
             <summary>Colonnes</summary>
             <div class="column-picker-menu">
@@ -294,14 +297,14 @@
             <ng-container *ngIf="fullOptionGroupColumns.length; else ungroupedFullOptions">
               <ng-container *ngFor="let group of groupedFullOptions">
                 <tr class="full-option-group-row"><th [attr.colspan]="visibleFullOptionColumnCount"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isFullOptionGroupCollapsed(group.key)" (click)="toggleFullOptionGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isFullOptionGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
-                <tr *ngFor="let option of group.rows" [hidden]="isFullOptionGroupCollapsed(group.key)">
+                <tr *ngFor="let option of group.rows; let rowIndex = index" [hidden]="isFullOptionGroupCollapsed(group.key)" [class.alternate-row]="alternateFullOptionRows && rowIndex % 2 === 1">
                   <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
                   <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
                 </tr>
               </ng-container>
             </ng-container>
             <ng-template #ungroupedFullOptions>
-              <tr *ngFor="let option of filteredFullOptions">
+              <tr *ngFor="let option of filteredFullOptions; let rowIndex = index" [class.alternate-row]="alternateFullOptionRows && rowIndex % 2 === 1">
                 <td *ngFor="let column of visibleFullOptionDataColumns">{{ option[column] ?? '—' }}</td>
                 <td *ngIf="fullOptionVisibleColumns.has('graphs')"><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
               </tr>
@@ -344,6 +347,14 @@
         </div>
       </ng-container>
     </section>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'comparables-full-markowitz'">
+    <app-bond-markowitz [options]="fullOptions"></app-bond-markowitz>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'portfolios'">
+    <app-bond-portfolios [bonds]="panel"></app-bond-portfolios>
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'ai-analysis'">

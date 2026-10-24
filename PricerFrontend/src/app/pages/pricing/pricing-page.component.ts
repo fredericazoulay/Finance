@@ -93,6 +93,7 @@ export class PricingPageComponent implements OnInit, OnDestroy {
         this.selectedProduct = 'EQTY_OPT';
       }
       this.applyProduct(this.selectedProduct);
+      this.cdr.markForCheck();
     });
   }
 

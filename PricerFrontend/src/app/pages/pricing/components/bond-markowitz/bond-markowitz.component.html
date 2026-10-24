@@ -1,0 +1,58 @@
+<section class="markowitz-screen">
+  <header class="markowitz-heading">
+    <div>
+      <p class="eyebrow">03 / Allocation obligataire</p>
+      <h2>Carte rendement / risque</h2>
+    </div>
+    <span class="asset-count">{{ bonds.length }} obligations analysables</span>
+  </header>
+
+  <p class="method-note">Le YTM sert de proxy de rendement espéré et la volatilité importée de proxy de risque. Sans historiques de rendement ni matrice de covariance, cette vue aide à comparer les obligations mais ne calcule pas une frontière efficiente Markowitz.</p>
+
+  <div class="portfolio-controls" *ngIf="bonds.length">
+    <label class="slider-control">
+      <span><span>Appétence au risque</span><strong>{{ profileLabel }} · {{ riskAppetite }}%</strong></span>
+      <input type="range" min="0" max="100" step="1" [value]="riskAppetite" aria-label="Appétence au risque" (input)="setRiskAppetite($event)" />
+      <span class="slider-ends"><span>Prudent</span><span>Riskophile</span></span>
+    </label>
+    <label class="slider-control">
+      <span><span>Nombre d’obligations suggérées</span><strong>{{ selectedBonds.length }}</strong></span>
+      <input type="range" min="1" max="10" step="1" [value]="portfolioSize" aria-label="Nombre d’obligations dans le portefeuille" (input)="setPortfolioSize($event)" />
+      <span class="slider-ends"><span>Concentré</span><span>Diversifié</span></span>
+    </label>
+  </div>
+
+  <div class="portfolio-summary" *ngIf="selectedBonds.length">
+    <div><span>Positions sélectionnées</span><strong>{{ selectedBonds.length }}</strong></div>
+    <div><span>YTM moyen des positions</span><strong>{{ portfolioExpectedReturn | percent:'1.2-2' }}</strong></div>
+    <div><span>Volatilité moyenne (proxy)</span><strong>{{ portfolioAverageRisk | percent:'1.2-2' }}</strong></div>
+  </div>
+
+  <div class="markowitz-layout">
+    <section class="risk-chart-panel">
+      <div class="panel-heading">
+        <h3>Univers obligataire <span>{{ bonds.length }}</span></h3>
+        <span class="chart-legend"><i></i> Dans le portefeuille</span>
+      </div>
+      <div class="risk-chart-canvas" [hidden]="!bonds.length"><canvas #riskReturnChart></canvas></div>
+      <div class="empty-state" *ngIf="!bonds.length">
+        <strong>Aucune obligation avec YTM et volatilité</strong>
+        <span>Importez des lignes renseignant l’identifiant du sous-jacent, le YTM du sous-jacent et la volatilité.</span>
+      </div>
+    </section>
+
+    <section class="portfolio-panel" *ngIf="bonds.length">
+      <div class="panel-heading">
+        <h3>Portefeuille proposé <span>{{ selectedBonds.length }}</span></h3>
+      </div>
+      <div class="bond-list">
+        <button type="button" class="bond-row" *ngFor="let bond of bonds" [class.selected]="isSelected(bond.id)" [attr.aria-pressed]="isSelected(bond.id)" (click)="toggleBond(bond.id)">
+          <span class="bond-name"><strong>{{ bond.securityId }}</strong><small>{{ bond.currency }} · {{ bond.sourceCount }} instruments liés</small></span>
+          <span class="bond-metric"><small>YTM</small><strong>{{ bond.expectedReturn | percent:'1.2-2' }}</strong></span>
+          <span class="bond-metric"><small>Risque</small><strong>{{ bond.risk | percent:'1.2-2' }}</strong></span>
+          <span class="portfolio-check" aria-hidden="true">{{ isSelected(bond.id) ? '✓' : '+' }}</span>
+        </button>
+      </div>
+    </section>
+  </div>
+</section>

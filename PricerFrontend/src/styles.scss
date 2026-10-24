@@ -7,6 +7,208 @@
   --accent: #59b6ff;
   --success: #3ae374;
   --warn: #ffbf69;
+  --ui-page: #07141d;
+  --ui-surface: #0d1b25;
+  --ui-raised: #102532;
+  --ui-field: #0c1b27;
+  --ui-text: #eaf6ff;
+  --ui-muted: #8eaec5;
+  --ui-border: rgba(124, 181, 255, 0.2);
+  --ui-accent: #3ae374;
+  --ui-accent-soft: rgba(58, 227, 116, 0.12);
+  --ui-action-ink: #062116;
+}
+
+body.dark-theme {
+  color-scheme: dark;
+}
+
+body.light-theme {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --panel-2: #f0f4f7;
+  --text: #183b3d;
+  --muted: #5a7585;
+  --accent: #0b8f6b;
+  --ui-page: #f6f8fa;
+  --ui-surface: #ffffff;
+  --ui-raised: #e9f6f4;
+  --ui-field: #fbfdfb;
+  --ui-text: #183b3d;
+  --ui-muted: #5a7585;
+  --ui-border: rgba(7, 20, 29, 0.12);
+  --ui-accent: #0b8f6b;
+  --ui-accent-soft: #e2f3ed;
+  --ui-action-ink: #ffffff;
+}
+
+body.rainbow-theme {
+  color-scheme: dark;
+  --bg: #171b2b;
+  --panel: #23283c;
+  --panel-2: #302d47;
+  --text: #f2eff8;
+  --muted: #c1a7ca;
+  --accent: #ffae62;
+  --ui-page: #171b2b;
+  --ui-surface: #23283c;
+  --ui-raised: #302d47;
+  --ui-field: #1c2034;
+  --ui-text: #f2eff8;
+  --ui-muted: #c1a7ca;
+  --ui-border: rgba(255, 174, 98, 0.3);
+  --ui-accent: #ffae62;
+  --ui-accent-soft: rgba(255, 174, 98, 0.13);
+  --ui-action-ink: #33221c;
+}
+
+body.neon-theme {
+  color-scheme: dark;
+  --bg: #0a1820;
+  --panel: #10252d;
+  --panel-2: #15323a;
+  --text: #e4fff8;
+  --muted: #8dbdb9;
+  --accent: #40efdd;
+  --ui-page: #0a1820;
+  --ui-surface: #10252d;
+  --ui-raised: #15323a;
+  --ui-field: #0d2028;
+  --ui-text: #e4fff8;
+  --ui-muted: #8dbdb9;
+  --ui-border: rgba(64, 239, 221, 0.28);
+  --ui-accent: #40efdd;
+  --ui-accent-soft: rgba(64, 239, 221, 0.12);
+  --ui-action-ink: #102a2a;
+}
+
+body.pop-theme {
+  color-scheme: light;
+  --bg: #f1f7f3;
+  --panel: #fffdf6;
+  --panel-2: #ffe28a;
+  --text: #25373b;
+  --muted: #5f7777;
+  --accent: #ef6a57;
+  --ui-page: #f1f7f3;
+  --ui-surface: #fffdf6;
+  --ui-raised: #ffe28a;
+  --ui-field: #ffffff;
+  --ui-text: #25373b;
+  --ui-muted: #5f7777;
+  --ui-border: #ccddd5;
+  --ui-accent: #ef6a57;
+  --ui-accent-soft: #fff0d6;
+  --ui-action-ink: #ffffff;
+}
+
+body.light-theme,
+body.rainbow-theme,
+body.neon-theme,
+body.pop-theme {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.light-theme .content,
+body.rainbow-theme .content,
+body.neon-theme .content,
+body.pop-theme .content {
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+body.light-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel),
+body.rainbow-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel),
+body.neon-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel),
+body.pop-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel) {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .content .panel-header,
+body.rainbow-theme .content .panel-header,
+body.neon-theme .content .panel-header,
+body.pop-theme .content .panel-header,
+body.light-theme .content .schedule-table-wrapper th,
+body.rainbow-theme .content .schedule-table-wrapper th,
+body.neon-theme .content .schedule-table-wrapper th,
+body.pop-theme .content .schedule-table-wrapper th {
+  background: var(--ui-raised);
+  border-color: var(--ui-border);
+  color: var(--ui-accent);
+}
+
+body.light-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea),
+body.rainbow-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea),
+body.neon-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea),
+body.pop-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea) {
+  background: var(--ui-field);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.light-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note),
+body.rainbow-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note),
+body.neon-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note),
+body.pop-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note) {
+  color: var(--ui-muted);
+}
+
+body.light-theme .content :is(th, td),
+body.rainbow-theme .content :is(th, td),
+body.neon-theme .content :is(th, td),
+body.pop-theme .content :is(th, td) {
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.light-theme .content :is(.secondary, .secondary-button, .quiet-button, .export-button, .quick-btn),
+body.rainbow-theme .content :is(.secondary, .secondary-button, .quiet-button, .export-button, .quick-btn),
+body.neon-theme .content :is(.secondary, .secondary-button, .quiet-button, .export-button, .quick-btn),
+body.pop-theme .content :is(.secondary, .secondary-button, .quiet-button, .export-button, .quick-btn) {
+  background: var(--ui-accent-soft);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.light-theme .content :is(.primary, .primary-button),
+body.rainbow-theme .content :is(.primary, .primary-button),
+body.neon-theme .content :is(.primary, .primary-button),
+body.pop-theme .content :is(.primary, .primary-button) {
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-action-ink);
+}
+
+body.light-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs),
+body.rainbow-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs),
+body.neon-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs),
+body.pop-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs) {
+  border-color: var(--ui-border);
+}
+
+body.light-theme .content .bond-screen,
+body.rainbow-theme .content .bond-screen,
+body.neon-theme .content .bond-screen,
+body.pop-theme .content .bond-screen,
+body.light-theme .content .markowitz-screen,
+body.rainbow-theme .content .markowitz-screen,
+body.neon-theme .content .markowitz-screen,
+body.pop-theme .content .markowitz-screen,
+body.light-theme .content .portfolio-workspace,
+body.rainbow-theme .content .portfolio-workspace,
+body.neon-theme .content .portfolio-workspace,
+body.pop-theme .content .portfolio-workspace {
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: var(--ui-border);
+  --surface: var(--ui-surface);
+  --green: var(--ui-accent);
+  color: var(--ui-text);
 }
 
 * {

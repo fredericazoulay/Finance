@@ -2,6 +2,7 @@ package com.finance.pricer.fixedincome.bonds;
 
 import com.finance.pricer.core.curves.YieldCurve;
 //import com.finance.pricer.core.curves.ZeroRateCurve;
+import com.finance.pricer.core.calendar.DayCountConvention;
 import com.finance.pricer.core.math.BrentSolver;
 
 import java.time.LocalDate;
@@ -42,7 +43,7 @@ public final class BondAnalytics {
 
         for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
             if (cp.paymentDate().isAfter(settlementDate)) {
-                double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
+                double t = yearFractionToPayment(bond, settlementDate, cp);
                 double discountFactor = Math.pow(1.0 + periodicRate, -t * m);
                 pv += cp.totalCashFlow() * discountFactor;
             }
@@ -95,7 +96,7 @@ public final class BondAnalytics {
 
         for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
             if (cp.paymentDate().isAfter(settlementDate)) {
-                double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
+                double t = yearFractionToPayment(bond, settlementDate, cp);
                 double df = Math.pow(1.0 + periodicRate, -t * m);
                 weightedSum += t * cp.totalCashFlow() * df;
             }
@@ -138,7 +139,7 @@ public final class BondAnalytics {
 
         for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
             if (cp.paymentDate().isAfter(settlementDate)) {
-                double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
+                double t = yearFractionToPayment(bond, settlementDate, cp);
                 double df = Math.pow(1.0 + periodicRate, -t * m);
                 sum += t * (t + 1.0 / m) * cp.totalCashFlow() * df;
             }
@@ -168,7 +169,7 @@ public final class BondAnalytics {
                     double pv = 0.0;
                     for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
                         if (cp.paymentDate().isAfter(settlementDate)) {
-                            double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
+                            double t = yearFractionToPayment(bond, settlementDate, cp);
                             double baseZero = zeroCurve.zeroRate(cp.paymentDate());
                             pv += cp.totalCashFlow() * Math.exp(-(baseZero + s) * t);
                         }
@@ -196,7 +197,6 @@ public final class BondAnalytics {
         double baseDirtyPrice = 0.0;
         for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
             if (cp.paymentDate().isAfter(settlementDate)) {
-                double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
                 baseDirtyPrice += cp.totalCashFlow() * baseZeroCurve.discountFactor(cp.paymentDate());
             }
         }
@@ -214,7 +214,7 @@ public final class BondAnalytics {
 
             for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
                 if (cp.paymentDate().isAfter(settlementDate)) {
-                    double t = bond.getDayCountConvention().yearFraction(settlementDate, cp.paymentDate());
+                    double t = yearFractionToPayment(bond, settlementDate, cp);
                     double weight = triangularWeight(t, tPrev, tk, tNext);
 
                     double baseR = baseZeroCurve.zeroRate(cp.paymentDate());
@@ -240,6 +240,15 @@ public final class BondAnalytics {
         } else {
             return (tNext - t) / (tNext - tk);
         }
+    }
+
+    private static double yearFractionToPayment(
+            FixedCouponBond bond,
+            LocalDate settlementDate,
+            FixedCouponBond.CouponPayment payment) {
+        DayCountConvention.ScheduleContext context = DayCountConvention.ScheduleContext.of(
+                bond.getFrequency(), payment.periodStart(), payment.periodEnd());
+        return bond.getDayCountConvention().yearFraction(settlementDate, payment.paymentDate(), context);
     }
 
     /**

@@ -143,11 +143,13 @@ public class BondComparablesPricingService {
         }
 
                 private static DayCountConvention parseDayCount(String dayCount) {
-                return switch (dayCount.trim().toUpperCase(Locale.ROOT).replace('/', '_')) {
+                return switch (dayCount.trim().toUpperCase(Locale.ROOT).replace('/', '_').replace(' ', '_')) {
                     case "30_360", "THIRTY_360", "THIRTY_E_360" -> DayCountConvention.THIRTY_E_360;
                     case "THIRTY_360_US" -> DayCountConvention.THIRTY_360_US;
                     case "ACT_360", "ACTUAL_360" -> DayCountConvention.ACT_360;
                     case "ACT_365F", "ACT_365", "ACTUAL_365", "ACTUAL_365F" -> DayCountConvention.ACT_365F;
+                    case "ACT_ACT", "ACTUAL_ACTUAL", "ACT_ACT_ICMA", "ACTUAL_ACTUAL_ICMA" -> DayCountConvention.ACT_ACT_ICMA;
+                    case "ACT_ACT_ISDA", "ACTUAL_ACTUAL_ISDA" -> DayCountConvention.ACT_ACT_ISDA;
                     default -> throw new IllegalArgumentException("Unsupported dayCount: " + dayCount);
                 };
                 }

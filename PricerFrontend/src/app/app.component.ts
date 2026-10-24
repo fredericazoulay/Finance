@@ -5,6 +5,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ThemeService } from './services/theme.service';
 import { TopbarComponent } from './layout/topbar/topbar.component';
 import { SidebarComponent } from './layout/sidebar/sidebar.component';
+import { FooterComponent } from './layout/footbar/footer.component';
 
 @Component({
   selector: 'app-root',
@@ -14,7 +15,8 @@ import { SidebarComponent } from './layout/sidebar/sidebar.component';
     RouterModule,
     TranslateModule,
     TopbarComponent,
-    SidebarComponent
+    SidebarComponent,
+    FooterComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
