@@ -134,6 +134,7 @@ export class BondComparablesComponent {
   panel: BondComparable[] = [];
   fullOptions: OptionImportRecord[] = [];
   selectedFullOption: OptionImportRecord | null = null;
+  fullOptionSearch = '';
   readonly fullOptionLabels: Record<FullOptionColumn, string> = {
     optionId: 'Identifiant option',
     optionType: 'Type d’option',
@@ -224,7 +225,28 @@ export class BondComparablesComponent {
 
   openFullOptionGraphs(option: OptionImportRecord): void {
     this.selectedFullOption = option;
+    this.fullOptionSearch = '';
     this.setMode('comparables-full-graphs');
+  }
+
+  get searchedFullOptions(): OptionImportRecord[] {
+    const query = this.fullOptionSearch.trim().toLocaleLowerCase();
+    return this.fullOptions.filter(option =>
+      `${option.optionId} ${option.underlyingSecurityId} ${option.currency} ${option.optionType}`
+        .toLocaleLowerCase()
+        .includes(query)
+    );
+  }
+
+  searchFullOptions(query: string): void {
+    this.fullOptionSearch = query;
+    if (this.selectedFullOption && !this.searchedFullOptions.includes(this.selectedFullOption)) {
+      this.selectedFullOption = null;
+    }
+  }
+
+  selectFullOption(option: OptionImportRecord | null): void {
+    this.selectedFullOption = option;
   }
 
   calculateBasic(): void {
@@ -310,33 +332,13 @@ export class BondComparablesComponent {
     this.importError = '';
     this.result = null;
     this.lastCalculatedAt = null;
-    const timeoutId = setTimeout(() => {
-      if (generation !== this.importGeneration) return;
-      this.importGeneration++;
-      this.isImporting = false;
-      this.importError = 'La lecture dépasse 30 secondes. Vérifiez le fichier puis réessayez.';
-      input.value = '';
-      this.cdr.detectChanges();
-    }, 30000);
+    const timeoutId = this.startImportTimeout(input, generation);
 
     try {
       this.cdr.detectChanges();
-      if (file.size > 20 * 1024 * 1024) throw new Error('Le fichier dépasse la taille maximale de 20 Mo.');
-      const XLSX = window.XLSX;
-      if (generation !== this.importGeneration) return;
-      const buffer = await file.arrayBuffer();
-      if (generation !== this.importGeneration) return;
-      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, raw: true });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      if (!firstSheet) throw new Error('Le fichier ne contient aucune feuille.');
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: null });
-      if (!rows.length) throw new Error('Aucune ligne trouvée dans la première feuille.');
-      if (mode === 'full') {
-        this.validateOptionHeaders(rows[0]);
-        this.fullOptions = rows.map((row, index) => this.toOptionImport(row, index, XLSX));
-      } else {
-        this.panel = rows.map((row, index) => this.toComparable(row, index, XLSX));
-      }
+      const imported = await this.readImportRows(file, generation);
+      if (!imported || generation !== this.importGeneration) return;
+      this.applyImportedRows(imported.rows, imported.xlsx, mode);
     } catch (error) {
       if (generation !== this.importGeneration) return;
       if (mode === 'full') this.fullOptions = [];
@@ -351,6 +353,46 @@ export class BondComparablesComponent {
         this.cdr.detectChanges();
       }
     }
+  }
+
+  private startImportTimeout(input: HTMLInputElement, generation: number) {
+    return setTimeout(() => {
+      if (generation !== this.importGeneration) return;
+      this.importGeneration++;
+      this.isImporting = false;
+      this.importError = 'La lecture dépasse 30 secondes. Vérifiez le fichier puis réessayez.';
+      input.value = '';
+      this.cdr.detectChanges();
+    }, 30000);
+  }
+
+  private async readImportRows(
+    file: File,
+    generation: number
+  ): Promise<{ xlsx: typeof import('xlsx-js-style'); rows: Record<string, unknown>[] } | null> {
+    if (file.size > 20 * 1024 * 1024) throw new Error('Le fichier dépasse la taille maximale de 20 Mo.');
+    const xlsx = window.XLSX;
+    const buffer = await file.arrayBuffer();
+    if (generation !== this.importGeneration) return null;
+    const workbook = xlsx.read(buffer, { type: 'array', cellDates: true, raw: true });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!firstSheet) throw new Error('Le fichier ne contient aucune feuille.');
+    const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: null });
+    if (!rows.length) throw new Error('Aucune ligne trouvée dans la première feuille.');
+    return { xlsx, rows };
+  }
+
+  private applyImportedRows(
+    rows: Record<string, unknown>[],
+    xlsx: typeof import('xlsx-js-style'),
+    mode: 'light' | 'full'
+  ): void {
+    if (mode === 'full') {
+      this.validateOptionHeaders(rows[0]);
+      this.fullOptions = rows.map((row, index) => this.toOptionImport(row, index, xlsx));
+      return;
+    }
+    this.panel = rows.map((row, index) => this.toComparable(row, index, xlsx));
   }
 
   price(): void {
@@ -939,26 +981,36 @@ export class BondComparablesComponent {
   }
 
   private restoreFilters(state: Partial<PersistedBondComparablesState>): void {
-    if (state.filters && typeof state.filters === 'object') {
-      for (const column of Object.keys(this.filters) as TextFilterColumn[]) {
-        if (typeof state.filters[column] === 'string') this.filters[column] = state.filters[column];
-      }
-    }
+    this.restoreTextFilters(state);
     if (Array.isArray(state.eligibilityFilters)) {
       this.eligibilityFilters = new Set(state.eligibilityFilters.filter(value =>
         this.eligibilityOptions.some(option => option.value === value)
       ));
     }
-    if (typeof state.yieldMinimum === 'string') this.yieldMinimum = state.yieldMinimum;
-    if (typeof state.yieldMaximum === 'string') this.yieldMaximum = state.yieldMaximum;
-    if (state.fullOptionFilters && typeof state.fullOptionFilters === 'object') {
-      for (const column of this.fullOptionColumns) {
-        const value = state.fullOptionFilters[column];
-        if (typeof value === 'string') this.fullOptionFilters[column] = value;
-      }
-    }
+    this.restoreYieldFilters(state);
+    this.restoreFullOptionFilters(state);
     this.restoreFullOptionGrouping(state);
     this.restoreFullOptionColumnPreferences(state);
+  }
+
+  private restoreTextFilters(state: Partial<PersistedBondComparablesState>): void {
+    if (!state.filters || typeof state.filters !== 'object') return;
+    for (const column of Object.keys(this.filters) as TextFilterColumn[]) {
+      if (typeof state.filters[column] === 'string') this.filters[column] = state.filters[column];
+    }
+  }
+
+  private restoreYieldFilters(state: Partial<PersistedBondComparablesState>): void {
+    if (typeof state.yieldMinimum === 'string') this.yieldMinimum = state.yieldMinimum;
+    if (typeof state.yieldMaximum === 'string') this.yieldMaximum = state.yieldMaximum;
+  }
+
+  private restoreFullOptionFilters(state: Partial<PersistedBondComparablesState>): void {
+    if (!state.fullOptionFilters || typeof state.fullOptionFilters !== 'object') return;
+    for (const column of this.fullOptionColumns) {
+      const value = state.fullOptionFilters[column];
+      if (typeof value === 'string') this.fullOptionFilters[column] = value;
+    }
   }
 
   private restoreFullOptionGrouping(state: Partial<PersistedBondComparablesState>): void {
@@ -1114,7 +1166,9 @@ export class BondComparablesComponent {
     const raw = (column: OptionImportColumn): unknown => values.get(this.normalizeKey(column));
     const text = (column: OptionImportColumn): string => {
       const value = raw(column);
-      return value == null ? '' : String(value).trim();
+      if (typeof value === 'string') return value.trim();
+      if (typeof value === 'number' || typeof value === 'boolean') return `${value}`;
+      return '';
     };
     const requiredText = (column: OptionImportColumn): string => {
       const value = text(column);
@@ -1126,13 +1180,13 @@ export class BondComparablesComponent {
       if (!value && options.optional) return null;
       if (!value) throw new Error(`Ligne ${index + 2} : ${column} est obligatoire.`);
       const hasPercent = value.endsWith('%');
-      let normalized = value.replace(/%$/, '').replace(/\s/g, '');
+      let normalized = (value.endsWith('%') ? value.slice(0, -1) : value).replaceAll(/\s/g, '');
       if (normalized.includes(',') && normalized.includes('.')) {
         normalized = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
-          ? normalized.replace(/\./g, '').replace(',', '.')
-          : normalized.replace(/,/g, '');
+          ? normalized.replaceAll('.', '').replaceAll(',', '.')
+          : normalized.replaceAll(',', '');
       } else {
-        normalized = normalized.replace(',', '.');
+        normalized = normalized.replaceAll(',', '.');
       }
       let parsed = Number(normalized);
       if (!Number.isFinite(parsed)) throw new Error(`Ligne ${index + 2} : ${column} doit être numérique.`);
@@ -1160,13 +1214,7 @@ export class BondComparablesComponent {
     }
     const exerciseValue = requiredText('exerciseStyle')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
-    const exerciseStyle = exerciseValue === 'EUROPEEN' || exerciseValue === 'EUROPEAN'
-      ? 'EUROPEAN'
-      : exerciseValue === 'AMERICAIN' || exerciseValue === 'AMERICAN'
-        ? 'AMERICAN'
-        : exerciseValue === 'BERMUDEN' || exerciseValue === 'BERMUDEEN' || exerciseValue === 'BERMUDAN'
-          ? 'BERMUDAN'
-          : null;
+    const exerciseStyle = this.parseExerciseStyle(exerciseValue);
     if (!exerciseStyle) throw new Error(`Ligne ${index + 2} : exerciseStyle doit être European, American ou Bermudan.`);
     const positionValue = requiredText('position').toUpperCase();
     if (positionValue !== 'LONG' && positionValue !== 'SHORT') {
@@ -1215,6 +1263,23 @@ export class BondComparablesComponent {
       underlyingYieldToMaturity: number('underlyingYieldToMaturity', { optional: true, percentage: true }),
       dataSource: requiredText('dataSource')
     };
+  }
+
+  private parseExerciseStyle(value: string): 'EUROPEAN' | 'AMERICAN' | 'BERMUDAN' | null {
+    switch (value) {
+      case 'EUROPEEN':
+      case 'EUROPEAN':
+        return 'EUROPEAN';
+      case 'AMERICAIN':
+      case 'AMERICAN':
+        return 'AMERICAN';
+      case 'BERMUDEN':
+      case 'BERMUDEEN':
+      case 'BERMUDAN':
+        return 'BERMUDAN';
+      default:
+        return null;
+    }
   }
 
   private normalizeKey(value: string): string {

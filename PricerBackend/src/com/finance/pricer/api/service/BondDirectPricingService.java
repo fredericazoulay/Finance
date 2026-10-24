@@ -15,6 +15,8 @@ import java.util.Locale;
 
 @Service
 public class BondDirectPricingService {
+    private static final String SOLVE_FOR_PRICE = "PRICE";
+    private static final String FIELD_PRICE = "price";
     private static final double ROOT_TOLERANCE = 1e-10;
     private static final double MAX_TERM_YEARS = 200;
 
@@ -44,18 +46,18 @@ public class BondDirectPricingService {
         double price;
 
         switch (solveFor) {
-            case "PRICE" -> {
+            case SOLVE_FOR_PRICE -> {
                 termYears = positive(request.termYears(), "termYears");
                 ytm = validYield(request.ytm(), frequency);
                 price = basicPrice(faceValue, couponRate, frequency, termYears, ytm);
             }
             case "YTM" -> {
                 termYears = positive(request.termYears(), "termYears");
-                price = positive(request.price(), "price");
+                price = positive(request.price(), FIELD_PRICE);
                 ytm = solveYield(faceValue, couponRate, frequency, termYears, price);
             }
             case "TERM" -> {
-                price = positive(request.price(), "price");
+                price = positive(request.price(), FIELD_PRICE);
                 ytm = validYield(request.ytm(), frequency);
                 termYears = solveTerm(faceValue, couponRate, frequency, ytm, price);
             }
@@ -72,7 +74,7 @@ public class BondDirectPricingService {
             double faceValue,
             double couponRate,
             int frequency) {
-        if (!solveFor.equals("PRICE") && !solveFor.equals("YTM")) {
+        if (!solveFor.equals(SOLVE_FOR_PRICE) && !solveFor.equals("YTM")) {
             throw new IllegalArgumentException("Date-based pricing supports solveFor PRICE or YTM");
         }
 
@@ -87,9 +89,9 @@ public class BondDirectPricingService {
                 "DIRECT-BOND", faceValue, couponRate, frequency, issueDate, maturityDate,
                 dayCount, FinancialCalendar.weekendsOnly(), BusinessDayConvention.MODIFIED_FOLLOWING);
 
-        double ytm = solveFor.equals("PRICE")
+        double ytm = solveFor.equals(SOLVE_FOR_PRICE)
                 ? validYield(request.ytm(), frequency)
-                : BondAnalytics.ytmFromCleanPrice(bond, settlementDate, positive(request.price(), "price"));
+            : BondAnalytics.ytmFromCleanPrice(bond, settlementDate, positive(request.price(), FIELD_PRICE));
         double dirtyPrice = BondAnalytics.dirtyPriceFromYtm(bond, settlementDate, ytm);
         double accruedInterest = bond.calculateAccruedInterest(settlementDate);
         double cleanPrice = dirtyPrice - accruedInterest;
@@ -148,7 +150,6 @@ public class BondDirectPricingService {
             if (Math.abs(middleValue) < ROOT_TOLERANCE) return middle;
             if (oppositeSigns(lowerValue, middleValue)) {
                 upper = middle;
-                upperValue = middleValue;
             } else {
                 lower = middle;
                 lowerValue = middleValue;
@@ -173,7 +174,6 @@ public class BondDirectPricingService {
             if (Math.abs(middleValue) < ROOT_TOLERANCE) return middle;
             if (oppositeSigns(lowerValue, middleValue)) {
                 upper = middle;
-                upperValue = middleValue;
             } else {
                 lower = middle;
                 lowerValue = middleValue;
@@ -196,11 +196,12 @@ public class BondDirectPricingService {
     }
 
     private static LocalDate previousCouponDate(FixedCouponBond bond, LocalDate settlementDate) {
-        return bond.getCashFlows().stream()
-                .filter(payment -> !payment.periodStart().isAfter(settlementDate) && settlementDate.isBefore(payment.periodEnd()))
-                .map(FixedCouponBond.CouponPayment::periodStart)
-                .findFirst()
-                .orElse(settlementDate);
+        for (FixedCouponBond.CouponPayment payment : bond.getCashFlows()) {
+            if (!payment.periodStart().isAfter(settlementDate) && settlementDate.isBefore(payment.periodEnd())) {
+                return payment.periodStart();
+            }
+        }
+        return settlementDate;
     }
 
     private static LocalDate required(LocalDate value, String field) {

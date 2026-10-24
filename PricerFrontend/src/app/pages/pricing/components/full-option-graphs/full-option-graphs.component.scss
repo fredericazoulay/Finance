@@ -4,7 +4,20 @@
 h3 { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 12px; color: var(--ink); font-size: 13px; font-weight: 600; }
 h3 span { color: var(--muted); font-size: 11px; font-weight: 400; }
 .chart-canvas { position: relative; height: 280px; }
+.wide-panel { grid-column: 1 / -1; }
+.chart-hidden { display: none; }
+.cash-flow-canvas { height: 220px; }
+.chart-empty, .assumption-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.chart-empty { min-height: 170px; display: grid; place-items: center; text-align: center; }
+.assumption-note { margin-top: 10px; }
+.duration-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.duration-summary div { display: grid; gap: 4px; min-width: 0; }
+.duration-summary span { color: var(--muted); font-size: 11px; }
+.duration-summary strong { overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
 @media (max-width: 680px) {
   .full-option-charts { grid-template-columns: 1fr; }
+  .wide-panel { grid-column: auto; }
   .chart-canvas { height: 250px; }
+  .cash-flow-canvas { height: 220px; }
+  .duration-summary { grid-template-columns: 1fr; }
 }

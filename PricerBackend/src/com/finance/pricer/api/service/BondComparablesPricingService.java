@@ -123,12 +123,12 @@ public class BondComparablesPricingService {
     }
 
                 private static LocalDate previousCouponDate(FixedCouponBond bond, LocalDate settlementDate) {
-                return bond.getCashFlows().stream()
-                    .filter(payment -> !payment.periodStart().isAfter(settlementDate)
-                        && settlementDate.isBefore(payment.periodEnd()))
-                    .map(FixedCouponBond.CouponPayment::periodStart)
-                    .findFirst()
-                    .orElse(settlementDate);
+                    for (FixedCouponBond.CouponPayment payment : bond.getCashFlows()) {
+                        if (!payment.periodStart().isAfter(settlementDate) && settlementDate.isBefore(payment.periodEnd())) {
+                            return payment.periodStart();
+                        }
+                    }
+                    return settlementDate;
                 }
 
         private static LocalDate effectiveIssueDate(BondComparablesPricingRequest.TargetBond target) {

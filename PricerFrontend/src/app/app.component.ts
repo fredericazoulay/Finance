@@ -22,6 +22,8 @@ import { FooterComponent } from './layout/footbar/footer.component';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+  sidebarCollapsed = false;
+
   @HostBinding('class.light-theme')
   get isLightTheme(): boolean {
     return this.themeService.isLightTheme;

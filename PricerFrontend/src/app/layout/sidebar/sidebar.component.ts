@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 
@@ -11,6 +11,7 @@ import { TranslateModule } from '@ngx-translate/core';
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent {
+  @Output() collapsedChange = new EventEmitter<boolean>();
   readonly instruments = [
     { code: 'EQTY_OPT', labelKey: 'EQTY_OPT', icon: '🧾' },
     { code: 'IRS', labelKey: 'IRS', icon: '📈' },
@@ -23,6 +24,7 @@ export class SidebarComponent {
 
   toggle(): void {
     this.collapsed = !this.collapsed;
+    this.collapsedChange.emit(this.collapsed);
   }
   // Collapse the Instruments group (hide labels)
   // default to false so all instruments are visible

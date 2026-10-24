@@ -29,10 +29,14 @@
 
 .terminal-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
   grid-template-rows: minmax(68px, auto) 1fr;
   height: 100vh;
   overflow: hidden;
+}
+
+.terminal-shell.sidebar-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 app-topbar {

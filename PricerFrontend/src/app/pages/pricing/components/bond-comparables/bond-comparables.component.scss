@@ -90,7 +90,9 @@ button:disabled { opacity: 0.55; cursor: wait; }
 .full-option-table { max-height: 60vh; overflow: auto; }
 .full-option-table .alternate-row { background: #d9efff; }
 :host-context(body:not(.light-theme):not(.pop-theme)) .full-option-table .alternate-row { background: #18394a; }
-.full-option-selector { width: min(420px, 100%); }
+.full-option-selector { display: flex; width: min(420px, 100%); flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
+.full-option-selector input, .full-option-selector select { width: 100%; }
+.full-option-search-count { font-size: 11px; }
 .full-option-characteristics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; margin-top: 18px; border: 1px solid var(--line); background: var(--line); }
 .full-option-characteristic { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; background: var(--surface); }
 .full-option-characteristic span { color: var(--muted); font-size: 11px; }

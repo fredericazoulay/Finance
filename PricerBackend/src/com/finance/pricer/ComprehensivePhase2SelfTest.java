@@ -1,6 +1,5 @@
 package com.finance.pricer;
 
-//import com.finance.pricer.core.calendar.BusinessDayConvention;
 import com.finance.pricer.core.calendar.DayCountConvention;
 import com.finance.pricer.core.calendar.FinancialCalendar;
 import com.finance.pricer.core.curves.FlatYieldCurve;
@@ -15,15 +14,17 @@ import com.finance.pricer.linear.forwards.InterestRateFutures;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.logging.Logger;
 
 public final class ComprehensivePhase2SelfTest {
+    private static final Logger LOGGER = Logger.getLogger(ComprehensivePhase2SelfTest.class.getName());
 
     public static void main(String[] args) {
         testForwardsAndFutures();
         testFra();
         testBondFuturesAndCtd();
         testBondAnalytics();
-        System.out.println("All Phase 2 Linear & Fixed Income Self-Tests PASSED successfully!");
+        LOGGER.info("All Phase 2 Linear & Fixed Income Self-Tests PASSED successfully!");
     }
 
     private static void testForwardsAndFutures() {

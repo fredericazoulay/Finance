@@ -7,4 +7,26 @@
     <h3>Risque et sensibilités</h3>
     <div class="chart-canvas"><canvas #riskChart></canvas></div>
   </section>
+  <section class="chart-panel">
+    <h3>P&amp;L à l’échéance <span>par unité · hors exercice anticipé</span></h3>
+    <div class="chart-canvas"><canvas #payoffChart></canvas></div>
+  </section>
+  <section class="chart-panel">
+    <h3>Smile de volatilité <span>{{ option.expirationDate }}</span></h3>
+    <div class="chart-canvas" [class.chart-hidden]="!hasSmileData"><canvas #smileChart></canvas></div>
+    <p class="assumption-note" *ngIf="smileNotice">{{ smileNotice }}</p>
+    <p class="chart-empty" *ngIf="!hasSmileData">Aucune volatilité valide n’est disponible pour cette option.</p>
+  </section>
+  <section class="chart-panel wide-panel">
+    <h3>Flux de l’obligation sous-jacente <span>projection indicative · {{ option.currency }}</span></h3>
+    <div class="chart-canvas cash-flow-canvas" [class.chart-hidden]="!bondAnalysis"><canvas #cashFlowChart></canvas></div>
+    <div class="duration-summary" *ngIf="bondAnalysis as analysis">
+      <div><span>Obligation</span><strong>{{ analysis.bond.securityId }}</strong></div>
+      <div><span>Duration Macaulay estimée</span><strong>{{ analysis.macaulayDuration == null ? '—' : (analysis.macaulayDuration | number:'1.2-2') + ' ans' }}</strong></div>
+      <div><span>Duration modifiée estimée</span><strong>{{ analysis.modifiedDuration == null ? '—' : (analysis.modifiedDuration | number:'1.2-2') + ' ans' }}</strong></div>
+    </div>
+    <p class="assumption-note" *ngFor="let assumption of bondAnalysis?.assumptions">{{ assumption }}</p>
+    <p class="assumption-note" *ngIf="bondAnalysis">Dates générées à rebours depuis l’échéance, sans ajustement de jours ouvrés. Duration actualisée avec le taux retenu sur base jours réels/365.</p>
+    <p class="chart-empty" *ngIf="!bondAnalysis">{{ bondAnalysisMessage }}</p>
+  </section>
 </div>

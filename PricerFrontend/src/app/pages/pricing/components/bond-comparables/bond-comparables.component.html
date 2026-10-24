@@ -325,20 +325,28 @@
           <p class="eyebrow">02 / Analyse détaillée</p>
           <h2>Graphiques full</h2>
         </div>
-        <label class="full-option-selector">
-          <span>Option importée</span>
-          <select [ngModel]="selectedFullOption" (ngModelChange)="selectedFullOption = $event">
+        <div class="full-option-selector">
+          <label for="full-option-search">Option importée</label>
+          <input
+            id="full-option-search"
+            type="search"
+            [ngModel]="fullOptionSearch"
+            (ngModelChange)="searchFullOptions($event)"
+            placeholder="Rechercher par identifiant ou sous-jacent"
+            [disabled]="!fullOptions.length">
+          <select aria-label="Sélectionner une option importée" [ngModel]="selectedFullOption" (ngModelChange)="selectFullOption($event)" [disabled]="!searchedFullOptions.length">
             <option [ngValue]="null">Sélectionner une option</option>
-            <option *ngFor="let option of fullOptions" [ngValue]="option">{{ option.optionId }} · {{ option.underlyingSecurityId }}</option>
+            <option *ngFor="let option of searchedFullOptions" [ngValue]="option">{{ option.optionId }} · {{ option.underlyingSecurityId }}</option>
           </select>
-        </label>
+          <span class="full-option-search-count" *ngIf="fullOptionSearch">{{ searchedFullOptions.length }} résultat(s)</span>
+        </div>
       </div>
       <div class="empty-state" *ngIf="!fullOptions.length">
         <strong>Aucune donnée complète chargée</strong>
         <span>Importez un fichier depuis l’onglet Comparables full.</span>
       </div>
       <ng-container *ngIf="selectedFullOption as option">
-        <app-full-option-graphs [option]="option"></app-full-option-graphs>
+        <app-full-option-graphs [option]="option" [options]="fullOptions" [bonds]="panel"></app-full-option-graphs>
         <div class="full-option-characteristics">
           <div class="full-option-characteristic" *ngFor="let column of fullOptionColumns">
             <span>{{ fullOptionLabels[column] }}</span>
