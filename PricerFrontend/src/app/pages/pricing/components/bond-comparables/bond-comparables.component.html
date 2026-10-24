@@ -219,14 +219,14 @@
         <div class="panel-actions">
           <label class="visually-hidden" for="bond-panel-file-full">Fichier complet CSV ou Excel</label>
           <input #fileInputFull id="bond-panel-file-full" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'full')" />
-          <button type="button" class="primary-button" [disabled]="isFullOptionPricing || !filteredFullOptions.length" (click)="calculateFullOptionPrices()">
-            {{ isFullOptionPricing ? 'Calcul… ' + fullOptionPricingProgress + ' / ' + filteredFullOptions.length : 'Calculer le prix' }}
-          </button>
-          <button type="button" class="secondary-button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptionsXls()">
-            {{ isFullOptionsExporting ? 'Export…' : 'Exporter .xls' }}
-          </button>
           <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
             {{ isImporting ? 'Lecture…' : 'Importer Full CSV / Excel' }}
+          </button>
+          <button type="button" class="secondary-button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptionsXlsx()">
+            {{ isFullOptionsExporting ? 'Export…' : 'Exporter .xlsx' }}
+          </button>
+          <button type="button" class="primary-button" [disabled]="isFullOptionPricing || !filteredFullOptions.length" (click)="calculateFullOptionPrices()">
+            {{ isFullOptionPricing ? 'Calcul… ' + fullOptionPricingProgress + ' / ' + filteredFullOptions.length : 'Calculer le prix' }}
           </button>
         </div>
       </div>
@@ -239,17 +239,45 @@
         <span>{{ filteredFullOptions.length }} / {{ fullOptions.length }} lignes affichées</span>
         <button type="button" class="clear-filters" (click)="clearFullOptionFilters()">Effacer les filtres</button>
       </div>
+      <div
+        class="full-option-grouping-dropzone"
+        *ngIf="fullOptions.length"
+        [class.drag-over]="isFullOptionGroupingDragOver"
+        (dragover)="allowFullOptionColumnDrop($event)"
+        (dragleave)="isFullOptionGroupingDragOver = false"
+        (drop)="dropFullOptionColumn($event)">
+        <span class="grouping-label">Regrouper par</span>
+        <ng-container *ngIf="fullOptionGroupColumns.length; else groupingPlaceholder">
+          <span class="grouping-chip" *ngFor="let column of fullOptionGroupColumns">
+            {{ fullOptionLabels[column] }}
+            <button type="button" [attr.aria-label]="'Retirer ' + fullOptionLabels[column] + ' du regroupement'" (click)="removeFullOptionGroupColumn(column)">×</button>
+          </span>
+          <button type="button" class="clear-grouping" (click)="clearFullOptionGrouping()">Effacer le regroupement</button>
+        </ng-container>
+        <ng-template #groupingPlaceholder><span class="grouping-placeholder">Glissez ici une ou plusieurs colonnes du tableau</span></ng-template>
+      </div>
       <div class="table-wrap full-option-table" *ngIf="fullOptions.length; else emptyFullOptions">
         <table>
           <thead>
-            <tr><th *ngFor="let column of fullOptionColumns"><button type="button" class="sort-button" (click)="sortFullOptionsBy(column)">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th>Graphiques</th></tr>
+            <tr><th *ngFor="let column of fullOptionColumns"><button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startFullOptionColumnDrag(column, $event)" (click)="sortFullOptionsBy(column)" [title]="'Glisser ' + fullOptionLabels[column] + ' dans Regrouper par'">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th>Graphiques</th></tr>
             <tr class="filter-row"><td *ngFor="let column of fullOptionColumns"><input [(ngModel)]="fullOptionFilters[column]" (ngModelChange)="persistState()" [attr.aria-label]="'Filtrer ' + column" placeholder="Filtrer" /></td><td></td></tr>
           </thead>
           <tbody>
-            <tr *ngFor="let option of filteredFullOptions">
-              <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
-              <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
-            </tr>
+            <ng-container *ngIf="fullOptionGroupColumns.length; else ungroupedFullOptions">
+              <ng-container *ngFor="let group of groupedFullOptions">
+                <tr class="full-option-group-row"><th [attr.colspan]="fullOptionColumns.length + 1">{{ group.label }} <span>{{ group.rows.length }} lignes</span></th></tr>
+                <tr *ngFor="let option of group.rows">
+                  <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
+                  <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
+                </tr>
+              </ng-container>
+            </ng-container>
+            <ng-template #ungroupedFullOptions>
+              <tr *ngFor="let option of filteredFullOptions">
+                <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
+                <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
+              </tr>
+            </ng-template>
           </tbody>
         </table>
       </div>

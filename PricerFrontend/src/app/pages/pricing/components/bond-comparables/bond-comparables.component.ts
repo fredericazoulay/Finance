@@ -30,6 +30,12 @@ type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
 
+interface FullOptionGroup {
+  key: string;
+  label: string;
+  rows: OptionImportRecord[];
+}
+
 interface PersistedBondComparablesState {
   version: 1;
   target: BondTargetForm;
@@ -47,6 +53,7 @@ interface PersistedBondComparablesState {
   fullOptionFilters?: Partial<Record<FullOptionColumn, string>>;
   fullOptionSortColumn?: FullOptionColumn;
   fullOptionSortDirection?: 1 | -1;
+  fullOptionGroupColumns?: FullOptionColumn[];
 }
 
 @Component({
@@ -71,6 +78,8 @@ export class BondComparablesComponent {
   fullOptionFilters: Partial<Record<FullOptionColumn, string>> = {};
   fullOptionSortColumn: FullOptionColumn = 'optionId';
   fullOptionSortDirection: 1 | -1 = 1;
+  fullOptionGroupColumns: FullOptionColumn[] = [];
+  isFullOptionGroupingDragOver = false;
   activeMode: BondScreenMode = 'basic';
   directResult: BondDirectPricingResponse | null = null;
   directError = '';
@@ -432,6 +441,52 @@ export class BondComparablesComponent {
       });
   }
 
+  get groupedFullOptions(): FullOptionGroup[] {
+    const groups = new Map<string, FullOptionGroup>();
+    for (const option of this.filteredFullOptions) {
+      const values = this.fullOptionGroupColumns.map(column => String(option[column] ?? '—'));
+      const key = JSON.stringify(values);
+      const group = groups.get(key) ?? {
+        key,
+        label: this.fullOptionGroupColumns.map((column, index) => `${this.fullOptionLabels[column]} : ${values[index]}`).join(' · '),
+        rows: []
+      };
+      group.rows.push(option);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }
+
+  startFullOptionColumnDrag(column: FullOptionColumn, event: DragEvent): void {
+    event.dataTransfer?.setData('text/plain', column);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  allowFullOptionColumnDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isFullOptionGroupingDragOver = true;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  }
+
+  dropFullOptionColumn(event: DragEvent): void {
+    event.preventDefault();
+    this.isFullOptionGroupingDragOver = false;
+    const column = event.dataTransfer?.getData('text/plain') as FullOptionColumn | undefined;
+    if (!column || !this.fullOptionColumns.includes(column) || this.fullOptionGroupColumns.includes(column)) return;
+    this.fullOptionGroupColumns = [...this.fullOptionGroupColumns, column];
+    this.persistState();
+  }
+
+  removeFullOptionGroupColumn(column: FullOptionColumn): void {
+    this.fullOptionGroupColumns = this.fullOptionGroupColumns.filter(groupColumn => groupColumn !== column);
+    this.persistState();
+  }
+
+  clearFullOptionGrouping(): void {
+    this.fullOptionGroupColumns = [];
+    this.persistState();
+  }
+
   sortFullOptionsBy(column: FullOptionColumn): void {
     if (this.fullOptionSortColumn === column) {
       this.fullOptionSortDirection = this.fullOptionSortDirection === 1 ? -1 : 1;
@@ -490,7 +545,7 @@ export class BondComparablesComponent {
     });
   }
 
-  async exportFullOptionsXls(): Promise<void> {
+  async exportFullOptionsXlsx(): Promise<void> {
     if (!this.filteredFullOptions.length || this.isFullOptionsExporting) return;
 
     this.isFullOptionsExporting = true;
@@ -501,10 +556,10 @@ export class BondComparablesComponent {
       const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparables full');
-      XLSX.writeFile(workbook, `comparables-full-${new Date().toISOString().slice(0, 10)}.xls`, { bookType: 'biff8' });
-      this.fullOptionsExportSuccess = 'Le fichier XLS a été téléchargé.';
+      XLSX.writeFile(workbook, `comparables-full-${new Date().toISOString().slice(0, 10)}.xlsx`, { bookType: 'xlsx' });
+      this.fullOptionsExportSuccess = 'Le fichier XLSX a été téléchargé.';
     } catch {
-      this.fullOptionsExportError = 'L’export XLS a échoué. Vérifiez le navigateur puis réessayez.';
+      this.fullOptionsExportError = 'L’export XLSX a échoué. Vérifiez le navigateur puis réessayez.';
     } finally {
       this.isFullOptionsExporting = false;
       this.cdr.detectChanges();
@@ -786,6 +841,15 @@ export class BondComparablesComponent {
         if (typeof value === 'string') this.fullOptionFilters[column] = value;
       }
     }
+    this.restoreFullOptionGrouping(state);
+  }
+
+  private restoreFullOptionGrouping(state: Partial<PersistedBondComparablesState>): void {
+    if (Array.isArray(state.fullOptionGroupColumns)) {
+      this.fullOptionGroupColumns = [...new Set(state.fullOptionGroupColumns.filter(column =>
+        this.fullOptionColumns.includes(column)
+      ))];
+    }
   }
 
   private restoreSorting(state: Partial<PersistedBondComparablesState>): void {
@@ -817,7 +881,8 @@ export class BondComparablesComponent {
       sortDirection: this.sortDirection,
       fullOptionFilters: this.fullOptionFilters,
       fullOptionSortColumn: this.fullOptionSortColumn,
-      fullOptionSortDirection: this.fullOptionSortDirection
+      fullOptionSortDirection: this.fullOptionSortDirection,
+      fullOptionGroupColumns: this.fullOptionGroupColumns
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));
