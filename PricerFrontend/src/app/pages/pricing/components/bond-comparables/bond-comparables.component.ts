@@ -2,11 +2,19 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, finalize } from 'rxjs';
-import { BondComparable, BondComparablesRequest, BondComparablesResponse } from '../../../../models/bond-comparables.model';
+import { Observable, catchError, finalize, from, map, mergeMap, of, tap, throwError, toArray } from 'rxjs';
+import {
+  BondComparable,
+  BondComparablesRequest,
+  BondComparablesResponse,
+  BondDirectPricingRequest,
+  BondDirectPricingResponse
+} from '../../../../models/bond-comparables.model';
 import { OPTION_IMPORT_COLUMNS, OptionImportColumn, OptionImportRecord } from '../../../../models/option-import.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 import { PricingService } from '../../../../services/pricing.service';
+import { AiAnalysisComponent } from '../ai-analysis/ai-analysis.component';
+import { FullOptionGraphsComponent } from '../full-option-graphs/full-option-graphs.component';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
@@ -18,6 +26,9 @@ type BondColumn = 'securityId' | 'issuer' | 'currency' | 'maturityDate' | 'ratin
 type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
+type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'ai-analysis';
+type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
+type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus';
 
 interface PersistedBondComparablesState {
   version: 1;
@@ -33,12 +44,15 @@ interface PersistedBondComparablesState {
   yieldMaximum: string;
   sortColumn: BondColumn;
   sortDirection: 1 | -1;
+  fullOptionFilters?: Partial<Record<FullOptionColumn, string>>;
+  fullOptionSortColumn?: FullOptionColumn;
+  fullOptionSortDirection?: 1 | -1;
 }
 
 @Component({
   selector: 'app-bond-comparables',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AiAnalysisComponent, FullOptionGraphsComponent],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
 })
@@ -53,7 +67,37 @@ export class BondComparablesComponent {
     { value: 'excluded', label: 'Exclue' },
     { value: 'pending', label: 'À analyser' }
   ] as const;
-  readonly fullOptionColumns = OPTION_IMPORT_COLUMNS;
+  readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus'];
+  fullOptionFilters: Partial<Record<FullOptionColumn, string>> = {};
+  fullOptionSortColumn: FullOptionColumn = 'optionId';
+  fullOptionSortDirection: 1 | -1 = 1;
+  activeMode: BondScreenMode = 'basic';
+  directResult: BondDirectPricingResponse | null = null;
+  directError = '';
+  isDirectPricing = false;
+  directCurrency = 'USD';
+  readonly basicForm = {
+    solveFor: 'PRICE' as BondSolveFor,
+    faceValue: 100,
+    couponValue: 5,
+    couponUnit: 'PERCENT' as 'PERCENT' | 'AMOUNT',
+    couponFrequency: 2,
+    price: null as number | null,
+    ytm: 6,
+    termYears: 3
+  };
+  readonly advancedForm = {
+    solveFor: 'PRICE' as 'PRICE' | 'YTM',
+    faceValue: 100,
+    couponRate: 5,
+    couponFrequency: 2,
+    issueDate: '2020-10-23',
+    maturityDate: '2029-10-23',
+    settlementDate: new Date().toISOString().slice(0, 10),
+    dayCount: '30/360',
+    ytm: 6,
+    marketPrice: null as number | null
+  };
 
   target: BondTargetForm = {
     securityId: '',
@@ -70,6 +114,38 @@ export class BondComparablesComponent {
   maturityToleranceMonths = 24;
   panel: BondComparable[] = [];
   fullOptions: OptionImportRecord[] = [];
+  selectedFullOption: OptionImportRecord | null = null;
+  readonly fullOptionLabels: Record<FullOptionColumn, string> = {
+    optionId: 'Identifiant option',
+    optionType: 'Type d’option',
+    underlyingType: 'Type de sous-jacent',
+    underlyingSecurityId: 'Identifiant du sous-jacent',
+    currency: 'Devise',
+    valuationDate: 'Date de valorisation',
+    underlyingSpot: 'Cours du sous-jacent',
+    strikePrice: 'Prix d’exercice',
+    expirationDate: 'Date d’expiration',
+    premiumPerUnit: 'Prime par unité',
+    exerciseStyle: 'Style d’exercice',
+    quantity: 'Quantité',
+    nominal: 'Nominal',
+    position: 'Position',
+    intrinsicValuePerUnit: 'Valeur intrinsèque par unité',
+    timeValuePerUnit: 'Valeur temps par unité',
+    moneyness: 'Moneyness',
+    volatility: 'Volatilité',
+    riskFreeRate: 'Taux sans risque',
+    dividendYield: 'Rendement du dividende',
+    delta: 'Delta',
+    gamma: 'Gamma',
+    vegaPer1PctVol: 'Vega par 1 % de volatilité',
+    thetaPerDay: 'Theta par jour',
+    rhoPer1PctRate: 'Rho par 1 % de taux',
+    underlyingYieldToMaturity: 'YTM du sous-jacent',
+    dataSource: 'Source des données',
+    calculatedPremiumPerUnit: 'Prime calculée par unité',
+    pricingStatus: 'Statut du pricing'
+  };
   result: BondComparablesResponse | null = null;
   lastCalculatedAt: Date | null = null;
   error = '';
@@ -79,6 +155,12 @@ export class BondComparablesComponent {
   isImporting = false;
   isExporting = false;
   exportError = '';
+  isFullOptionsExporting = false;
+  fullOptionsExportError = '';
+  fullOptionsExportSuccess = '';
+  isFullOptionPricing = false;
+  fullOptionPricingProgress = 0;
+  fullOptionPricingSummary = '';
   filters: Record<TextFilterColumn, string> = {
     securityId: '', issuer: '', currency: '', maturityDate: '', rating: '', yieldToMaturity: '', source: ''
   };
@@ -95,6 +177,108 @@ export class BondComparablesComponent {
   ) {
     this.apiOnline$ = this.pricingService.apiOnline$;
     this.restoreState();
+  }
+
+  setMode(mode: BondScreenMode): void {
+    this.activeMode = mode;
+    this.directError = '';
+  }
+
+  get aiAnalysisContext(): string {
+    const comparableCandidates = this.panel
+      .filter(bond => bond.currency === this.target.currency)
+      .slice()
+      .sort((left, right) => right.yieldToMaturity - left.yieldToMaturity)
+      .slice(0, 5);
+    const bestComparable = this.result?.panel.find(row => row.selected)?.bond ?? comparableCandidates[0] ?? null;
+    return JSON.stringify({
+      target: this.target,
+      pricing: this.result ? {
+        bestYieldSecurityId: this.result.bestYieldSecurityId,
+        appliedYield: this.result.appliedYield,
+        valuation: this.result.valuation
+      } : null,
+      bestComparable,
+      comparableCandidates
+    });
+  }
+
+  openFullOptionGraphs(option: OptionImportRecord): void {
+    this.selectedFullOption = option;
+    this.setMode('comparables-full-graphs');
+  }
+
+  calculateBasic(): void {
+    const couponRate = this.basicForm.couponUnit === 'AMOUNT'
+      ? Number(this.basicForm.couponValue) / Number(this.basicForm.faceValue)
+      : Number(this.basicForm.couponValue) / 100;
+    const request: BondDirectPricingRequest = {
+      solveFor: this.basicForm.solveFor,
+      faceValue: Number(this.basicForm.faceValue),
+      couponRate,
+      couponFrequency: Number(this.basicForm.couponFrequency),
+      price: this.basicForm.solveFor === 'PRICE' ? null : Number(this.basicForm.price),
+      ytm: this.basicForm.solveFor === 'YTM' ? null : Number(this.basicForm.ytm) / 100,
+      termYears: this.basicForm.solveFor === 'TERM' ? null : Number(this.basicForm.termYears)
+    };
+    this.submitDirect(request);
+  }
+
+  calculateAdvanced(): void {
+    const request: BondDirectPricingRequest = {
+      solveFor: this.advancedForm.solveFor,
+      faceValue: Number(this.advancedForm.faceValue),
+      couponRate: Number(this.advancedForm.couponRate) / 100,
+      couponFrequency: Number(this.advancedForm.couponFrequency),
+      price: this.advancedForm.solveFor === 'YTM' ? Number(this.advancedForm.marketPrice) : null,
+      ytm: this.advancedForm.solveFor === 'PRICE' ? Number(this.advancedForm.ytm) / 100 : null,
+      issueDate: this.advancedForm.issueDate,
+      maturityDate: this.advancedForm.maturityDate,
+      settlementDate: this.advancedForm.settlementDate,
+      dayCount: this.advancedForm.dayCount
+    };
+    this.submitDirect(request);
+  }
+
+  resetBasic(): void {
+    Object.assign(this.basicForm, {
+      solveFor: 'PRICE', faceValue: 100, couponValue: 5, couponUnit: 'PERCENT',
+      couponFrequency: 2, price: null, ytm: 6, termYears: 3
+    });
+    this.directResult = null;
+    this.directError = '';
+  }
+
+  resetAdvanced(): void {
+    Object.assign(this.advancedForm, {
+      solveFor: 'PRICE', faceValue: 100, couponRate: 5, couponFrequency: 2,
+      issueDate: '2020-10-23', maturityDate: '2029-10-23',
+      settlementDate: new Date().toISOString().slice(0, 10), dayCount: '30/360',
+      ytm: 6, marketPrice: null
+    });
+    this.directResult = null;
+    this.directError = '';
+  }
+
+  private submitDirect(request: BondDirectPricingRequest): void {
+    if (this.isDirectPricing) return;
+    this.directError = '';
+    this.directResult = null;
+    this.isDirectPricing = true;
+    this.comparablesService.priceDirectly(request).pipe(finalize(() => {
+      this.isDirectPricing = false;
+    })).subscribe({
+      next: result => {
+        this.directResult = result;
+        this.pricingService.setApiOnline(true);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.pricingService.setApiOnline(error.status !== 0);
+        this.directError = typeof error.error?.message === 'string'
+          ? error.error.message
+          : 'Le calcul obligataire a échoué. Vérifiez les paramètres puis réessayez.';
+      }
+    });
   }
 
   async onFileSelected(event: Event, mode: 'light' | 'full'): Promise<void> {
@@ -231,6 +415,136 @@ export class BondComparablesComponent {
       .sort((left, right) => this.compareRows(left, right, this.sortColumn) * this.sortDirection);
   }
 
+  get filteredFullOptions(): OptionImportRecord[] {
+    return this.fullOptions
+      .filter(option => this.fullOptionColumns.every(column => {
+        const filter = this.fullOptionFilters[column]?.trim().toLocaleLowerCase();
+        return !filter || String(option[column] ?? '').toLocaleLowerCase().includes(filter);
+      }))
+      .slice()
+      .sort((left, right) => {
+        const leftValue = left[this.fullOptionSortColumn];
+        const rightValue = right[this.fullOptionSortColumn];
+        const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+          ? leftValue - rightValue
+          : String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+        return comparison * this.fullOptionSortDirection;
+      });
+  }
+
+  sortFullOptionsBy(column: FullOptionColumn): void {
+    if (this.fullOptionSortColumn === column) {
+      this.fullOptionSortDirection = this.fullOptionSortDirection === 1 ? -1 : 1;
+    } else {
+      this.fullOptionSortColumn = column;
+      this.fullOptionSortDirection = 1;
+    }
+    this.persistState();
+  }
+
+  fullOptionSortIndicator(column: FullOptionColumn): string {
+    if (this.fullOptionSortColumn !== column) return '↕';
+    return this.fullOptionSortDirection === 1 ? '↑' : '↓';
+  }
+
+  clearFullOptionFilters(): void {
+    this.fullOptionFilters = {};
+    this.persistState();
+  }
+
+  calculateFullOptionPrices(): void {
+    const rows = this.filteredFullOptions.map(option => ({ option, index: this.fullOptions.indexOf(option) }));
+    if (!rows.length || this.isFullOptionPricing) return;
+
+    this.isFullOptionPricing = true;
+    this.fullOptionPricingProgress = 0;
+    this.fullOptionPricingSummary = '';
+    from(rows).pipe(
+      mergeMap(({ option, index }) => this.priceFullOption(option).pipe(
+        map(price => ({ index, price, status: 'Calculé' })),
+        catchError(error => of({
+          index,
+          price: null,
+          status: error instanceof Error ? error.message : 'Échec du calcul'
+        }))
+      ), 4),
+      tap(result => {
+        const updated = [...this.fullOptions];
+        updated[result.index] = {
+          ...updated[result.index],
+          calculatedPremiumPerUnit: result.price,
+          pricingStatus: result.status
+        };
+        this.fullOptions = updated;
+        this.fullOptionPricingProgress++;
+      }),
+      toArray(),
+      finalize(() => {
+        this.isFullOptionPricing = false;
+        this.persistState();
+        this.cdr.detectChanges();
+      })
+    ).subscribe(results => {
+      const calculated = results.filter(result => result.price !== null).length;
+      this.fullOptionPricingSummary = `${calculated} / ${results.length} prix calculés`;
+    });
+  }
+
+  async exportFullOptionsXls(): Promise<void> {
+    if (!this.filteredFullOptions.length || this.isFullOptionsExporting) return;
+
+    this.isFullOptionsExporting = true;
+    this.fullOptionsExportError = '';
+    this.fullOptionsExportSuccess = '';
+    try {
+      const XLSX = window.XLSX;
+      const worksheet = XLSX.utils.json_to_sheet(this.filteredFullOptions, { header: [...this.fullOptionColumns] });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparables full');
+      XLSX.writeFile(workbook, `comparables-full-${new Date().toISOString().slice(0, 10)}.xls`, { bookType: 'biff8' });
+      this.fullOptionsExportSuccess = 'Le fichier XLS a été téléchargé.';
+    } catch {
+      this.fullOptionsExportError = 'L’export XLS a échoué. Vérifiez le navigateur puis réessayez.';
+    } finally {
+      this.isFullOptionsExporting = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private priceFullOption(option: OptionImportRecord): Observable<number> {
+    if (option.exerciseStyle === 'BERMUDAN') {
+      return throwError(() => new Error('Calendrier d’exercice Bermudan absent des données importées'));
+    }
+    const valuationTime = Date.parse(`${option.valuationDate}T00:00:00Z`);
+    const expirationTime = Date.parse(`${option.expirationDate}T00:00:00Z`);
+    const maturityYears = (expirationTime - valuationTime) / (365 * 24 * 60 * 60 * 1000);
+    if (!Number.isFinite(maturityYears) || maturityYears <= 0) {
+      return throwError(() => new Error('Dates de valorisation ou d’expiration invalides'));
+    }
+
+    const payload = this.pricingService.buildPayload('EQTY_OPT', {
+      request_id: option.optionId,
+      security_id: option.underlyingSecurityId,
+      security_name: option.underlyingSecurityId,
+      curve_name: `${option.currency}-RFR`,
+      market_data_source: option.dataSource,
+      pricing_model: option.exerciseStyle === 'EUROPEAN' ? 'BLACK_SCHOLES' : 'BINOMIAL',
+      underlying_spot: option.underlyingSpot,
+      risk_free_rate: option.riskFreeRate * 100,
+      implied_volatility: option.volatility * 100,
+      dividend_yield: option.dividendYield * 100,
+      strike: option.strikePrice,
+      maturity_years: maturityYears,
+      option_type: option.optionType,
+      exercise_style: option.exerciseStyle
+    });
+    return this.pricingService.submitPricing('EQTY_OPT', payload).pipe(map(response => {
+      const price = response.result?.['price'];
+      if (typeof price !== 'number' || !Number.isFinite(price)) throw new Error('Prix absent de la réponse de pricing');
+      return price;
+    }));
+  }
+
   sortBy(column: BondColumn): void {
     if (this.sortColumn === column) {
       this.sortDirection = this.sortDirection === 1 ? -1 : 1;
@@ -280,7 +594,7 @@ export class BondComparablesComponent {
     this.price();
   }
 
-  async exportXlsx(): Promise<void> {
+  async exportLightOptionsXlsx(): Promise<void> {
     if (!this.filteredPanelRows.length || this.isExporting) return;
 
     this.isExporting = true;
@@ -466,12 +780,24 @@ export class BondComparablesComponent {
     }
     if (typeof state.yieldMinimum === 'string') this.yieldMinimum = state.yieldMinimum;
     if (typeof state.yieldMaximum === 'string') this.yieldMaximum = state.yieldMaximum;
+    if (state.fullOptionFilters && typeof state.fullOptionFilters === 'object') {
+      for (const column of this.fullOptionColumns) {
+        const value = state.fullOptionFilters[column];
+        if (typeof value === 'string') this.fullOptionFilters[column] = value;
+      }
+    }
   }
 
   private restoreSorting(state: Partial<PersistedBondComparablesState>): void {
     const columns: BondColumn[] = ['securityId', 'issuer', 'currency', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
     if (columns.includes(state.sortColumn as BondColumn)) this.sortColumn = state.sortColumn as BondColumn;
     if (state.sortDirection === 1 || state.sortDirection === -1) this.sortDirection = state.sortDirection;
+    if (this.fullOptionColumns.includes(state.fullOptionSortColumn as FullOptionColumn)) {
+      this.fullOptionSortColumn = state.fullOptionSortColumn as FullOptionColumn;
+    }
+    if (state.fullOptionSortDirection === 1 || state.fullOptionSortDirection === -1) {
+      this.fullOptionSortDirection = state.fullOptionSortDirection;
+    }
   }
 
   persistState(): void {
@@ -488,7 +814,10 @@ export class BondComparablesComponent {
       yieldMinimum: this.yieldMinimum,
       yieldMaximum: this.yieldMaximum,
       sortColumn: this.sortColumn,
-      sortDirection: this.sortDirection
+      sortDirection: this.sortDirection,
+      fullOptionFilters: this.fullOptionFilters,
+      fullOptionSortColumn: this.fullOptionSortColumn,
+      fullOptionSortDirection: this.fullOptionSortDirection
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));

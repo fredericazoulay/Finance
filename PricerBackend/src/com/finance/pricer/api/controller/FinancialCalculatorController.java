@@ -1,8 +1,11 @@
 package com.finance.pricer.api.controller;
 
 import com.finance.pricer.api.dto.FinancialCalculatorRequest;
+import com.finance.pricer.api.dto.BondDirectPricingRequest;
+import com.finance.pricer.api.dto.BondDirectPricingResponse;
 import com.finance.pricer.api.dto.BondComparablesPricingRequest;
 import com.finance.pricer.api.dto.BondComparablesPricingResponse;
+import com.finance.pricer.api.service.BondDirectPricingService;
 import com.finance.pricer.api.service.BondComparablesPricingService;
 import com.finance.pricer.api.service.FinancialCalculatorService;
 import jakarta.validation.Valid;
@@ -24,10 +27,15 @@ import java.util.Map;
 public class FinancialCalculatorController {
     private final FinancialCalculatorService service;
     private final BondComparablesPricingService bondComparablesPricingService;
+    private final BondDirectPricingService bondDirectPricingService;
 
-    public FinancialCalculatorController(FinancialCalculatorService service, BondComparablesPricingService bondComparablesPricingService) {
+    public FinancialCalculatorController(
+            FinancialCalculatorService service,
+            BondComparablesPricingService bondComparablesPricingService,
+            BondDirectPricingService bondDirectPricingService) {
         this.service = service;
         this.bondComparablesPricingService = bondComparablesPricingService;
+        this.bondDirectPricingService = bondDirectPricingService;
     }
 
     @GetMapping
@@ -46,5 +54,11 @@ public class FinancialCalculatorController {
     public ResponseEntity<BondComparablesPricingResponse> priceUsingComparables(
             @RequestBody BondComparablesPricingRequest request) {
         return ResponseEntity.ok(bondComparablesPricingService.price(request));
+    }
+
+    @PostMapping("/bonds/pricing/direct")
+    public ResponseEntity<BondDirectPricingResponse> priceDirectly(
+            @RequestBody BondDirectPricingRequest request) {
+        return ResponseEntity.ok(bondDirectPricingService.calculate(request));
     }
 }

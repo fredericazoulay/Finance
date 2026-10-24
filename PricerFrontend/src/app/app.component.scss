@@ -31,7 +31,9 @@ app-sidebar {
 }
 
 .content {
+  min-width: 0;
   padding: 20px;
+  overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
   background: inherit;

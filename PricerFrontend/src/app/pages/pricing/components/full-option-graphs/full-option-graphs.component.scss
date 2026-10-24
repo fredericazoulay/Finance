@@ -1,0 +1,10 @@
+:host { display: block; min-width: 0; }
+.full-option-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart-panel { min-width: 0; padding: 14px; border: 1px solid var(--line); background: var(--surface); }
+h3 { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 12px; color: var(--ink); font-size: 13px; font-weight: 600; }
+h3 span { color: var(--muted); font-size: 11px; font-weight: 400; }
+.chart-canvas { position: relative; height: 280px; }
+@media (max-width: 680px) {
+  .full-option-charts { grid-template-columns: 1fr; }
+  .chart-canvas { height: 250px; }
+}

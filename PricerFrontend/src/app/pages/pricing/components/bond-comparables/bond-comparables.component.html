@@ -5,9 +5,84 @@
       <p class="eyebrow">Fixed income / valuation</p>
       <h1>Pricing obligataire</h1>
     </div>
-    <span class="data-status">Panel importé · pas de flux marché connecté</span>
+    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' ? 'Données complètes des instruments importées' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : 'Calcul direct · taux en pourcentage' }}</span>
   </header>
 
+  <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'basic'" [class.active]="activeMode === 'basic'" (click)="setMode('basic')">Calcul de base</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'advanced'" [class.active]="activeMode === 'advanced'" (click)="setMode('advanced')">Tarification détaillée</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-light'" [class.active]="activeMode === 'comparables-light'" (click)="setMode('comparables-light')">Comparables light</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full'" [class.active]="activeMode === 'comparables-full'" (click)="setMode('comparables-full')">Comparables full</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full-graphs'" [class.active]="activeMode === 'comparables-full-graphs'" (click)="setMode('comparables-full-graphs')">Graphiques full</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'ai-analysis'" [class.active]="activeMode === 'ai-analysis'" (click)="setMode('ai-analysis')">Analyse IA</button>
+  </div>
+
+  <section class="calculator-section" *ngIf="activeMode === 'basic'">
+    <div class="section-heading">
+      <div><p class="eyebrow">01 / Calcul direct</p><h2>Calculatrice d’obligations</h2></div>
+      <span class="currency-tag">{{ directCurrency }}</span>
+    </div>
+    <p class="import-hint">Choisissez la valeur à calculer; les autres paramètres restent modifiables.</p>
+    <div class="target-grid">
+      <label><span>Valeur à calculer</span><select [(ngModel)]="basicForm.solveFor"><option value="PRICE">Prix</option><option value="YTM">Rendement à l’échéance</option><option value="TERM">Temps jusqu’à l’échéance</option></select></label>
+      <label><span>Valeur nominale ({{ directCurrency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="basicForm.faceValue" /></label>
+      <label><span>Coupon annuel</span><div class="input-with-unit"><input type="number" min="0" step="0.01" [(ngModel)]="basicForm.couponValue" /><select [(ngModel)]="basicForm.couponUnit" aria-label="Unité du coupon"><option value="PERCENT">%</option><option value="AMOUNT">{{ directCurrency }}</option></select></div></label>
+      <label><span>Fréquence des coupons</span><select [(ngModel)]="basicForm.couponFrequency"><option [ngValue]="1">Annuellement</option><option [ngValue]="2">Semestriellement</option><option [ngValue]="4">Trimestriellement</option><option [ngValue]="12">Mensuellement</option></select></label>
+      <label *ngIf="basicForm.solveFor !== 'PRICE'"><span>Prix ({{ directCurrency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="basicForm.price" placeholder="Prix clean" /></label>
+      <label *ngIf="basicForm.solveFor !== 'YTM'"><span>Rendement (%)</span><input type="number" step="0.01" [(ngModel)]="basicForm.ytm" /></label>
+      <label *ngIf="basicForm.solveFor !== 'TERM'"><span>Temps jusqu’à l’échéance (années)</span><input type="number" min="0.01" step="0.01" [(ngModel)]="basicForm.termYears" /></label>
+    </div>
+    <div class="calculator-actions">
+      <button type="button" class="primary-button" [disabled]="isDirectPricing" (click)="calculateBasic()">{{ isDirectPricing ? 'Calcul…' : 'Calculer' }}</button>
+      <button type="button" class="secondary-button" (click)="resetBasic()">Effacer</button>
+    </div>
+    <p class="message error" *ngIf="directError">{{ directError }}</p>
+    <div class="direct-result" *ngIf="directResult as result">
+      <div class="result-lead"><p class="eyebrow">Résultat</p><h2>{{ result.solveFor === 'PRICE' ? 'Prix estimé' : result.solveFor === 'YTM' ? 'Rendement à l’échéance' : 'Temps jusqu’à l’échéance' }}</h2></div>
+      <div class="result-value" *ngIf="result.solveFor === 'PRICE'"><span>Prix théorique</span><strong>{{ result.price | number:'1.2-4' }} {{ directCurrency }}</strong></div>
+      <div class="result-value" *ngIf="result.solveFor === 'YTM'"><span>YTM</span><strong>{{ result.ytm | percent:'1.2-4' }}</strong></div>
+      <div class="result-value" *ngIf="result.solveFor === 'TERM'"><span>Échéance estimée</span><strong>{{ result.termYears | number:'1.2-4' }} ans</strong></div>
+    </div>
+  </section>
+
+  <section class="calculator-section" *ngIf="activeMode === 'advanced'">
+    <div class="section-heading">
+      <div><p class="eyebrow">02 / Valorisation datée</p><h2>Tarification des obligations</h2></div>
+      <span class="currency-tag">{{ directCurrency }}</span>
+    </div>
+    <div class="target-grid">
+      <label><span>Calculer</span><select [(ngModel)]="advancedForm.solveFor"><option value="PRICE">Prix à partir du YTM</option><option value="YTM">YTM à partir du prix de marché</option></select></label>
+      <label><span>Valeur nominale ({{ directCurrency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="advancedForm.faceValue" /></label>
+      <label><span>Coupon annuel (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="advancedForm.couponRate" /></label>
+      <label><span>Fréquence des coupons</span><select [(ngModel)]="advancedForm.couponFrequency"><option [ngValue]="1">Annuellement</option><option [ngValue]="2">Semestriellement</option><option [ngValue]="4">Trimestriellement</option><option [ngValue]="12">Mensuellement</option></select></label>
+      <label><span>Date d’émission</span><input type="date" [(ngModel)]="advancedForm.issueDate" /></label>
+      <label><span>Date d’échéance</span><input type="date" [(ngModel)]="advancedForm.maturityDate" /></label>
+      <label><span>Date de règlement</span><input type="date" [(ngModel)]="advancedForm.settlementDate" /></label>
+      <label><span>Convention de calcul des jours</span><select [(ngModel)]="advancedForm.dayCount"><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">Actual/360</option><option value="ACT/365F">Actual/365F</option><option value="ACT/ACT">Actual/Actual</option></select></label>
+      <label *ngIf="advancedForm.solveFor === 'PRICE'"><span>Rendement à l’échéance (%)</span><input type="number" step="0.01" [(ngModel)]="advancedForm.ytm" /></label>
+      <label *ngIf="advancedForm.solveFor === 'YTM'"><span>Prix clean de marché ({{ directCurrency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="advancedForm.marketPrice" /></label>
+    </div>
+    <div class="calculator-actions">
+      <button type="button" class="primary-button" [disabled]="isDirectPricing" (click)="calculateAdvanced()">{{ isDirectPricing ? 'Calcul…' : 'Calculer' }}</button>
+      <button type="button" class="secondary-button" (click)="resetAdvanced()">Effacer</button>
+    </div>
+    <p class="message error" *ngIf="directError">{{ directError }}</p>
+    <div class="direct-result detailed-result" *ngIf="directResult as result">
+      <div class="result-lead"><p class="eyebrow">Résultat</p><h2>Valorisation au {{ advancedForm.settlementDate | date:'dd/MM/yyyy' }}</h2></div>
+      <div class="result-value"><span>Prix clean</span><strong>{{ result.price | number:'1.2-4' }} {{ directCurrency }}</strong></div>
+      <div class="result-value"><span>Prix dirty</span><strong>{{ result.dirtyPrice | number:'1.2-4' }} {{ directCurrency }}</strong></div>
+      <div class="result-value"><span>YTM</span><strong>{{ result.ytm | percent:'1.2-4' }}</strong></div>
+      <div class="analytics-grid" *ngIf="result.macaulayDuration !== null">
+        <div class="analytics-item"><span>Intérêts courus</span><strong>{{ result.accruedInterest | number:'1.2-4' }} {{ directCurrency }}</strong></div>
+        <div class="analytics-item"><span>Duration Macaulay</span><strong>{{ result.macaulayDuration | number:'1.2-4' }} ans</strong></div>
+        <div class="analytics-item"><span>Duration modifiée</span><strong>{{ result.modifiedDuration | number:'1.2-4' }} ans</strong></div>
+        <div class="analytics-item"><span>Convexité</span><strong>{{ result.convexity | number:'1.2-4' }}</strong></div>
+        <div class="analytics-item"><span>DV01</span><strong>{{ result.dv01 | number:'1.2-4' }} {{ directCurrency }}</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <ng-container *ngIf="activeMode === 'comparables-light'">
   <section class="target-section">
     <div class="section-heading">
       <div>
@@ -42,15 +117,10 @@
           <label class="tolerance-control"><span>Écart échéance (mois)</span><input type="number" min="0" max="240" [(ngModel)]="maturityToleranceMonths" (ngModelChange)="invalidateResult()" /></label>
           <label class="visually-hidden" for="bond-panel-file-light">Fichier obligataire CSV ou Excel</label>
           <input #fileInputLight id="bond-panel-file-light" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'light')" />
-          <label class="visually-hidden" for="bond-panel-file-full">Fichier options CSV ou Excel</label>
-          <input #fileInputFull id="bond-panel-file-full" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'full')" />
           <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputLight.click()">
             {{ isImporting ? 'Lecture…' : 'Importer Light CSV / Excel' }}
           </button>
-          <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
-            {{ isImporting ? 'Lecture…' : 'Importer Full CSV / Excel' }}
-          </button>
-          <button type="button" class="secondary-button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportXlsx()">
+          <button type="button" class="secondary-button" [disabled]="!filteredPanelRows.length || isExporting" (click)="exportLightOptionsXlsx()">
             {{ isExporting ? 'Export…' : 'Exporter .xlsx' }}
           </button>
           <button type="submit" class="primary-button" [disabled]="isLoading || !panel.length">
@@ -60,7 +130,6 @@
       </div>
     </div>
     <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity. Les taux peuvent être saisis en décimal ou avec « % ».</p>
-    <p class="import-hint" *ngIf="fullOptions.length">Import Full : {{ fullOptions.length }} options chargées avec les 27 colonnes du format complet.</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" *ngIf="error">{{ error }}</p>
     <p class="message error" *ngIf="exportError">{{ exportError }}</p>
@@ -115,16 +184,6 @@
         </tbody>
       </table>
     </div>
-    <div class="table-wrap full-option-table" *ngIf="fullOptions.length">
-      <table>
-        <thead><tr><th *ngFor="let column of fullOptionColumns">{{ column }}</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let option of fullOptions">
-            <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
     <ng-template #emptyPanel><div class="empty-state"><span class="empty-mark">+</span><strong>Aucune obligation chargée</strong><span>Importez un fichier CSV ou Excel pour constituer le panel.</span></div></ng-template>
   </section>
 
@@ -148,5 +207,91 @@
     </div>
     <p class="risk-note">Le rendement maximal ne signifie pas nécessairement une meilleure qualité de crédit ni un meilleur profil risque/rendement. Les résultats dépendent de la qualité et de la fraîcheur des données importées.</p>
   </section>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'comparables-full'">
+    <section class="panel-section full-options-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">01 / Univers complet</p>
+          <h2>Comparables full <span class="count">{{ fullOptions.length }}</span></h2>
+        </div>
+        <div class="panel-actions">
+          <label class="visually-hidden" for="bond-panel-file-full">Fichier complet CSV ou Excel</label>
+          <input #fileInputFull id="bond-panel-file-full" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'full')" />
+          <button type="button" class="primary-button" [disabled]="isFullOptionPricing || !filteredFullOptions.length" (click)="calculateFullOptionPrices()">
+            {{ isFullOptionPricing ? 'Calcul… ' + fullOptionPricingProgress + ' / ' + filteredFullOptions.length : 'Calculer le prix' }}
+          </button>
+          <button type="button" class="secondary-button" [disabled]="isFullOptionsExporting || !filteredFullOptions.length" (click)="exportFullOptionsXls()">
+            {{ isFullOptionsExporting ? 'Export…' : 'Exporter .xls' }}
+          </button>
+          <button type="button" class="secondary-button" [disabled]="isImporting" (click)="fileInputFull.click()">
+            {{ isImporting ? 'Lecture…' : 'Importer Full CSV / Excel' }}
+          </button>
+        </div>
+      </div>
+      <p class="import-hint">Import complet des options avec leurs 27 champs de marché, de valorisation et de risque.</p>
+      <p class="message error" *ngIf="importError">{{ importError }}</p>
+      <p class="message error" *ngIf="fullOptionsExportError">{{ fullOptionsExportError }}</p>
+      <p class="message success" *ngIf="fullOptionsExportSuccess">{{ fullOptionsExportSuccess }}</p>
+      <p class="message success" *ngIf="fullOptionPricingSummary">{{ fullOptionPricingSummary }}</p>
+      <div class="table-toolbar" *ngIf="fullOptions.length">
+        <span>{{ filteredFullOptions.length }} / {{ fullOptions.length }} lignes affichées</span>
+        <button type="button" class="clear-filters" (click)="clearFullOptionFilters()">Effacer les filtres</button>
+      </div>
+      <div class="table-wrap full-option-table" *ngIf="fullOptions.length; else emptyFullOptions">
+        <table>
+          <thead>
+            <tr><th *ngFor="let column of fullOptionColumns"><button type="button" class="sort-button" (click)="sortFullOptionsBy(column)">{{ column === 'calculatedPremiumPerUnit' ? 'calculated price' : column === 'pricingStatus' ? 'pricing status' : column }} {{ fullOptionSortIndicator(column) }}</button></th><th>Graphiques</th></tr>
+            <tr class="filter-row"><td *ngFor="let column of fullOptionColumns"><input [(ngModel)]="fullOptionFilters[column]" (ngModelChange)="persistState()" [attr.aria-label]="'Filtrer ' + column" placeholder="Filtrer" /></td><td></td></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let option of filteredFullOptions">
+              <td *ngFor="let column of fullOptionColumns">{{ option[column] ?? '—' }}</td>
+              <td><button type="button" class="secondary-button" (click)="openFullOptionGraphs(option)">Voir</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #emptyFullOptions>
+        <div class="empty-state"><span class="empty-mark">+</span><strong>Aucune donnée complète chargée</strong><span>Importez un fichier Full CSV ou Excel pour afficher les comparables.</span></div>
+      </ng-template>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'comparables-full-graphs'">
+    <section class="panel-section full-option-graphs-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / Analyse détaillée</p>
+          <h2>Graphiques full</h2>
+        </div>
+        <label class="full-option-selector">
+          <span>Option importée</span>
+          <select [ngModel]="selectedFullOption" (ngModelChange)="selectedFullOption = $event">
+            <option [ngValue]="null">Sélectionner une option</option>
+            <option *ngFor="let option of fullOptions" [ngValue]="option">{{ option.optionId }} · {{ option.underlyingSecurityId }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="empty-state" *ngIf="!fullOptions.length">
+        <strong>Aucune donnée complète chargée</strong>
+        <span>Importez un fichier depuis l’onglet Comparables full.</span>
+      </div>
+      <ng-container *ngIf="selectedFullOption as option">
+        <app-full-option-graphs [option]="option"></app-full-option-graphs>
+        <div class="full-option-characteristics">
+          <div class="full-option-characteristic" *ngFor="let column of fullOptionColumns">
+            <span>{{ fullOptionLabels[column] }}</span>
+            <strong>{{ option[column] ?? '—' }}</strong>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'ai-analysis'">
+    <app-ai-analysis [context]="aiAnalysisContext"></app-ai-analysis>
+  </ng-container>
   </form>
 </main>

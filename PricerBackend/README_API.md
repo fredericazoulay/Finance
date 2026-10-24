@@ -285,6 +285,31 @@ The response includes each panel row's eligibility and exclusion reason, the sel
 
 ---
 
+## AI bond analysis
+
+### POST /api/v1/ai/ask
+
+Sends a question and optional pricing context to the configured OpenAI-compatible chat completions provider.
+
+```json
+{
+  "question": "Détermine le pricing de l'obligation cible à partir des comparables.",
+  "context": "{...}"
+}
+```
+
+The response contains an `answer` string. The question is limited to 5,000 characters and the context to 12,000 characters. The frontend sends the target, current valuation (when available), and at most five same-currency comparables.
+
+Configure the backend environment before asking a question:
+
+- `PRICER_AI_API_KEY` (required)
+- `PRICER_AI_CHAT_COMPLETIONS_URL` (optional; defaults to `https://api.openai.com/v1/chat/completions`)
+- `PRICER_AI_MODEL` (optional; defaults to `gpt-4o-mini`)
+
+The API key stays on the server and is never sent to the browser. The endpoint returns `503` when no key is configured and `502` when the provider is unavailable or returns an unusable response.
+
+---
+
 ## Swagger/OpenAPI
 
 ```text

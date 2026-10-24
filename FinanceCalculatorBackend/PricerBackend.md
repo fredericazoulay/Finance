@@ -161,6 +161,40 @@ Les calculateurs reconnus par le service comprennent :
 
 Les noms sont normalisés en minuscules et les underscores sont convertis en tirets avant le dispatch. Le catalogue est une sélection organisée de noms; il ne répertorie pas nécessairement tous les alias acceptés par le service.
 
+### Pricing obligataire direct
+
+`POST /api/v1/calculators/bonds/pricing/direct` permet de calculer un prix, un YTM ou une échéance sans constituer de panel de comparables. Les taux et coupons sont transmis sous forme décimale (`0.05` = 5 %). La fréquence doit être `1`, `2`, `3`, `4`, `6` ou `12`.
+
+Sans dates, le calcul utilise des périodes de coupon régulières. `solveFor` accepte `PRICE`, `YTM` ou `TERM` :
+
+| Résultat | Champs requis en plus de `faceValue`, `couponRate` et `couponFrequency` |
+|---|---|
+| `PRICE` | `ytm`, `termYears` |
+| `YTM` | `price`, `termYears` |
+| `TERM` | `price`, `ytm` |
+
+La durée maximale de ce calcul simplifié est de 200 ans. Le prix retourné correspond aussi au prix dirty, sans intérêts courus distincts dans ce mode.
+
+Si une des dates `issueDate`, `maturityDate` ou `settlementDate` est fournie, les trois deviennent obligatoires et seul `PRICE` ou `YTM` est accepté. Le calcul utilise le calendrier des coupons, renvoie le prix clean et le prix dirty, les intérêts courus, la duration de Macaulay et modifiée, la convexité et le DV01. Pour `YTM`, `price` est le prix clean de marché; pour `PRICE`, `ytm` est le rendement d'entrée.
+
+Exemple de tarification à une date de règlement :
+
+```json
+{
+	"solveFor": "PRICE",
+	"faceValue": 100.0,
+	"couponRate": 0.04,
+	"couponFrequency": 2,
+	"ytm": 0.052,
+	"issueDate": "2020-10-23",
+	"maturityDate": "2031-10-23",
+	"settlementDate": "2026-10-22",
+	"dayCount": "30/360"
+}
+```
+
+Les conventions acceptées sont `30/360` (alias de 30E/360), `THIRTY_360_US`, `ACT/360`, `ACT/365F`, `ACT/ACT_ICMA` et `ACT/ACT_ISDA`, avec les alias reconnus par le service. En mode sans dates, les champs d'analytics datés sont `null` et `dayCount` vaut `N/A`.
+
 ### Pricing obligataire à partir de comparables
 
 `POST /api/v1/calculators/bonds/comparables/pricing` reçoit la cible et tout le panel dans la requête. Il ne recherche pas lui-même des obligations ni des cotations.

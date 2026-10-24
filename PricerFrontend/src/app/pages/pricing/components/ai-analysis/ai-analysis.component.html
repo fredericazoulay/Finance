@@ -1,0 +1,24 @@
+<section class="ai-analysis-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">03 / Assistant de valorisation</p>
+      <h2>Analyse IA</h2>
+    </div>
+  </div>
+
+  <label class="question-field">
+    <span>Question</span>
+    <textarea [(ngModel)]="question" maxlength="5000" rows="5" aria-label="Question à poser à l’assistant IA"></textarea>
+  </label>
+  <p class="privacy-note">La question et le contexte de pricing disponible (cible et jusqu’à cinq comparables) seront transmis au fournisseur IA configuré côté serveur.</p>
+  <div class="ai-actions">
+    <button type="button" class="primary-button" [disabled]="isAsking || !question.trim()" (click)="ask()">
+      {{ isAsking ? 'Analyse en cours…' : 'Demander à l’IA' }}
+    </button>
+  </div>
+  <p class="message error" role="alert" *ngIf="error">{{ error }}</p>
+  <section class="answer-panel" aria-live="polite" *ngIf="answer">
+    <h3>Réponse</h3>
+    <p>{{ answer }}</p>
+  </section>
+</section>

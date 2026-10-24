@@ -58,4 +58,6 @@ export interface OptionImportRecord {
   rhoPer1PctRate: number;
   underlyingYieldToMaturity: number | null;
   dataSource: string;
+  calculatedPremiumPerUnit?: number | null;
+  pricingStatus?: string | null;
 }

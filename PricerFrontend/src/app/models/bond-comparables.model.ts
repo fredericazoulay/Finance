@@ -56,3 +56,33 @@ export interface BondComparablesResponse {
     dv01: number;
   };
 }
+
+export interface BondDirectPricingRequest {
+  solveFor: 'PRICE' | 'YTM' | 'TERM';
+  faceValue: number;
+  couponRate: number;
+  couponFrequency: number;
+  price?: number | null;
+  ytm?: number | null;
+  termYears?: number | null;
+  issueDate?: string | null;
+  maturityDate?: string | null;
+  settlementDate?: string | null;
+  dayCount?: string | null;
+}
+
+export interface BondDirectPricingResponse {
+  solveFor: 'PRICE' | 'YTM' | 'TERM';
+  faceValue: number;
+  price: number;
+  ytm: number;
+  termYears: number;
+  dirtyPrice: number | null;
+  accruedInterest: number | null;
+  accruedDays: number | null;
+  dayCount: string;
+  macaulayDuration: number | null;
+  modifiedDuration: number | null;
+  convexity: number | null;
+  dv01: number | null;
+}

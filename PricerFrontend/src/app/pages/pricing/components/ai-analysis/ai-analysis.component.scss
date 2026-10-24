@@ -1,0 +1,18 @@
+:host { display: block; min-width: 0; }
+.ai-analysis-section { padding: 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.section-heading { margin-bottom: 18px; }
+.eyebrow { margin: 0 0 5px; color: var(--green); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.question-field { display: flex; flex-direction: column; gap: 7px; color: var(--muted); font-size: 13px; }
+textarea { box-sizing: border-box; width: 100%; min-height: 120px; resize: vertical; padding: 11px; border: 1px solid var(--line); border-radius: 3px; background: #0c1b27; color: var(--ink); font: inherit; font-size: 14px; line-height: 1.55; }
+textarea:focus { outline: 1px solid var(--green); border-color: var(--green); }
+.privacy-note { margin: 10px 0 14px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.ai-actions { display: flex; justify-content: flex-end; }
+button { min-height: 36px; border: 1px solid var(--green); border-radius: 3px; padding: 0 13px; background: var(--green); color: #112217; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: 0.55; cursor: wait; }
+.message { margin: 12px 0 0; font-size: 12px; }
+.error { color: #ff9b87; }
+.answer-panel { margin-top: 18px; padding: 15px; border-left: 3px solid var(--green); background: rgba(58, 227, 116, 0.06); }
+.answer-panel h3 { margin: 0 0 8px; font-size: 13px; }
+.answer-panel p { margin: 0; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+:host-context(body.light-theme) textarea { background: #fbfdfb; color: #1c2c26; }
