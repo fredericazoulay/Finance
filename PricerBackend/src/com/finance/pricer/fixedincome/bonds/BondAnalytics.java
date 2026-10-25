@@ -61,10 +61,19 @@ public final class BondAnalytics {
      * Solves for the exact Yield to Maturity (YTM) from the market dirty price using Brent's method.
      */
     public static double ytmFromDirtyPrice(FixedCouponBond bond, LocalDate settlementDate, double targetDirtyPrice) {
+        if (!Double.isFinite(targetDirtyPrice) || targetDirtyPrice <= 0.0) {
+            throw new IllegalArgumentException("targetDirtyPrice must be finite and greater than zero");
+        }
+        int frequency = bond.getFrequency();
         return BrentSolver.findRootWithBracket(
-                y -> dirtyPriceFromYtm(bond, settlementDate, y) - targetDirtyPrice,
+                y -> {
+                    double difference = dirtyPriceFromYtm(bond, settlementDate, y) - targetDirtyPrice;
+                    return Double.isInfinite(difference) ? Math.copySign(Double.MAX_VALUE, difference) : difference;
+                },
                 0.01,
                 0.10,
+                Math.nextUp(-frequency),
+                1_000_000.0,
                 1e-9,
                 1e-9,
                 150
@@ -166,7 +175,8 @@ public final class BondAnalytics {
                     double pv = 0.0;
                     for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
                         if (cp.paymentDate().isAfter(settlementDate)) {
-                            double t = yearFractionToPayment(bond, settlementDate, cp);
+                            double t = zeroCurve.getDayCountConvention()
+                                    .yearFraction(settlementDate, cp.paymentDate());
                             double baseZero = zeroCurve.zeroRate(cp.paymentDate());
                             pv += cp.totalCashFlow() * Math.exp(-(baseZero + s) * t);
                         }
@@ -211,7 +221,8 @@ public final class BondAnalytics {
 
             for (FixedCouponBond.CouponPayment cp : bond.getCashFlows()) {
                 if (cp.paymentDate().isAfter(settlementDate)) {
-                    double t = yearFractionToPayment(bond, settlementDate, cp);
+                    double t = baseZeroCurve.getDayCountConvention()
+                            .yearFraction(settlementDate, cp.paymentDate());
                     double weight = triangularWeight(t, tPrev, tk, tNext);
 
                     double baseR = baseZeroCurve.zeroRate(cp.paymentDate());

@@ -9,13 +9,16 @@ public record BondComparablesPricingResponse(
         List<PanelItem> panel,
         String bestYieldSecurityId,
         double appliedYield,
-        BondValuation valuation
+                BondValuation valuation,
+                List<String> rankingCriteria
 ) {
     public record PanelItem(
             BondComparablesPricingRequest.ComparableBond bond,
             boolean eligible,
             boolean selected,
-            String exclusionReason
+                        String exclusionReason,
+                        Integer rank,
+                        List<String> rankingReasons
     ) {}
 
     public record BondValuation(

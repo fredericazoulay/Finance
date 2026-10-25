@@ -19,6 +19,7 @@ public class BondDirectPricingService {
     private static final String FIELD_PRICE = "price";
     private static final double ROOT_TOLERANCE = 1e-10;
     private static final double MAX_TERM_YEARS = 200;
+    private static final double MAX_SOLVED_YIELD = 1_000_000.0;
 
     public BondDirectPricingResponse calculate(BondDirectPricingRequest request) {
         if (request == null) throw new IllegalArgumentException("Request is required");
@@ -138,16 +139,21 @@ public class BondDirectPricingService {
     }
 
     private static double solveYield(double faceValue, double couponRate, int frequency, double termYears, double targetPrice) {
-        double lower = -frequency + 1e-8;
+        double lower = Math.nextUp(-frequency);
         double upper = 100;
         double lowerValue = basicPrice(faceValue, couponRate, frequency, termYears, lower) - targetPrice;
         double upperValue = basicPrice(faceValue, couponRate, frequency, termYears, upper) - targetPrice;
+        while (!oppositeSigns(lowerValue, upperValue) && upper < MAX_SOLVED_YIELD) {
+            upper = Math.min(MAX_SOLVED_YIELD, upper * 2 + 1);
+            upperValue = basicPrice(faceValue, couponRate, frequency, termYears, upper) - targetPrice;
+        }
         if (!oppositeSigns(lowerValue, upperValue)) throw new IllegalArgumentException("price does not imply a solvable YTM");
 
         for (int iteration = 0; iteration < 200; iteration++) {
             double middle = (lower + upper) / 2;
             double middleValue = basicPrice(faceValue, couponRate, frequency, termYears, middle) - targetPrice;
-            if (Math.abs(middleValue) < ROOT_TOLERANCE) return middle;
+                if (Math.abs(middleValue) <= ROOT_TOLERANCE * targetPrice
+                    || upper - lower <= ROOT_TOLERANCE * Math.max(1.0, Math.abs(middle))) return middle;
             if (oppositeSigns(lowerValue, middleValue)) {
                 upper = middle;
             } else {
@@ -155,7 +161,7 @@ public class BondDirectPricingService {
                 lowerValue = middleValue;
             }
         }
-        return (lower + upper) / 2;
+        throw new ArithmeticException("YTM solver did not converge after 200 iterations");
     }
 
     private static double solveTerm(double faceValue, double couponRate, int frequency, double ytm, double targetPrice) {
@@ -171,7 +177,8 @@ public class BondDirectPricingService {
         for (int iteration = 0; iteration < 200; iteration++) {
             double middle = (lower + upper) / 2;
             double middleValue = basicPrice(faceValue, couponRate, frequency, middle, ytm) - targetPrice;
-            if (Math.abs(middleValue) < ROOT_TOLERANCE) return middle;
+                if (Math.abs(middleValue) <= ROOT_TOLERANCE * targetPrice
+                    || upper - lower <= ROOT_TOLERANCE * Math.max(1.0, Math.abs(middle))) return middle;
             if (oppositeSigns(lowerValue, middleValue)) {
                 upper = middle;
             } else {
@@ -179,7 +186,7 @@ public class BondDirectPricingService {
                 lowerValue = middleValue;
             }
         }
-        return (lower + upper) / 2;
+        throw new ArithmeticException("Term solver did not converge after 200 iterations");
     }
 
     private static DayCountConvention parseDayCount(String value) {

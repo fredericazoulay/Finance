@@ -245,7 +245,9 @@ Response:
 
 ### POST /api/v1/calculators/bonds/comparables/pricing
 
-This endpoint accepts a user-supplied panel. It does not connect to a market-data provider. The target and eligible comparables must use the same currency; comparable maturity must be within the configured number of months from the target maturity. The highest eligible yield to maturity is applied to the target bond cash flows.
+This endpoint accepts a user-supplied panel. It does not connect to a market-data provider. The target and eligible comparables must use the same currency; comparable maturity must be within the configured number of months from the target maturity. Eligible observations require a source and an ISO `asOf` date no later than settlement and no more than seven calendar days old. Configure the freshness limit with `PRICER_BOND_COMPARABLES_MAX_PRICE_AGE_DAYS`.
+
+Eligible bonds are ranked lexicographically: exact issuer match, normalized rating-notch distance (S&P/Fitch and Moody's common scales), exact sector match, exact seniority match, maturity distance, then highest YTM and security ID as deterministic tie-breakers. Target issuer, rating, sector and seniority are optional; omitted fields do not affect ranking. The response includes each eligible panel row's rank and ranking reasons, the criteria order, and explicit exclusion reasons. `source` and `asOf` are user-reported and are not independently verified.
 
 Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defaults to 24 and is limited to 0–240.
 
@@ -260,7 +262,11 @@ Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defau
     "couponFrequency": 2,
     "maturityDate": "2031-10-23",
     "settlementDate": "2026-10-23",
-    "dayCount": "30/360"
+    "dayCount": "30/360",
+    "issuer": "Example issuer",
+    "rating": "A",
+    "sector": "Financials",
+    "seniority": "Senior unsecured"
   },
   "panel": [
     {
@@ -273,6 +279,8 @@ Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defau
       "couponRate": 0.045,
       "marketPrice": 97.2,
       "rating": "A",
+      "sector": "Financials",
+      "seniority": "Senior unsecured",
       "source": "User import",
       "asOf": "2026-10-22"
     }
@@ -281,7 +289,7 @@ Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defau
 }
 ```
 
-The response includes each panel row's eligibility and exclusion reason, the selected security and applied yield, plus clean price, dirty price, accrued interest and day-count convention. The client is responsible for accurately identifying the imported data source and quote date.
+The response includes each panel row's eligibility, rank, ranking reasons and exclusion reason, the selected security and applied yield, the ranking criteria, plus clean price, dirty price, accrued interest and day-count convention.
 
 ---
 
@@ -319,6 +327,71 @@ Extracts explicitly stated target-bond fields from a description. Unknown values
 ```
 
 The response contains the extracted target fields plus `missingFields` and `ambiguities`. The frontend pre-fills the target form, which the user must review before running the existing comparable-pricing calculation. The API key remains server-side; no provider call occurs when it is not configured.
+
+---
+
+## Bond analytics
+
+### POST /api/v1/calculators/bonds/analytics
+
+Calculates fixed-coupon bond price and risk metrics from a supplied clean price and discount curve. Rates and spreads are decimal fractions; curve zero rates are continuously compounded. The curve reference date must equal settlement, and its day-count convention is used for curve discounting and KRD bumps. Key-rate tenors must be positive and strictly increasing.
+
+```json
+{
+  "securityId": "BOND-001",
+  "currency": "EUR",
+  "faceValue": 100.0,
+  "couponRate": 0.04,
+  "couponFrequency": 2,
+  "issueDate": "2021-10-23",
+  "maturityDate": "2031-10-23",
+  "settlementDate": "2026-10-23",
+  "dayCount": "30/360",
+  "cleanPrice": 97.5,
+  "discountCurve": {
+    "referenceDate": "2026-10-23",
+    "dayCount": "ACT/365F",
+    "timesYears": [1.0, 3.0, 5.0, 10.0],
+    "zeroRates": [0.025, 0.028, 0.03, 0.032]
+  },
+  "keyRateTenorsYears": [1.0, 3.0, 5.0, 10.0]
+}
+```
+
+The response includes clean/dirty prices, accrued interest, YTM, Macaulay and modified duration, convexity, DV01, Z-spread, the curve-implied dirty price, and KRD values keyed by tenor. KRDs use 1 bp curve bumps and are normalized to the curve-implied price; `source` and market-data retrieval are not part of this endpoint.
+
+## Advanced pricing routes
+
+These routes expose existing analytical engines. Rates are decimal fractions, times are years, and curve rates are continuously compounded zero rates. The API does not fetch market data; callers supply the curve and instrument inputs.
+
+| Method and route | Instrument/model |
+| --- | --- |
+| `POST /api/v1/advanced-pricing/rates/cap-floor` | Cap or floor with separate discount and forward zero curves |
+| `POST /api/v1/advanced-pricing/rates/swaption/european` | European payer/receiver swaption using Black-76 |
+| `POST /api/v1/advanced-pricing/rates/fra` | FRA present value and par rate |
+| `POST /api/v1/advanced-pricing/forwards` | Equity, FX, commodity, or no-income forward |
+| `POST /api/v1/advanced-pricing/futures/interest-rate` | Futures-implied rate and convexity adjustment |
+| `POST /api/v1/advanced-pricing/futures/bond` | Cheapest-to-deliver selection and invoice price |
+| `POST /api/v1/advanced-pricing/options/barrier` | European single-barrier option |
+| `POST /api/v1/advanced-pricing/options/asian` | Geometric or arithmetic-average Asian option |
+| `POST /api/v1/advanced-pricing/options/digital` | Cash-or-nothing, asset-or-nothing, or gap option |
+| `POST /api/v1/advanced-pricing/options/lookback/floating-strike` | Floating-strike lookback call or put |
+| `POST /api/v1/advanced-pricing/options/chooser` | Simple chooser option |
+| `POST /api/v1/advanced-pricing/options/spread` | Two-asset Kirk spread option |
+| `POST /api/v1/advanced-pricing/volatility/sabr` | SABR implied volatility |
+
+Curve objects use `times_years` and `zero_rates` arrays of equal length with strictly increasing times; `reference_date` and `day_count` are optional. Example:
+
+```json
+{
+  "times_years": [0.5, 1.0, 2.0, 5.0],
+  "zero_rates": [0.025, 0.028, 0.031, 0.034],
+  "reference_date": "2026-10-25",
+  "day_count": "ACT_365F"
+}
+```
+
+The bond-futures route uses the project's simplified CTD cost comparison; its engine does not calculate implied repo. Floating-strike lookback is implemented, but fixed-strike lookback is not. Autocalls, reverse convertibles, callable/putable/convertible bonds, floaters, and inflation-linked bonds remain unsupported.
 
 ---
 

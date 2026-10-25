@@ -102,7 +102,20 @@ public class PricingController {
                 "EQUITY",
                 "INTEREST_RATE_SWAP",
                 "CREDIT_DEFAULT_SWAP",
-                "FX_FORWARD"
+                                "FX_FORWARD",
+                                "INTEREST_RATE_CAP_FLOOR",
+                                "EUROPEAN_SWAPTION",
+                                "BARRIER_OPTION",
+                                "ASIAN_OPTION",
+                                "SPREAD_OPTION",
+                                "SABR_IMPLIED_VOLATILITY",
+                                "FORWARD",
+                                "FRA",
+                                "INTEREST_RATE_FUTURE",
+                                "BOND_FUTURE",
+                                "DIGITAL_OPTION",
+                                "LOOKBACK_OPTION",
+                                "CHOOSER_OPTION"
         ));
     }
 

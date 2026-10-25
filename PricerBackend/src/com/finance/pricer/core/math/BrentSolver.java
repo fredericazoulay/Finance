@@ -37,23 +37,54 @@ public final class BrentSolver {
 
     public static double findRootWithBracket(DoubleUnaryOperator f, double guessMin, double guessMax,
                                              double absoluteAccuracy, double relativeAccuracy, int maxIterations) {
+        return expandRootBracket(f, guessMin, guessMax, Double.NEGATIVE_INFINITY,
+                Double.POSITIVE_INFINITY, false, absoluteAccuracy, relativeAccuracy, maxIterations);
+    }
+
+    public static double findRootWithBracket(DoubleUnaryOperator f, double guessMin, double guessMax,
+                                             double minBound, double maxBound,
+                                             double absoluteAccuracy, double relativeAccuracy, int maxIterations) {
+        if (!Double.isFinite(minBound) || !Double.isFinite(maxBound) || minBound >= maxBound) {
+            throw new IllegalArgumentException("Bounds must be finite and minBound must be less than maxBound");
+        }
+        if (guessMin < minBound || guessMax > maxBound) {
+            throw new IllegalArgumentException("Initial bracket must lie within the specified bounds");
+        }
+        return expandRootBracket(f, guessMin, guessMax, minBound, maxBound, true,
+                absoluteAccuracy, relativeAccuracy, maxIterations);
+    }
+
+    private static double expandRootBracket(DoubleUnaryOperator f, double guessMin, double guessMax,
+                                            double minBound, double maxBound, boolean bounded,
+                                            double absoluteAccuracy, double relativeAccuracy, int maxIterations) {
+        validateArguments(f, guessMin, guessMax, absoluteAccuracy, relativeAccuracy, maxIterations);
         double a = guessMin;
         double b = guessMax;
-        double fa = f.applyAsDouble(a);
-        double fb = f.applyAsDouble(b);
+        double fa = evaluate(f, a);
+        double fb = evaluate(f, b);
 
         int bracketSteps = 0;
         double factor = 1.6;
-        while (fa * fb > 0.0 && bracketSteps < 50) {
+        while (sameSign(fa, fb) && bracketSteps < 50) {
             double range = b - a;
-            a -= factor * range;
-            b += factor * range;
-            fa = f.applyAsDouble(a);
-            fb = f.applyAsDouble(b);
+            double expandedA = a - factor * range;
+            double expandedB = b + factor * range;
+            if (bounded) {
+                expandedA = Math.max(minBound, expandedA);
+                expandedB = Math.min(maxBound, expandedB);
+            }
+            if (!Double.isFinite(expandedA) || !Double.isFinite(expandedB)) {
+                throw new ArithmeticException("Unable to expand root bracket within finite bounds");
+            }
+            if (expandedA == a && expandedB == b) break;
+            a = expandedA;
+            b = expandedB;
+            fa = evaluate(f, a);
+            fb = evaluate(f, b);
             bracketSteps++;
         }
 
-        if (fa * fb > 0.0) {
+        if (sameSign(fa, fb)) {
             throw new IllegalArgumentException("Unable to bracket root in expanded range [" + a + ", " + b + "]");
         }
 
@@ -65,19 +96,17 @@ public final class BrentSolver {
      */
     public static double findRoot(DoubleUnaryOperator f, double min, double max,
                                   double absoluteAccuracy, double relativeAccuracy, int maxIterations) {
-        if (min >= max) {
-            throw new IllegalArgumentException("min must be strictly less than max: [" + min + ", " + max + "]");
-        }
+        validateArguments(f, min, max, absoluteAccuracy, relativeAccuracy, maxIterations);
 
         double a = min;
         double b = max;
-        double fa = f.applyAsDouble(a);
-        double fb = f.applyAsDouble(b);
+        double fa = evaluate(f, a);
+        double fb = evaluate(f, b);
 
-        if (Math.abs(fa) <= absoluteAccuracy) return a;
-        if (Math.abs(fb) <= absoluteAccuracy) return b;
+        if (fa == 0.0) return a;
+        if (fb == 0.0) return b;
 
-        if (fa * fb > 0.0) {
+        if (sameSign(fa, fb)) {
             throw new IllegalArgumentException("Root is not bracketed: f(" + min + ")=" + fa + ", f(" + max + ")=" + fb);
         }
 
@@ -87,7 +116,7 @@ public final class BrentSolver {
         double e = d;
 
         for (int i = 0; i < maxIterations; i++) {
-            if (fb * fc > 0.0) {
+            if (sameSign(fb, fc)) {
                 c = a;
                 fc = fa;
                 d = b - a;
@@ -103,10 +132,11 @@ public final class BrentSolver {
                 fc = fa;
             }
 
-            double tol = 2.0 * 2.220446049250313e-16 * Math.abs(b) + 0.5 * absoluteAccuracy;
+                double tol = absoluteAccuracy + relativeAccuracy * Math.abs(b)
+                    + 2.0 * 2.220446049250313e-16 * Math.abs(b);
             double m = 0.5 * (c - b);
 
-            if (Math.abs(m) <= tol || Math.abs(fb) <= absoluteAccuracy) {
+            if (Math.abs(m) <= tol) {
                 return b;
             }
 
@@ -159,10 +189,36 @@ public final class BrentSolver {
                 b -= tol;
             }
 
-            fb = f.applyAsDouble(b);
+            fb = evaluate(f, b);
         }
 
-        return b;
+        throw new ArithmeticException("Brent solver did not converge after " + maxIterations + " iterations");
+    }
+
+    private static void validateArguments(DoubleUnaryOperator f, double min, double max,
+                                          double absoluteAccuracy, double relativeAccuracy, int maxIterations) {
+        if (f == null) throw new IllegalArgumentException("Function must not be null");
+        if (!Double.isFinite(min) || !Double.isFinite(max) || min >= max) {
+            throw new IllegalArgumentException("min and max must be finite and min must be less than max");
+        }
+        if (!Double.isFinite(absoluteAccuracy) || absoluteAccuracy < 0.0
+                || !Double.isFinite(relativeAccuracy) || relativeAccuracy < 0.0 || relativeAccuracy >= 1.0
+                || (absoluteAccuracy == 0.0 && relativeAccuracy == 0.0)) {
+            throw new IllegalArgumentException("Accuracy tolerances must be finite, non-negative, and not both zero");
+        }
+        if (maxIterations <= 0) throw new IllegalArgumentException("maxIterations must be positive");
+    }
+
+    private static double evaluate(DoubleUnaryOperator f, double x) {
+        double value = f.applyAsDouble(x);
+        if (!Double.isFinite(value)) {
+            throw new ArithmeticException("Function returned a non-finite value at " + x);
+        }
+        return value;
+    }
+
+    private static boolean sameSign(double left, double right) {
+        return (left > 0.0 && right > 0.0) || (left < 0.0 && right < 0.0);
     }
 }
 
