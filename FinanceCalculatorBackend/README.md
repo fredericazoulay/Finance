@@ -1,3 +1,12 @@
+cd C:\Users\fazoulay\VSCode\Finance\PricerBackend
+mvn spring-boot:run
+
+cd C:\Users\fazoulay\VSCode\Finance\PricerFrontend
+npm start
+
+docker compose up -d
+docker compose ps
+
 Complete list of financial calculators :
 https://www.calculator.net/financial-calculator.html
 

@@ -46,6 +46,41 @@ La configuration expose également Actuator `health` et `info` sous `/actuator`.
 
 > Les chemins Windows/JDK affichés dans les README historiques ne correspondent pas tous à ce workspace. Utilisez le chemin de projet ci-dessus et le Java 17 déclaré dans le `pom.xml`.
 
+### PostgreSQL local
+
+PostgreSQL est lancé séparément avec Docker Compose depuis `Finance/FinanceCalculatorBackend`. Le backend reste l'unique application et se connecte à la base `finance_pricer` sur `localhost:5432` par défaut. Les données restent dans le volume Docker `postgres_data` après l'arrêt du conteneur.
+
+Depuis PowerShell, créez votre fichier local de configuration et renseignez un mot de passe réservé au développement local :
+
+```powershell
+Set-Location "C:\Users\fazoulay\VSCode\Finance\FinanceCalculatorBackend"
+Copy-Item .env.example .env
+```
+
+Puis, dans le même terminal PowerShell, chargez les variables, démarrez PostgreSQL et lancez l'application :
+
+```powershell
+Get-Content .env | ForEach-Object {
+	if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+		[Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process')
+	}
+}
+docker compose up -d
+Set-Location "..\PricerBackend"
+mvn spring-boot:run
+```
+
+Vérifiez `http://localhost:9092/actuator/health` : le statut principal et le composant `db` doivent être `UP`. Le backend lit `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` et `POSTGRES_PORT` depuis l'environnement; `POSTGRES_HOST` peut remplacer `localhost` pour une autre configuration.
+
+Pour arrêter PostgreSQL sans supprimer les données :
+
+```powershell
+Set-Location "..\FinanceCalculatorBackend"
+docker compose down
+```
+
+Ne versionnez pas le fichier `.env`. `docker compose down -v` supprime également le volume et toutes les données locales.
+
 ## API REST
 
 Base URL locale : `http://localhost:9092`. Les exemples ci-dessous utilisent des taux sous forme décimale : `0.05` représente `5 %`.

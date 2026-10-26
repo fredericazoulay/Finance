@@ -1,1 +1,5 @@
 *.pdf
+.env
+.env.*
+!.env.example
+postgres-data/
