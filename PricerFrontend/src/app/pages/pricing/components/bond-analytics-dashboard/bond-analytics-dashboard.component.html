@@ -1,0 +1,26 @@
+<section class="dashboard-section">
+  <header class="dashboard-heading">
+    <div><p class="eyebrow">01 / Répartition du panel</p><h2>Graphiques obligataires</h2></div>
+    <span>{{ bonds.length }} obligation(s) importée(s)</span>
+  </header>
+  <p class="data-note">Les graphiques sont calculés à partir des données réelles du panel importé. Les métriques absentes ne sont pas estimées ni remplacées par des valeurs fictives.</p>
+
+  <div class="chart-grid">
+    <article class="chart-card"><div class="chart-area"><canvas #currencyChart aria-label="Répartition des obligations par devise"></canvas></div></article>
+    <article class="chart-card"><div class="chart-area"><canvas #maturityChart aria-label="Répartition des obligations par tranche d’échéance"></canvas></div></article>
+    <article class="chart-card"><div class="chart-area"><canvas #ratingChart aria-label="Répartition des obligations par notation"></canvas></div></article>
+    <article class="chart-card"><div class="chart-area"><canvas #yieldRatingChart aria-label="YTM moyen par notation"></canvas></div></article>
+    <article class="chart-card unavailable-card">
+      <h3>Capital FRTB SA par notation</h3>
+      <p>Indisponible : les données de capital réglementaire FRTB SA ne figurent pas dans le panel obligataire importé.</p>
+    </article>
+    <article class="chart-card unavailable-card">
+      <h3>Scores ESG moyens par secteur</h3>
+      <p>Indisponible : ni scores ESG ni secteur d’activité ne sont fournis pour les obligations importées.</p>
+    </article>
+    <article class="chart-card unavailable-card">
+      <h3>Impact NGFS par scénario</h3>
+      <p>Indisponible : le panel ne contient pas de données de scénarios climatiques NGFS.</p>
+    </article>
+  </div>
+</section>

@@ -19,6 +19,9 @@ import { AiAnalysisComponent } from '../ai-analysis/ai-analysis.component';
 import { FullOptionGraphsComponent } from '../full-option-graphs/full-option-graphs.component';
 import { BondMarkowitzComponent } from '../bond-markowitz/bond-markowitz.component';
 import { BondPortfoliosComponent } from '../bond-portfolios/bond-portfolios.component';
+import { BondPeriodicCalculatorComponent } from '../bond-periodic-calculator/bond-periodic-calculator.component';
+import { BondAnalyticsDashboardComponent } from '../bond-analytics-dashboard/bond-analytics-dashboard.component';
+import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
@@ -31,7 +34,7 @@ type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
-type BondScreenMode = 'basic' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
+type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus' | 'eligible';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
@@ -90,7 +93,17 @@ interface PersistedBondComparablesState {
 @Component({
   selector: 'app-bond-comparables',
   standalone: true,
-  imports: [CommonModule, FormsModule, AiAnalysisComponent, FullOptionGraphsComponent, BondMarkowitzComponent, BondPortfoliosComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    AiAnalysisComponent,
+    FullOptionGraphsComponent,
+    BondMarkowitzComponent,
+    BondPortfoliosComponent,
+    BondPeriodicCalculatorComponent,
+    BondAnalyticsDashboardComponent,
+    BondFormulasComponent
+  ],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
 })

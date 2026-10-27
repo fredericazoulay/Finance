@@ -1,0 +1,18 @@
+<section class="formulas-section">
+  <header>
+    <div><p class="eyebrow">01 / Référence</p><h2>Formules financières</h2></div>
+  </header>
+  <p class="formula-note">Définitions reprises de la pièce jointe. Les calculs peuvent dépendre des conventions de marché et des données disponibles; les proxys de convertibles ne constituent pas une valorisation complète.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Formula</th><th scope="col">Description</th><th scope="col">Definition</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let formula of formulas">
+          <th scope="row">{{ formula.name }}</th>
+          <td>{{ formula.description }}</td>
+          <td><code>{{ formula.definition }}</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

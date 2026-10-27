@@ -5,11 +5,14 @@
       <p class="eyebrow">Fixed income / valuation</p>
       <h1>Pricing obligataire</h1>
     </div>
-    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : 'Calcul direct · taux en pourcentage' }}</span>
+    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'basic'" [class.active]="activeMode === 'basic'" (click)="setMode('basic')">Calcul de base</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'periodic-calculator'" [class.active]="activeMode === 'periodic-calculator'" (click)="setMode('periodic-calculator')">Coupon par période</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bond-graphs'" [class.active]="activeMode === 'bond-graphs'" (click)="setMode('bond-graphs')">Graphiques</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'formulas'" [class.active]="activeMode === 'formulas'" (click)="setMode('formulas')">Formules</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'advanced'" [class.active]="activeMode === 'advanced'" (click)="setMode('advanced')">Tarification détaillée</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-light'" [class.active]="activeMode === 'comparables-light'" (click)="setMode('comparables-light')">Comparables light</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full'" [class.active]="activeMode === 'comparables-full'" (click)="setMode('comparables-full')">Comparables full</button>
@@ -46,6 +49,18 @@
       <div class="result-value" *ngIf="result.solveFor === 'TERM'"><span>Échéance estimée</span><strong>{{ result.termYears | number:'1.2-4' }} ans</strong></div>
     </div>
   </section>
+
+  <ng-container *ngIf="activeMode === 'periodic-calculator'">
+    <app-bond-periodic-calculator [currency]="target.currency || 'EUR'"></app-bond-periodic-calculator>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'bond-graphs'">
+    <app-bond-analytics-dashboard [bonds]="panel"></app-bond-analytics-dashboard>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'formulas'">
+    <app-bond-formulas></app-bond-formulas>
+  </ng-container>
 
   <section class="calculator-section" *ngIf="activeMode === 'advanced'">
     <div class="section-heading advanced-section-heading">
