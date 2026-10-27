@@ -12,6 +12,7 @@ export interface BondComparable {
   couponRate?: number;
   marketPrice?: number;
   rating?: string;
+  sector?: string;
   source?: string;
   asOf?: string;
 }

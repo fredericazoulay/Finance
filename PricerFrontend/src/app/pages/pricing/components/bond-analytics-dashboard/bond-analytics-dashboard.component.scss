@@ -9,7 +9,8 @@ h3 { margin-bottom: 8px; font-size: 14px; }
 .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .chart-card { min-width: 0; min-height: 250px; padding: 12px; border: 1px solid #d6deea; border-radius: 6px; background: #fff; }
 .chart-area { position: relative; height: 245px; }
-.unavailable-card { display: flex; flex-direction: column; justify-content: center; min-height: 140px; box-sizing: border-box; }
+.chart-note { margin: 0; color: #657387; font-size: 11px; }
+.unavailable-card { display: flex; flex-direction: column; justify-content: center; min-height: 180px; box-sizing: border-box; }
 .unavailable-card p { margin-bottom: 0; color: #657387; font-size: 12px; line-height: 1.5; }
 @media (max-width: 760px) {
   .chart-grid { grid-template-columns: 1fr; }

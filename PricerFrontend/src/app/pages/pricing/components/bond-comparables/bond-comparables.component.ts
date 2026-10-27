@@ -1682,6 +1682,7 @@ export class BondComparablesComponent {
         : rate('couponRate', 'couponRate', 'coupon'),
       marketPrice: optionalNumber('marketPrice', 'price'),
       rating: text('rating') || undefined,
+      sector: text('sector') || undefined,
       source: sourceText.replace(/\s*[\/|]\s*\d{4}-\d{2}-\d{2}$/, '').trim() || sourceText || 'Import utilisateur',
       asOf: text('asOf', 'quoteDate', 'date') || sourceDate?.[1] || undefined
     };

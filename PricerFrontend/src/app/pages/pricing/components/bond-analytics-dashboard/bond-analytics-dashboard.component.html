@@ -3,24 +3,48 @@
     <div><p class="eyebrow">01 / Répartition du panel</p><h2>Graphiques obligataires</h2></div>
     <span>{{ bonds.length }} obligation(s) importée(s)</span>
   </header>
-  <p class="data-note">Les graphiques sont calculés à partir des données réelles du panel importé. Les métriques absentes ne sont pas estimées ni remplacées par des valeurs fictives.</p>
+  <p class="data-note">Les graphiques utilisent uniquement les champs présents dans le panel importé. Les rendements sont comparables avec prudence entre devises et dates de valorisation différentes.</p>
 
   <div class="chart-grid">
     <article class="chart-card"><div class="chart-area"><canvas #currencyChart aria-label="Répartition des obligations par devise"></canvas></div></article>
     <article class="chart-card"><div class="chart-area"><canvas #maturityChart aria-label="Répartition des obligations par tranche d’échéance"></canvas></div></article>
     <article class="chart-card"><div class="chart-area"><canvas #ratingChart aria-label="Répartition des obligations par notation"></canvas></div></article>
     <article class="chart-card"><div class="chart-area"><canvas #yieldRatingChart aria-label="YTM moyen par notation"></canvas></div></article>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #sectorChart aria-label="Répartition des obligations par secteur"></canvas></div>
+      <p class="chart-note" *ngIf="!bondsWithSectorCount">Indisponible : le panel ne contient pas de secteur d’activité.</p>
+    </article>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #maturityYieldChart aria-label="Rendement selon le temps restant avant échéance, par notation"></canvas></div>
+      <p class="chart-note" *ngIf="!bondsWithMaturityAndYieldCount">Indisponible : il faut une échéance future et un YTM pour tracer ce graphique.</p>
+    </article>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #couponYieldChart aria-label="Rendement selon le coupon annuel, par notation"></canvas></div>
+      <p class="chart-note" *ngIf="!bondsWithCouponAndYieldCount">Indisponible : il faut le taux de coupon et le YTM de l’obligation.</p>
+    </article>
+    <article class="chart-card unavailable-card">
+      <h3>Sensibilité aux taux : duration, convexité, DV01</h3>
+      <p>Indisponible : le panel ne fournit pas ces mesures calculées. Elles nécessitent aussi les flux, conventions et hypothèses de valorisation.</p>
+    </article>
+    <article class="chart-card unavailable-card">
+      <h3>Spread de crédit</h3>
+      <p>Indisponible : aucune courbe de référence ou mesure de spread comparable n’est incluse dans le panel.</p>
+    </article>
+    <article class="chart-card unavailable-card">
+      <h3>Liquidité : bid-ask et volumes</h3>
+      <p>Indisponible : les cotations bid/ask et volumes ne sont pas présents dans les données importées.</p>
+    </article>
     <article class="chart-card unavailable-card">
       <h3>Capital FRTB SA par notation</h3>
-      <p>Indisponible : les données de capital réglementaire FRTB SA ne figurent pas dans le panel obligataire importé.</p>
+      <p>Indisponible : les données synthétiques du classeur ne sont pas importées dans ce panel et ne constituent pas un capital réglementaire validé.</p>
     </article>
     <article class="chart-card unavailable-card">
       <h3>Scores ESG moyens par secteur</h3>
-      <p>Indisponible : ni scores ESG ni secteur d’activité ne sont fournis pour les obligations importées.</p>
+      <p>Indisponible : les scores ESG du classeur sont synthétiques; aucun score fournisseur validé n’est transmis au panel.</p>
     </article>
     <article class="chart-card unavailable-card">
       <h3>Impact NGFS par scénario</h3>
-      <p>Indisponible : le panel ne contient pas de données de scénarios climatiques NGFS.</p>
+      <p>Indisponible : les chocs du classeur sont illustratifs et ne sont pas des sorties officielles de scénarios NGFS.</p>
     </article>
   </div>
 </section>

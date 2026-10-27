@@ -9,13 +9,15 @@ import {
   ChartOptions,
   Legend,
   LinearScale,
+  PointElement,
   PieController,
+  ScatterController,
   Title,
   Tooltip
 } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 
-Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LinearScale, PieController, Title, Tooltip);
+Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LinearScale, PieController, PointElement, ScatterController, Title, Tooltip);
 
 const MATURITY_BUCKETS = ['0-5Y', '5-10Y', '10-20Y', '20Y+'];
 const RATINGS = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];
@@ -34,6 +36,9 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   @ViewChild('maturityChart') maturityChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('ratingChart') ratingChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('yieldRatingChart') yieldRatingChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('sectorChart') sectorChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('maturityYieldChart') maturityYieldChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('couponYieldChart') couponYieldChart!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
   private viewInitialized = false;
@@ -44,6 +49,18 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
 
   get bondsWithYieldAndRating(): BondComparable[] {
     return this.bondsWithRating.filter(bond => Number.isFinite(bond.yieldToMaturity));
+  }
+
+  get bondsWithMaturityAndYieldCount(): number {
+    return this.bonds.filter(bond => this.yearsToMaturity(bond.maturityDate) !== null && Number.isFinite(bond.yieldToMaturity)).length;
+  }
+
+  get bondsWithCouponAndYieldCount(): number {
+    return this.bonds.filter(bond => bond.couponRate != null && Number.isFinite(bond.couponRate) && Number.isFinite(bond.yieldToMaturity)).length;
+  }
+
+  get bondsWithSectorCount(): number {
+    return this.bonds.filter(bond => Boolean(bond.sector?.trim())).length;
   }
 
   ngAfterViewInit(): void {
@@ -66,7 +83,9 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     const currencyCounts = this.countBy(this.bonds, bond => bond.currency?.trim().toUpperCase() || '');
     const maturityCounts = this.countMaturities();
     const ratingCounts = this.countBy(this.bondsWithRating, bond => this.normalizeRating(bond.rating));
+    const sectorCounts = this.countBy(this.bonds, bond => bond.sector?.trim() || '');
     const ratings = [...RATINGS.filter(rating => ratingCounts.has(rating)), ...[...ratingCounts.keys()].filter(rating => !RATINGS.includes(rating))];
+    const sectors = [...sectorCounts.keys()].sort((left, right) => left.localeCompare(right));
     const averageYields = ratings.map(rating => {
       const values = this.bondsWithYieldAndRating
         .filter(bond => this.normalizeRating(bond.rating) === rating)
@@ -98,6 +117,24 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
           datasets: [{ label: 'Nombre d’obligations', data: ratings.map(rating => ratingCounts.get(rating) ?? 0), backgroundColor: CHART_COLORS }]
         },
         options: this.chartOptions('Obligations par notation')
+      }),
+      new Chart(this.sectorChart.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: sectors,
+          datasets: [{ label: 'Nombre d’obligations', data: sectors.map(sector => sectorCounts.get(sector) ?? 0), backgroundColor: CHART_COLORS }]
+        },
+        options: this.chartOptions('Obligations par secteur')
+      }),
+      new Chart(this.maturityYieldChart.nativeElement, {
+        type: 'scatter',
+        data: { datasets: this.maturityYieldDatasets() },
+        options: this.scatterChartOptions('YTM selon l’échéance', 'Années jusqu’à l’échéance', 'YTM (%)')
+      }),
+      new Chart(this.couponYieldChart.nativeElement, {
+        type: 'scatter',
+        data: { datasets: this.couponYieldDatasets() },
+        options: this.scatterChartOptions('YTM selon le coupon', 'Coupon annuel (%)', 'YTM (%)')
       })
     ];
 
@@ -135,6 +172,74 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         y: { beginAtZero: true, ticks: { color: '#58677a' }, grid: { color: 'rgba(88, 103, 122, 0.15)' } }
       }
     };
+  }
+
+  private scatterChartOptions(title: string, xTitle: string, yTitle: string): ChartOptions<'scatter'> {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: { display: true, text: title, color: '#263445' },
+        legend: { display: true, position: 'bottom', labels: { color: '#58677a', boxWidth: 10 } },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: xTitle, color: '#58677a' },
+          ticks: { color: '#58677a' },
+          grid: { color: 'rgba(88, 103, 122, 0.15)' }
+        },
+        y: {
+          type: 'linear',
+          title: { display: true, text: yTitle, color: '#58677a' },
+          ticks: { color: '#58677a' },
+          grid: { color: 'rgba(88, 103, 122, 0.15)' }
+        }
+      }
+    };
+  }
+
+  private maturityYieldDatasets(): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
+    const bondsByRating = new Map<string, Array<{ x: number; y: number }>>();
+    for (const bond of this.bonds) {
+      const years = this.yearsToMaturity(bond.maturityDate);
+      if (years === null || !Number.isFinite(bond.yieldToMaturity)) continue;
+      const rating = this.normalizeRating(bond.rating) || 'Non notée';
+      const points = bondsByRating.get(rating) ?? [];
+      points.push({ x: years, y: bond.yieldToMaturity * 100 });
+      bondsByRating.set(rating, points);
+    }
+    return [...bondsByRating.entries()].map(([rating, data], index) => ({
+      label: rating,
+      data,
+      backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+    }));
+  }
+
+  private couponYieldDatasets(): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
+    const bondsByRating = new Map<string, Array<{ x: number; y: number }>>();
+    for (const bond of this.bonds) {
+      if (bond.couponRate == null || !Number.isFinite(bond.couponRate) || !Number.isFinite(bond.yieldToMaturity)) continue;
+      const rating = this.normalizeRating(bond.rating) || 'Non notée';
+      const points = bondsByRating.get(rating) ?? [];
+      points.push({ x: bond.couponRate * 100, y: bond.yieldToMaturity * 100 });
+      bondsByRating.set(rating, points);
+    }
+    return [...bondsByRating.entries()].map(([rating, data], index) => ({
+      label: rating,
+      data,
+      backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+    }));
+  }
+
+  private yearsToMaturity(maturityDate: string): number | null {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(maturityDate)) return null;
+    const maturity = new Date(`${maturityDate}T00:00:00Z`);
+    const today = new Date();
+    const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    if (Number.isNaN(maturity.getTime()) || maturity.getTime() <= todayUtc) return null;
+    return (maturity.getTime() - todayUtc) / (365.25 * 24 * 60 * 60 * 1000);
   }
 
   private countMaturities(): Map<string, number> {
