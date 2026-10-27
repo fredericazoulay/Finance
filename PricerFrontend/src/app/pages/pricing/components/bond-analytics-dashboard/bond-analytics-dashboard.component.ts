@@ -9,11 +9,13 @@ import {
   ChartOptions,
   Legend,
   LinearScale,
+  PieController,
+  Title,
   Tooltip
 } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 
-Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LinearScale, Tooltip);
+Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LinearScale, PieController, Title, Tooltip);
 
 const MATURITY_BUCKETS = ['0-5Y', '5-10Y', '10-20Y', '20Y+'];
 const RATINGS = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];

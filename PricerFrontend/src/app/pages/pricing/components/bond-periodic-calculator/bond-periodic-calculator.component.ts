@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BarController, BarElement, CategoryScale, Chart, LinearScale, Tooltip } from 'chart.js';
@@ -39,7 +39,10 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
   private chart: Chart | null = null;
   private viewInitialized = false;
 
-  constructor(private readonly comparablesService: BondComparablesService) {}
+  constructor(
+    private readonly comparablesService: BondComparablesService,
+    private readonly cdr: ChangeDetectorRef
+  ) {}
 
   get couponPerPeriod(): number {
     return this.form.faceValue * this.form.annualCouponRate / 100 / this.form.couponFrequency;
@@ -84,11 +87,15 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
     this.chart = null;
     this.isPricing = true;
     this.comparablesService.priceDirectly(request).pipe(
-      finalize(() => this.isPricing = false)
+      finalize(() => {
+        this.isPricing = false;
+        this.cdr.detectChanges();
+      })
     ).subscribe({
       next: result => {
         this.result = result;
         this.updateChart();
+        this.cdr.detectChanges();
       },
       error: (error: unknown) => {
         if (error instanceof TimeoutError) {
@@ -100,6 +107,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         } else {
           this.error = 'Le calcul obligataire a échoué. Vérifiez les paramètres puis réessayez.';
         }
+        this.cdr.detectChanges();
       }
     });
   }
