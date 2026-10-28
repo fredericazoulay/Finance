@@ -1,7 +1,7 @@
 <aside class="sidebar" [class.collapsed]="collapsed">
   <div class="sidebar-header">
     <div class="menu-title">
-      <button class="group-toggle" (click)="toggleInstruments()" aria-expanded="{{!instrumentsCollapsed}}">{{ 'Menu' | translate }}</button>
+      <button class="group-toggle" (click)="toggleMenu()" [attr.aria-expanded]="!collapsed && !instrumentsCollapsed">{{ 'Menu' | translate }}</button>
     </div>
     <button class="collapse-btn" (click)="toggle()" [attr.aria-expanded]="!collapsed">
       <span *ngIf="!collapsed">«</span>

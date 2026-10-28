@@ -3,6 +3,18 @@ import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { PricingService } from '../../services/pricing.service';
+import { ThemeName, ThemeService } from '../../services/theme.service';
+
+const THEME_IMAGES: Partial<Record<ThemeName, string>> = {
+  COMPAGNY_MUREX: '/assets/Compagny_Murex.jpg',
+  COMPAGNY_MISTRAL_AI: '/assets/Compagny_Mistral-AI.jpg',
+  COMPAGNY_CDC_GROUP: '/assets/Compagny_CDC_Groupe.jpg',
+  COMPAGNY_CDC_INFORMATIQUE: '/assets/Compagny_CDC_Informatique.jpg',
+  'DC-COMICS_BATMAN': '/assets/DC-Comics-Batman.jpg',
+  'DC-COMICS_SUPERMAN': '/assets/DC-Comics-Superman.jpg',
+  MARVEL_IRONMAN: '/assets/Marvel_Ironman.jpg',
+  MARVEL_HULK: '/assets/Marvel_Hulk.jpg'
+};
 
 @Component({
   selector: 'app-presentation-page',
@@ -21,5 +33,13 @@ export class PresentationPageComponent {
     { code: 'EQUITY', icon: '▥', descriptionKey: 'presentation_equity_description' }
   ];
 
-  constructor(readonly pricingService: PricingService) {}
+  constructor(readonly pricingService: PricingService, readonly themeService: ThemeService) {}
+
+  get selectedThemeArtwork(): string | null {
+    return THEME_IMAGES[this.themeService.theme] ?? null;
+  }
+
+  get selectedThemeLabel(): string {
+    return this.themeService.theme.replace(/[_-]+/g, ' ');
+  }
 }

@@ -45,4 +45,8 @@
       <span aria-hidden="true">→</span>
     </a>
   </section>
+
+  <section class="theme-art" *ngIf="selectedThemeArtwork as artwork" aria-label="Illustration du thème sélectionné">
+    <img [src]="artwork" [alt]="selectedThemeLabel" />
+  </section>
 </main>

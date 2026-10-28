@@ -26,6 +26,16 @@ export class SidebarComponent {
     this.collapsed = !this.collapsed;
     this.collapsedChange.emit(this.collapsed);
   }
+
+  toggleMenu(): void {
+    if (this.collapsed) {
+      this.instrumentsCollapsed = false;
+      this.toggle();
+      return;
+    }
+    this.toggleInstruments();
+  }
+
   // Collapse the Instruments group (hide labels)
   // default to false so all instruments are visible
   instrumentsCollapsed = false;
