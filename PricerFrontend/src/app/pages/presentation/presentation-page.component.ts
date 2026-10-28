@@ -35,8 +35,9 @@ export class PresentationPageComponent {
 
   constructor(readonly pricingService: PricingService, readonly themeService: ThemeService) {}
 
-  get selectedThemeArtwork(): string | null {
-    return THEME_IMAGES[this.themeService.theme] ?? null;
+  get selectedThemeArtwork(): string {
+    const theme = this.themeService.theme;
+    return THEME_IMAGES[theme] ?? `/assets/theme-${theme.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
   }
 
   get selectedThemeLabel(): string {
