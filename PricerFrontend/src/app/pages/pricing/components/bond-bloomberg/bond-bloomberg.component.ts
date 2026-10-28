@@ -8,7 +8,8 @@ type BloombergCouponType = 'Fixe' | 'Variable';
 interface BloombergSecurity {
   securityId: string;
   issuer: string;
-  couponRate: number;
+  couponRate: number | null;
+  couponLabel?: string;
   couponType: BloombergCouponType;
   maturityLabel: string;
   yearsToMaturity: number | null;
@@ -24,7 +25,11 @@ interface BloombergSecurity {
   couponFrequency?: string;
   dayCount?: string;
   issuePrice?: number;
+  series?: string;
+  market?: string;
+  nominalAmount?: string;
   ratingMoody?: string;
+  ratingSp?: string;
   ratingFitch?: string;
   modifiedDuration?: number;
   duration?: number;
@@ -58,10 +63,12 @@ export class BondBloombergComponent {
       couponType: 'Fixe', maturityLabel: '17/06/2031', yearsToMaturity: 6.7, rating: 'BBB', currency: 'EUR',
       price: 104.480, source: 'BGN', yieldToMaturity: 3.368667, spreadBps: 144.25,
       isin: 'FR001400QR62', figi: 'BBG01N8GBXH1', seniority: 'Senior unsecured', couponFrequency: 'Annuelle',
-      dayCount: 'ACT/ACT', issuePrice: 99.839, ratingMoody: 'Baa1', ratingFitch: 'BBB+',
+      dayCount: 'ACT/ACT', issuePrice: 99.839, series: 'EMTN', market: 'Euronext Paris', nominalAmount: '100 000',
+      ratingMoody: 'Baa1', ratingSp: 'BBB', ratingFitch: 'BBB+',
       modifiedDuration: 5.577, duration: 5.882, convexity: 0.388, dv01: 588, oas: 111.7,
       benchmark: 'DBR 0 02/15/31'
     },
+    { securityId: 'Vinci SA FLOAT 05/13/26 Corp', issuer: 'Vinci SA', couponRate: null, couponLabel: 'FLOAT', couponType: 'Variable', maturityLabel: '13/05/2026', yearsToMaturity: 1.6, rating: 'A-', currency: 'EUR', price: 100.095, source: 'BGN' },
     { securityId: 'EDF 4 3/4 06/17/44 Corp', issuer: 'Électricité de France SA', couponRate: 4.75, couponType: 'Fixe', maturityLabel: '17/06/2044', yearsToMaturity: 19.7, rating: 'BBB', currency: 'EUR', price: 105.763, source: 'BGN' },
     { securityId: 'EDF 5 5/8 Perp Corp', issuer: 'Électricité de France SA', couponRate: 5.625, couponType: 'Fixe', maturityLabel: 'Perpétuelle', yearsToMaturity: null, rating: 'BB', currency: 'EUR', price: 101.960, source: 'BGN' },
     { securityId: 'EDF 5 1/8 Perp Corp', issuer: 'Électricité de France SA', couponRate: 5.125, couponType: 'Fixe', maturityLabel: 'Perpétuelle', yearsToMaturity: null, rating: 'BB', currency: 'EUR', price: 100.975, source: 'BGN' },
@@ -96,6 +103,10 @@ export class BondBloombergComponent {
       const matchesMaturity = this.matchesMaturity(security);
       return matchesQuery && matchesCurrency && matchesCoupon && matchesRating && matchesMaturity;
     });
+  }
+
+  get activeScreenDescription(): string {
+    return this.screens.find(screen => screen.id === this.activeScreen)?.description ?? '';
   }
 
   setScreen(screen: BloombergScreen): void {

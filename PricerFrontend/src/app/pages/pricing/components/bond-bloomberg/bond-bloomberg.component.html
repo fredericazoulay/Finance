@@ -10,15 +10,15 @@
     <span class="quote"><strong>{{ selectedSecurity.price | number:'1.2-3' }}</strong><small>{{ selectedSecurity.currency }} · {{ selectedSecurity.source }}</small></span>
   </div>
 
-  <nav class="terminal-tabs" role="tablist" aria-label="Écrans Bloomberg">
+  <div class="terminal-tabs" role="tablist" aria-label="Écrans Bloomberg">
     <button *ngFor="let screen of screens" type="button" role="tab" [attr.aria-selected]="activeScreen === screen.id" [class.active]="activeScreen === screen.id" (click)="setScreen(screen.id)">
       <span class="terminal-code">{{ screen.id }}</span>{{ screen.description }}
     </button>
-  </nav>
+  </div>
 
   <div class="screen-toolbar">
-    <div><span class="screen-code">{{ activeScreen }}</span><strong>{{ screens.find ? '' : '' }}</strong></div>
-    <span class="screen-stamp">EDF Corp · Fixed Income</span>
+    <div><span class="screen-code">{{ activeScreen }}</span><strong>{{ activeScreenDescription }}</strong></div>
+    <span class="screen-stamp">{{ selectedSecurity.issuer }} · Fixed Income</span>
   </div>
 
   <section class="finder-screen" *ngIf="activeScreen === 'SECF'">
@@ -37,7 +37,7 @@
         <tbody>
           <tr *ngFor="let security of filteredSecurities" [class.selected-row]="security === selectedSecurity">
             <td><button type="button" class="instrument-link" (click)="selectForDescription(security)">{{ security.securityId }}<small>{{ security.issuer }}</small></button></td>
-            <td>{{ security.couponRate | number:'1.3-3' }}%</td>
+            <td>{{ security.couponLabel || (security.couponRate !== null ? (security.couponRate | number:'1.3-3') + '%' : '—') }}</td>
             <td>{{ security.maturityLabel }}</td>
             <td><span class="rating-tag">{{ security.rating }}</span></td>
             <td>{{ security.couponType }}</td>
@@ -61,8 +61,8 @@
           <div><dt>Nom</dt><dd>{{ selectedSecurity.issuer }}</dd></div>
           <div><dt>ISIN</dt><dd>{{ selectedSecurity.isin || 'Non présent dans la capture' }}</dd></div>
           <div><dt>FIGI</dt><dd>{{ selectedSecurity.figi || 'Non présent dans la capture' }}</dd></div>
-          <div><dt>Rang</dt><dd>{{ selectedSecurity.seniority || 'Senior unsecured' }}</dd></div>
-          <div><dt>Coupon</dt><dd>{{ selectedSecurity.couponRate | number:'1.3-3' }}% · {{ selectedSecurity.couponType }}</dd></div>
+          <div><dt>Rang</dt><dd>{{ selectedSecurity.seniority || '—' }}</dd></div>
+          <div><dt>Coupon</dt><dd>{{ selectedSecurity.couponLabel || (selectedSecurity.couponRate !== null ? (selectedSecurity.couponRate | number:'1.3-3') + '%' : '—') }} · {{ selectedSecurity.couponType }}</dd></div>
           <div><dt>Fréquence</dt><dd>{{ selectedSecurity.couponFrequency || '—' }}</dd></div>
           <div><dt>Convention</dt><dd>{{ selectedSecurity.dayCount || '—' }}</dd></div>
           <div><dt>Échéance</dt><dd>{{ selectedSecurity.maturityLabel }}</dd></div>
@@ -71,9 +71,9 @@
       </section>
       <section class="terminal-panel ratings-panel">
         <h3>Bond Ratings</h3>
-        <dl class="rating-fields"><div><dt>Moody’s</dt><dd>{{ selectedSecurity.ratingMoody || '—' }}</dd></div><div><dt>S&amp;P</dt><dd>{{ selectedSecurity.rating }}</dd></div><div><dt>Fitch</dt><dd>{{ selectedSecurity.ratingFitch || '—' }}</dd></div><div class="composite-rating"><dt>Composite</dt><dd>{{ selectedSecurity.rating }}</dd></div></dl>
+        <dl class="rating-fields"><div><dt>Moody’s</dt><dd>{{ selectedSecurity.ratingMoody || '—' }}</dd></div><div><dt>S&amp;P</dt><dd>{{ selectedSecurity.ratingSp || '—' }}</dd></div><div><dt>Fitch</dt><dd>{{ selectedSecurity.ratingFitch || '—' }}</dd></div><div class="composite-rating"><dt>Composite</dt><dd>{{ selectedSecurity.rating }}</dd></div></dl>
         <h3>Issuance &amp; Trading</h3>
-        <dl class="terminal-fields compact-fields"><div><dt>Devise</dt><dd>{{ selectedSecurity.currency }}</dd></div><div><dt>Série</dt><dd>EMTN</dd></div><div><dt>Montant nominal</dt><dd>100 000</dd></div><div><dt>Marché</dt><dd>Euronext Paris</dd></div></dl>
+        <dl class="terminal-fields compact-fields"><div><dt>Devise</dt><dd>{{ selectedSecurity.currency }}</dd></div><div><dt>Série</dt><dd>{{ selectedSecurity.series || '—' }}</dd></div><div><dt>Montant nominal</dt><dd>{{ selectedSecurity.nominalAmount || '—' }}</dd></div><div><dt>Marché</dt><dd>{{ selectedSecurity.market || '—' }}</dd></div></dl>
       </section>
     </div>
     <div class="description-footer"><span>Source de référence : document Bloomberg fourni</span><span>Valeurs de marché historiques, non actualisées</span></div>
@@ -99,10 +99,10 @@
 
   <section class="debt-screen" *ngIf="activeScreen === 'DEBT'">
     <div class="debt-heading"><div><p class="section-kicker">ISSUER ANALYSIS · EUR (MM)</p><h2>Composition de la dette en circulation</h2></div><span>Électricité de France SA</span></div>
-    <div class="debt-chart" role="img" aria-label="Dette obligataire, prêts et total par trimestre, en millions d’euros">
+    <figure class="debt-chart" aria-label="Dette obligataire, prêts et total par trimestre, en millions d’euros">
       <div class="chart-legend"><span><i class="bond-key"></i>Obligations</span><span><i class="loan-key"></i>Prêts</span><span><i class="total-key"></i>Total</span></div>
       <div class="chart-columns"><div class="debt-column" *ngFor="let period of debtHistory"><div class="bar-set"><span class="debt-bar bonds-bar" [style.height.%]="barHeight(period.bonds)" [title]="'Obligations : ' + period.bonds + ' M EUR'"></span><span class="debt-bar loans-bar" [style.height.%]="barHeight(period.loans)" [title]="'Prêts : ' + period.loans + ' M EUR'"></span><span class="debt-bar total-bar" [style.height.%]="barHeight(period.total)" [title]="'Total : ' + period.total + ' M EUR'"></span></div><span class="period-label">{{ period.period }}</span></div></div>
-    </div>
+    </figure>
     <div class="debt-table-wrap"><table class="debt-table"><thead><tr><th>Dette · EUR (MM)</th><th *ngFor="let period of debtHistory">{{ period.period }}</th></tr></thead><tbody><tr><th>Obligations</th><td *ngFor="let period of debtHistory">{{ period.bonds | number }}</td></tr><tr><th>Prêts</th><td *ngFor="let period of debtHistory">{{ period.loans | number }}</td></tr><tr class="total-row"><th>Total</th><td *ngFor="let period of debtHistory">{{ period.total | number }}</td></tr></tbody></table></div>
     <p class="debt-footnote">Série illustrative reprise des captures Bloomberg du document fourni; les données ne sont pas un historique financier validé.</p>
   </section>

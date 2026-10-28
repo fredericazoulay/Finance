@@ -5,7 +5,7 @@
       <p class="eyebrow">Fixed income / valuation</p>
       <h1>Pricing obligataire</h1>
     </div>
-    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
@@ -14,6 +14,7 @@
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bond-graphs'" [class.active]="activeMode === 'bond-graphs'" (click)="setMode('bond-graphs')">Graphiques</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'formulas'" [class.active]="activeMode === 'formulas'" (click)="setMode('formulas')">Formules</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'advanced'" [class.active]="activeMode === 'advanced'" (click)="setMode('advanced')">Tarification détaillée</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bloomberg'" [class.active]="activeMode === 'bloomberg'" (click)="setMode('bloomberg')">Bloomberg</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-light'" [class.active]="activeMode === 'comparables-light'" (click)="setMode('comparables-light')">Comparables light</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full'" [class.active]="activeMode === 'comparables-full'" (click)="setMode('comparables-full')">Comparables full</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-full-graphs'" [class.active]="activeMode === 'comparables-full-graphs'" (click)="setMode('comparables-full-graphs')">Graphiques full</button>
@@ -98,6 +99,10 @@
       </div>
     </div>
   </section>
+
+  <ng-container *ngIf="activeMode === 'bloomberg'">
+    <app-bond-bloomberg></app-bond-bloomberg>
+  </ng-container>
 
   <ng-container *ngIf="activeMode === 'comparables-light'">
   <section class="target-section">
