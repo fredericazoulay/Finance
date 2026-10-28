@@ -1,0 +1,57 @@
+<main class="group-page">
+  <a class="back-link" routerLink="/presentation">
+    <span aria-hidden="true">←</span>
+    {{ 'group_back' | translate }}
+  </a>
+
+  <header class="group-heading">
+    <p class="eyebrow">{{ 'group_eyebrow' | translate }}</p>
+    <h1>{{ 'group_welcome' | translate }}</h1>
+    <p>{{ 'group_intro' | translate }}</p>
+  </header>
+
+  <section class="group-picker" aria-labelledby="group-picker-heading">
+    <div class="picker-heading">
+      <h2 id="group-picker-heading">{{ visibleGroups.length }} {{ (visibleGroups.length === 1 ? 'group_count_singular' : 'group_count') | translate }}</h2>
+      <span class="heading-rule" aria-hidden="true"></span>
+    </div>
+
+    <div class="group-controls">
+      <label class="group-search">
+        <span class="visually-hidden">{{ 'group_search_label' | translate }}</span>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="search" [(ngModel)]="searchQuery" [placeholder]="'group_search_placeholder' | translate">
+      </label>
+      <button type="button" class="favorites-filter" [class.active]="favoritesOnly" [attr.aria-pressed]="favoritesOnly" (click)="favoritesOnly = !favoritesOnly">
+        <span aria-hidden="true">★</span>
+        {{ 'group_favorites_only' | translate }}
+      </button>
+    </div>
+
+    <p class="selected-group" *ngIf="selectedGroup">
+      <span aria-hidden="true">✓</span>
+      {{ 'group_selected' | translate }} <strong>{{ selectedGroup }}</strong>
+    </p>
+
+    <div class="group-grid" *ngIf="visibleGroups.length; else noGroups">
+      <article class="group-tile" *ngFor="let group of visibleGroups" [class.selected]="selectedGroup === group.code">
+        <button type="button" class="group-select" [attr.aria-pressed]="selectedGroup === group.code" (click)="selectGroup(group.code)">
+          <strong>{{ group.code }}</strong>
+          <span class="group-type">{{ group.typeKey | translate }}</span>
+          <span class="group-detail" *ngIf="group.detailKey">{{ group.detailKey | translate }}</span>
+          <span class="group-arrow" aria-hidden="true">→</span>
+        </button>
+        <button type="button" class="favorite-toggle" [class.favorite]="isFavorite(group.code)" [attr.aria-label]="(isFavorite(group.code) ? 'group_remove_favorite' : 'group_add_favorite') | translate" [attr.aria-pressed]="isFavorite(group.code)" (click)="toggleFavorite(group.code)">
+          {{ isFavorite(group.code) ? '★' : '☆' }}
+        </button>
+      </article>
+    </div>
+
+    <ng-template #noGroups>
+      <div class="empty-state">
+        <strong>{{ 'group_empty_title' | translate }}</strong>
+        <span>{{ 'group_empty_message' | translate }}</span>
+      </div>
+    </ng-template>
+  </section>
+</main>

@@ -161,7 +161,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   private chartOptions(title: string, isPie = false): ChartOptions<'bar'> | ChartOptions<'pie'> {
     const textColor = this.chartTextColor;
     const plugins = {
-      title: { display: true, text: title, color: this.isBloombergTheme ? '#ffad33' : '#263445' },
+      title: { display: true, text: title, color: this.chartTitleColor },
       legend: {
         display: isPie,
         position: 'right' as const,
@@ -189,7 +189,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        title: { display: true, text: title, color: this.isBloombergTheme ? '#ffad33' : '#263445' },
+        title: { display: true, text: title, color: this.chartTitleColor },
         legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
         tooltip: { enabled: true }
       },
@@ -279,16 +279,32 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     return typeof document !== 'undefined' && document.body.classList.contains('bloomberg-theme');
   }
 
+  private get isCustomTheme(): boolean {
+    return typeof document !== 'undefined' && document.body.classList.contains('custom-theme');
+  }
+
+  private get customThemeAccent(): string {
+    if (!this.isCustomTheme) return '#ff8c00';
+    return getComputedStyle(document.body).getPropertyValue('--ui-accent').trim() || '#ff8c00';
+  }
+
   private get chartColors(): string[] {
+    if (this.isCustomTheme) return [this.customThemeAccent, ...BLOOMBERG_CHART_COLORS.slice(1)];
     return this.isBloombergTheme ? BLOOMBERG_CHART_COLORS : CHART_COLORS;
   }
 
   private get chartTextColor(): string {
-    return this.isBloombergTheme ? '#c9c9c9' : '#58677a';
+    return this.isBloombergTheme || this.isCustomTheme ? '#c9c9c9' : '#58677a';
   }
 
   private get chartGridColor(): string {
+    if (this.isCustomTheme) return 'rgba(255, 255, 255, 0.12)';
     return this.isBloombergTheme ? 'rgba(255, 140, 0, 0.15)' : 'rgba(88, 103, 122, 0.15)';
+  }
+
+  private get chartTitleColor(): string {
+    if (this.isCustomTheme) return this.customThemeAccent;
+    return this.isBloombergTheme ? '#ffad33' : '#263445';
   }
 
   private normalizeRating(value: string | undefined): string {

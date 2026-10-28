@@ -2,11 +2,17 @@ import { Routes } from '@angular/router';
 import { PricingPageComponent } from './pages/pricing/pricing-page.component';
 import { CalculatorsPageComponent } from './pages/calculators/calculators-page.component';
 import { PresentationPageComponent } from './pages/presentation/presentation-page.component';
+import { GroupPageComponent } from './pages/group/group-page.component';
 
 export const routes: Routes = [
   {
+    path: 'presentation/groupe',
+    component: GroupPageComponent
+  },
+  {
     path: 'presentation',
-    component: PresentationPageComponent
+    component: PresentationPageComponent,
+    pathMatch: 'full'
   },
   {
     path: 'pricing/:product',

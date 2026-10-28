@@ -90,6 +90,18 @@
   text-align: center;
 }
 
+.nav-sub-button {
+  width: calc(100% - 12px);
+  margin-left: 12px;
+  padding-left: 8px;
+  font-size: 12px;
+}
+
+.sidebar.collapsed .nav-sub-button {
+  width: 100%;
+  margin-left: 0;
+}
+
 .nav-icon {
   font-weight: 700;
 }

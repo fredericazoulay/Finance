@@ -165,9 +165,10 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
 
     const payments = this.presentValuePayments();
     const formatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const isBloomberg = document.body.classList.contains('bloomberg-theme');
-    const chartText = isBloomberg ? '#c9c9c9' : '#657080';
-    const chartGrid = isBloomberg ? 'rgba(255, 140, 0, 0.15)' : 'rgba(101, 112, 128, 0.15)';
+    const isThemedDark = document.body.classList.contains('bloomberg-theme') || document.body.classList.contains('custom-theme');
+    const chartAccent = isThemedDark ? getComputedStyle(document.body).getPropertyValue('--ui-accent').trim() : '#4169f5';
+    const chartText = isThemedDark ? '#c9c9c9' : '#657080';
+    const chartGrid = isThemedDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(101, 112, 128, 0.15)';
     this.chart = new Chart(this.cashFlowChart.nativeElement, {
       type: 'bar',
       data: {
@@ -175,7 +176,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         datasets: [{
           label: 'Valeur actuelle des paiements',
           data: payments.map(payment => payment.amount),
-          backgroundColor: isBloomberg ? '#ff8c00' : '#4169f5',
+          backgroundColor: chartAccent || '#4169f5',
           borderRadius: 2
         }]
       },

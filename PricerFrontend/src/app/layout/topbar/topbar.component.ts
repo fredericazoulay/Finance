@@ -15,6 +15,7 @@ export class TopbarComponent implements OnInit {
   language = 'en';
   login = 'user1';
   environment: 'PROD' | 'PREX1' | 'REC1' | 'INT1' = 'PROD';
+  group: 'BO' | 'CONFIG' | 'FO' | 'MO' | 'MLC' | 'MOA' | 'COLLATERAL' | 'CONTRL-INT' | 'CONTROL' | 'DEOFIP' | 'DFFE' | 'DFI' | 'DFINB2' | 'DFINB3' | 'DFINF' | 'DPFGPA-DR' | 'DPFGPA-WI' | 'DPFGPTAUX' | 'DPFIDS-DR' | 'DPFIDS-WI' | 'HOUSEKEEP' | 'INTERMED' | 'LICADMIN' | 'MOASUPP_BO' | 'MOASUPP_FO' | 'MOASUPP_MO' | 'MOA_CONFIG' = 'CONFIG';
 
   constructor(
     readonly themeService: ThemeService,
@@ -47,6 +48,10 @@ export class TopbarComponent implements OnInit {
     if (environment === 'PROD' || environment === 'PREX1' || environment === 'REC1' || environment === 'INT1') {
       this.environment = environment;
     }
+  }
+
+  setGroup(group: string): void {
+    this.group = group;
   }
 
   setLogin(login: string): void {

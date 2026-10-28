@@ -126,6 +126,117 @@
         </select>
       </span>
     </label>
+
+    <label class="control-group">
+      <span class="control-label">{{ 'group' | translate }}</span>
+      <span class="control-shell group-shell">
+        <select id="group-select" class="theme-select group-select" [class.production-group]="group === 'PROD'" [attr.aria-label]="'group' | translate" (change)="setGroup($any($event.target).value)" [value]="group">
+          <!-- GROUP SELECTION -->
+          <option value="BO">BO</option>
+          <option value="BO_ANALYSE">BO_ANALYSE</option>
+          <option value="BO_CASH">BO_CASH</option>
+          <option value="BO_COMPTA">BO_COMPTA</option>
+          <option value="BO_EOD">BO_EOD</option>
+          <option value="BO_EXT">BO_EXT</option>
+          <option value="BO_EXTOTPL">BO_EXTOTPL</option>
+          <option value="BO_EXTPEPL">BO_EXTPEPL</option>
+          <option value="BO_EXTVMPL">BO_EXTVMPL</option>
+          <option value="BO_EXT_OTC">BO_EXT_OTC</option>
+          <option value="BO_EXT_PE">BO_EXT_PE</option>
+          <option value="BO_EXT_VMO">BO_EXT_VMO</option>
+          <option value="BO_MANAGER">BO_MANAGER</option>
+          <option value="BO_OPS">BO_OPS</option>
+          <option value="BO_OPS_FLX">BO_OPS_FLX</option>
+          <option value="BO_OTC">BO_OTC</option>
+          <option value="BO_OTC_APP">BO_OTC_APP</option>
+          <option value="BO_OTC_SUP">BO_OTC_SUP</option>
+          <option value="BO_SEC">BO_SEC</option>
+          <option value="BO_SPE">BO_SPE</option>
+          <option value="BO_STL">BO_STL</option>
+          <option value="BO_SUP">BO_SUP</option>
+          <option value="BO_TPO_IMP">BO_TPO_IMP</option>
+          <option value="BO_TPO_OST">BO_TPO_OST</option>
+          <option value="BO_VALO">BO_VALO</option>
+          <option value="BO_VMOB">BO_VMOB</option>
+          <option value="BO_VMOB_AP">BO_VMOB_AP</option>
+          <option value="BO_VMOB_SU">BO_VMOB_SU</option>
+          <option value="COLLATERAL">COLLATERAL</option>
+          <option value="CONFIG">CONFIG</option>
+          <option value="CONTRL-INT">CONTRL-INT</option>
+          <option value="CONTROL">CONTROL</option>
+          <option value="DEOFIP">DEOFIP</option>
+          <option value="DFFE">DFFE</option>
+          <option value="DFFE_GES">DFFE_GES</option>
+          <option value="DFFE_ST">DFFE_ST</option>
+          <option value="DFI">DFI</option>
+          <option value="DFINB2">DFINB2</option>
+          <option value="DFINB3">DFINB3</option>
+          <option value="DFINF">DFINF</option>
+          <option value="DFINF_ST">DFINF_ST</option>
+          <option value="DPFGPA-DR">DPFGPA-DR</option>
+          <option value="DPFGPA-WI">DPFGPA-WI</option>
+          <option value="DPFGPTAUX">DPFGPTAUX</option>
+          <option value="DPFIDS-DR">DPFIDS-DR</option>
+          <option value="DPFIDS-WI">DPFIDS-WI</option>
+          <option value="FO">FO</option>
+          <option value="FO FI">FO FI</option>
+          <option value="FO_AM">FO_AM</option>
+          <option value="FO_COM">FO_COM</option>
+          <option value="FO_CRD">FO_CRD</option>
+          <option value="FO_EOD">FO_EOD</option>
+          <option value="FO_EQD">FO_EQD</option>
+          <option value="FO_EXT">FO_EXT</option>
+          <option value="FO_FI">FO_FI</option>
+          <option value="FO_FXD_SA">FO_FXD_SA</option>
+          <option value="FO_FXD_TR">FO_FXD_TR</option>
+          <option value="FO_FXMM_SA">FO_FXMM_SA</option>
+          <option value="FO_FXMM_TR">FO_FXMM_TR</option>
+          <option value="FO_FX_FWD">FO_FX_FWD</option>
+          <option value="FO_FX_SPT">FO_FX_SPT</option>
+          <option value="FO_IRD">FO_IRD</option>
+          <option value="FO_MM">FO_MM</option>
+          <option value="FO_MM_TR">FO_MM_TR</option>
+          <option value="FO_OAT">FO_OAT</option>
+          <option value="FO_PERF">FO_PERF</option>
+          <option value="FO_PL_CTRL">FO_PL_CTRL</option>
+          <option value="FO_SALES">FO_SALES</option>
+          <option value="FO_SF">FO_SF</option>
+          <option value="FRR">FRR</option>
+          <option value="GDAFCT">GDAFCT</option>
+          <option value="GDAPT">GDAPT</option>
+          <option value="GDAPTC">GDAPTC</option>
+          <option value="GDAPTH">GDAPTH</option>
+          <option value="GDAPTS">GDAPTS</option>
+          <option value="GDAPTT">GDAPTT</option>
+          <option value="HOUSEKEEP">HOUSEKEEP</option>
+          <option value="INTERMED">INTERMED</option>
+          <option value="LICADMIN">LICADMIN</option>
+          <option value="MIG_MO">MIG_MO</option>
+          <option value="MLC_ADMIN">MLC_ADMIN</option>
+          <option value="MLC_CONFIG">MLC_CONFIG</option>
+          <option value="MLC_EU">MLC_EU</option>
+          <option value="MLC_OPS">MLC_OPS</option>
+          <option value="MLC_SUP">MLC_SUP</option>
+          <option value="MLC_SUPP">MLC_SUPP</option>
+          <option value="MO">MO</option>
+          <option value="MO-ACPR">MO-ACPR</option>
+          <option value="MO-ANALYSE">MO-ANALYSE</option>
+          <option value="MO-BCH_CPL">MO-BCH_CPL</option>
+          <option value="MO-CLT_EXT">MO-CLT_EXT</option>
+          <option value="MO-DPFSM2">MO-DPFSM2</option>
+          <option value="MO-EQ_NC">MO-EQ_NC</option>
+          <option value="MO-OST_INS">MO-OST_INS</option>
+          <option value="MO-SUPGEST">MO-SUPGEST</option>
+          <option value="MO2">MO2</option>
+          <option value="MOASUPP_BO">MOASUPP_BO</option>
+          <option value="MOASUPP_FO">MOASUPP_FO</option>
+          <option value="MOASUPP_MO">MOASUPP_MO</option>
+          <option value="MOA_CONFIG">MOA_CONFIG</option>
+
+        </select>
+      </span>
+    </label>
+
     <label class="control-group">
       <span class="control-label">{{ 'language' | translate }}</span>
       <span class="control-shell language-shell">

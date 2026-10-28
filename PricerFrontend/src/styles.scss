@@ -309,3 +309,118 @@ body {
 button, input {
   font: inherit;
 }
+
+body.custom-theme {
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.custom-theme app-root {
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+body.custom-theme .content {
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+body.custom-theme app-topbar .topbar {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+body.custom-theme app-topbar .brand-name { color: var(--ui-text); }
+body.custom-theme app-topbar .brand-name span,
+body.custom-theme app-topbar .control-label { color: var(--ui-accent); }
+
+body.custom-theme app-topbar .brand-mark,
+body.custom-theme app-topbar .control-shell {
+  border-color: var(--ui-border);
+  background: var(--ui-raised);
+}
+
+body.custom-theme app-topbar .brand-mark span { background: var(--ui-accent); }
+body.custom-theme app-topbar .theme-select { color: var(--ui-text); }
+body.custom-theme app-topbar .theme-select option { background: var(--ui-surface); color: var(--ui-text); }
+
+body.custom-theme app-sidebar .sidebar {
+  border-color: var(--ui-border);
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+body.custom-theme app-sidebar .menu-title { color: var(--ui-muted); }
+body.custom-theme app-sidebar .menu-divider { border-color: var(--ui-border); }
+
+body.custom-theme app-sidebar .nav-button {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+body.custom-theme app-sidebar .nav-button:hover,
+body.custom-theme app-sidebar .nav-button.active {
+  border-color: var(--ui-accent);
+  background: var(--ui-raised);
+  color: var(--ui-accent);
+  box-shadow: 0 0 12px var(--ui-accent-soft);
+}
+
+body.custom-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel, .periodic-calculator, .input-group, .cash-flow-panel, .dashboard-section, .chart-card, .unavailable-card) {
+  border-color: var(--ui-border);
+  background-color: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+body.custom-theme .content :is(.panel-header, .schedule-table-wrapper th) {
+  border-color: var(--ui-border);
+  background: var(--ui-raised);
+  color: var(--ui-accent);
+}
+
+body.custom-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea) {
+  border-color: var(--ui-border);
+  background: var(--ui-field);
+  color: var(--ui-text);
+}
+
+body.custom-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note, .data-note, .chart-note, .chart-placeholder) {
+  color: var(--ui-muted);
+}
+
+body.custom-theme .content :is(th, td) {
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.custom-theme .content :is(button, .secondary, .secondary-button, .quiet-button, .export-button, .quick-btn) {
+  border-color: var(--ui-border);
+  background: var(--ui-accent-soft);
+  color: var(--ui-text);
+}
+
+body.custom-theme .content :is(.primary, .primary-button) {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+  color: var(--ui-action-ink);
+}
+
+body.custom-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs) {
+  border-color: var(--ui-border);
+}
+
+body.custom-theme .content :is(.bond-screen, .markowitz-screen, .portfolio-workspace) {
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: var(--ui-border);
+  --surface: var(--ui-surface);
+  --green: var(--ui-accent);
+  color: var(--ui-text);
+}
+
+body.theme-glass .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .dashboard-section, .chart-card) {
+  backdrop-filter: blur(10px);
+}
