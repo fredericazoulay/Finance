@@ -130,7 +130,7 @@
     <label class="control-group">
       <span class="control-label">{{ 'group' | translate }}</span>
       <span class="control-shell group-shell">
-        <select id="group-select" class="theme-select group-select" [class.production-group]="group === 'PROD'" [attr.aria-label]="'group' | translate" (change)="setGroup($any($event.target).value)" [value]="group">
+        <select id="group-select" class="theme-select group-select" [attr.aria-label]="'group' | translate" (change)="setGroup($any($event.target).value)" [value]="group">
           <!-- GROUP SELECTION -->
           <option value="BO">BO</option>
           <option value="BO_ANALYSE">BO_ANALYSE</option>

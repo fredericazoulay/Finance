@@ -1,0 +1,109 @@
+<section class="bloomberg-terminal" aria-label="Écrans obligataires inspirés de Bloomberg">
+  <header class="terminal-header">
+    <div class="terminal-product"><span class="terminal-mark">FI</span><strong>FIXED INCOME</strong><span>RESEARCH & VALUATION</span></div>
+    <div class="terminal-data-note"><span class="status-dot"></span> DONNÉES HISTORIQUES · 24/09/2024 · PAS DE FLUX TEMPS RÉEL</div>
+  </header>
+
+  <div class="security-strip">
+    <span class="ticker">{{ selectedSecurity.securityId }}</span>
+    <span class="issuer">{{ selectedSecurity.issuer }}</span>
+    <span class="quote"><strong>{{ selectedSecurity.price | number:'1.2-3' }}</strong><small>{{ selectedSecurity.currency }} · {{ selectedSecurity.source }}</small></span>
+  </div>
+
+  <nav class="terminal-tabs" role="tablist" aria-label="Écrans Bloomberg">
+    <button *ngFor="let screen of screens" type="button" role="tab" [attr.aria-selected]="activeScreen === screen.id" [class.active]="activeScreen === screen.id" (click)="setScreen(screen.id)">
+      <span class="terminal-code">{{ screen.id }}</span>{{ screen.description }}
+    </button>
+  </nav>
+
+  <div class="screen-toolbar">
+    <div><span class="screen-code">{{ activeScreen }}</span><strong>{{ screens.find ? '' : '' }}</strong></div>
+    <span class="screen-stamp">EDF Corp · Fixed Income</span>
+  </div>
+
+  <section class="finder-screen" *ngIf="activeScreen === 'SECF'">
+    <div class="finder-toolbar">
+      <label class="search-control"><span>Recherche</span><input type="search" [(ngModel)]="search" placeholder="Émetteur, instrument, notation" aria-label="Rechercher un titre" /></label>
+      <label><span>Devise</span><select [(ngModel)]="currencyFilter"><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></label>
+      <label><span>Coupon</span><select [(ngModel)]="couponFilter"><option *ngFor="let coupon of couponTypes" [value]="coupon">{{ coupon }}</option></select></label>
+      <label><span>Notation</span><select [(ngModel)]="ratingFilter"><option *ngFor="let rating of ratingFilters" [value]="rating">{{ rating }}</option></select></label>
+      <label><span>Échéance</span><select [(ngModel)]="maturityFilter"><option *ngFor="let maturity of maturityFilters" [value]="maturity">{{ maturity }}</option></select></label>
+    </div>
+
+    <div class="result-toolbar"><span>{{ filteredSecurities.length }} titres · {{ securities.length }} dans l’univers de démonstration</span><span>Security Finder / Corp</span></div>
+    <div class="terminal-table-wrap">
+      <table class="security-table">
+        <thead><tr><th>Instrument</th><th>Coupon</th><th>Échéance</th><th>Rating</th><th>Type</th><th>Devise</th><th>Ask Px</th><th>Source</th><th aria-label="Actions"></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let security of filteredSecurities" [class.selected-row]="security === selectedSecurity">
+            <td><button type="button" class="instrument-link" (click)="selectForDescription(security)">{{ security.securityId }}<small>{{ security.issuer }}</small></button></td>
+            <td>{{ security.couponRate | number:'1.3-3' }}%</td>
+            <td>{{ security.maturityLabel }}</td>
+            <td><span class="rating-tag">{{ security.rating }}</span></td>
+            <td>{{ security.couponType }}</td>
+            <td>{{ security.currency }}</td>
+            <td class="numeric-cell">{{ security.price | number:'1.2-3' }}</td>
+            <td><span class="source-tag">{{ security.source }}</span></td>
+            <td class="row-actions"><button type="button" title="Ouvrir l’analyse rendement et spread" aria-label="Ouvrir YAS" (click)="selectForYieldAnalysis(security)">YAS</button></td>
+          </tr>
+          <tr *ngIf="!filteredSecurities.length"><td class="empty-results" colspan="9">Aucun titre ne correspond aux filtres.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="description-screen" *ngIf="activeScreen === 'DES'">
+    <div class="security-banner"><div><p class="section-kicker">SECURITY DESCRIPTION · CORP</p><h2>{{ selectedSecurity.securityId }}</h2><p>{{ selectedSecurity.issuer }} · {{ selectedSecurity.currency }} · {{ selectedSecurity.rating }}</p></div><div class="banner-quote"><span>Ask price</span><strong>{{ selectedSecurity.price | number:'1.2-3' }}</strong><small>Source {{ selectedSecurity.source }} · capture historique</small></div></div>
+    <div class="description-grid">
+      <section class="terminal-panel security-information">
+        <h3>Security Information</h3>
+        <dl class="terminal-fields">
+          <div><dt>Nom</dt><dd>{{ selectedSecurity.issuer }}</dd></div>
+          <div><dt>ISIN</dt><dd>{{ selectedSecurity.isin || 'Non présent dans la capture' }}</dd></div>
+          <div><dt>FIGI</dt><dd>{{ selectedSecurity.figi || 'Non présent dans la capture' }}</dd></div>
+          <div><dt>Rang</dt><dd>{{ selectedSecurity.seniority || 'Senior unsecured' }}</dd></div>
+          <div><dt>Coupon</dt><dd>{{ selectedSecurity.couponRate | number:'1.3-3' }}% · {{ selectedSecurity.couponType }}</dd></div>
+          <div><dt>Fréquence</dt><dd>{{ selectedSecurity.couponFrequency || '—' }}</dd></div>
+          <div><dt>Convention</dt><dd>{{ selectedSecurity.dayCount || '—' }}</dd></div>
+          <div><dt>Échéance</dt><dd>{{ selectedSecurity.maturityLabel }}</dd></div>
+          <div><dt>Prix d’émission</dt><dd>{{ selectedSecurity.issuePrice ? (selectedSecurity.issuePrice | number:'1.2-3') : '—' }}</dd></div>
+        </dl>
+      </section>
+      <section class="terminal-panel ratings-panel">
+        <h3>Bond Ratings</h3>
+        <dl class="rating-fields"><div><dt>Moody’s</dt><dd>{{ selectedSecurity.ratingMoody || '—' }}</dd></div><div><dt>S&amp;P</dt><dd>{{ selectedSecurity.rating }}</dd></div><div><dt>Fitch</dt><dd>{{ selectedSecurity.ratingFitch || '—' }}</dd></div><div class="composite-rating"><dt>Composite</dt><dd>{{ selectedSecurity.rating }}</dd></div></dl>
+        <h3>Issuance &amp; Trading</h3>
+        <dl class="terminal-fields compact-fields"><div><dt>Devise</dt><dd>{{ selectedSecurity.currency }}</dd></div><div><dt>Série</dt><dd>EMTN</dd></div><div><dt>Montant nominal</dt><dd>100 000</dd></div><div><dt>Marché</dt><dd>Euronext Paris</dd></div></dl>
+      </section>
+    </div>
+    <div class="description-footer"><span>Source de référence : document Bloomberg fourni</span><span>Valeurs de marché historiques, non actualisées</span></div>
+  </section>
+
+  <section class="yas-screen" *ngIf="activeScreen === 'YAS'">
+    <div class="yas-titlebar"><div><p class="section-kicker">YIELD AND SPREAD ANALYSIS</p><h2>{{ selectedSecurity.securityId }}</h2></div><button type="button" class="terminal-action" (click)="setScreen('SECF')">Choisir un titre <span aria-hidden="true">↗</span></button></div>
+    <ng-container *ngIf="selectedSecurity.yieldToMaturity !== undefined; else unavailableYas">
+      <div class="yas-summary">
+        <div class="metric-lead"><span>Yield to maturity</span><strong>{{ selectedSecurity.yieldToMaturity | number:'1.3-4' }}%</strong><small>Convention street · ACT/ACT</small></div>
+        <div class="metric"><span>Prix</span><strong>104.3295</strong><small>Clean · EUR / 100</small></div>
+        <div class="metric"><span>Spread</span><strong>{{ selectedSecurity.spreadBps | number:'1.2-2' }} bp</strong><small>vs {{ selectedSecurity.benchmark }}</small></div>
+        <div class="metric"><span>Règlement</span><strong>26/09/2024</strong><small>Référence de la capture</small></div>
+      </div>
+      <div class="yas-grid">
+        <section class="terminal-panel spread-panel"><h3>Spreads</h3><dl class="spread-list"><div><dt>G-Spread</dt><dd>143.4 bp</dd></div><div><dt>I-Spread</dt><dd>107.6 bp</dd></div><div><dt>Basis</dt><dd>−22.1 bp</dd></div><div><dt>Z-Spread</dt><dd>107.3 bp</dd></div><div><dt>ASW</dt><dd>107.2 bp</dd></div><div><dt>OAS</dt><dd>{{ selectedSecurity.oas | number:'1.1-1' }} bp</dd></div></dl></section>
+        <section class="terminal-panel risk-panel"><h3>Risk · Workout</h3><dl class="spread-list"><div><dt>Duration modifiée</dt><dd>{{ selectedSecurity.modifiedDuration | number:'1.3-3' }}</dd></div><div><dt>Duration</dt><dd>{{ selectedSecurity.duration | number:'1.3-3' }}</dd></div><div><dt>Convexité</dt><dd>{{ selectedSecurity.convexity | number:'1.3-3' }}</dd></div><div><dt>DV01 / 1 MM</dt><dd>{{ selectedSecurity.dv01 | number:'1.0-0' }} EUR</dd></div><div><dt>Benchmark</dt><dd>{{ selectedSecurity.benchmark }}</dd></div><div><dt>Source</dt><dd>{{ selectedSecurity.source }} · 18:00</dd></div></dl></section>
+      </div>
+      <div class="yas-footnote">Valeurs reprises de la capture du 24/09/2024. Elles illustrent l’écran YAS et ne constituent pas une cotation ou un calcul actualisé.</div>
+    </ng-container>
+    <ng-template #unavailableYas><div class="empty-analysis"><strong>Analyse YAS indisponible pour ce titre</strong><span>La capture de référence fournit les métriques détaillées pour EDF 4 1/8 06/17/31 Corp.</span><button type="button" class="terminal-action" (click)="selectForYieldAnalysis(securities[0])">Ouvrir le titre de référence</button></div></ng-template>
+  </section>
+
+  <section class="debt-screen" *ngIf="activeScreen === 'DEBT'">
+    <div class="debt-heading"><div><p class="section-kicker">ISSUER ANALYSIS · EUR (MM)</p><h2>Composition de la dette en circulation</h2></div><span>Électricité de France SA</span></div>
+    <div class="debt-chart" role="img" aria-label="Dette obligataire, prêts et total par trimestre, en millions d’euros">
+      <div class="chart-legend"><span><i class="bond-key"></i>Obligations</span><span><i class="loan-key"></i>Prêts</span><span><i class="total-key"></i>Total</span></div>
+      <div class="chart-columns"><div class="debt-column" *ngFor="let period of debtHistory"><div class="bar-set"><span class="debt-bar bonds-bar" [style.height.%]="barHeight(period.bonds)" [title]="'Obligations : ' + period.bonds + ' M EUR'"></span><span class="debt-bar loans-bar" [style.height.%]="barHeight(period.loans)" [title]="'Prêts : ' + period.loans + ' M EUR'"></span><span class="debt-bar total-bar" [style.height.%]="barHeight(period.total)" [title]="'Total : ' + period.total + ' M EUR'"></span></div><span class="period-label">{{ period.period }}</span></div></div>
+    </div>
+    <div class="debt-table-wrap"><table class="debt-table"><thead><tr><th>Dette · EUR (MM)</th><th *ngFor="let period of debtHistory">{{ period.period }}</th></tr></thead><tbody><tr><th>Obligations</th><td *ngFor="let period of debtHistory">{{ period.bonds | number }}</td></tr><tr><th>Prêts</th><td *ngFor="let period of debtHistory">{{ period.loans | number }}</td></tr><tr class="total-row"><th>Total</th><td *ngFor="let period of debtHistory">{{ period.total | number }}</td></tr></tbody></table></div>
+    <p class="debt-footnote">Série illustrative reprise des captures Bloomberg du document fourni; les données ne sont pas un historique financier validé.</p>
+  </section>
+</section>

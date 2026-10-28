@@ -50,7 +50,7 @@ export class TopbarComponent implements OnInit {
     }
   }
 
-  setGroup(group: string): void {
+  setGroup(group: TopbarComponent['group']): void {
     this.group = group;
   }
 
