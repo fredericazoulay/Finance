@@ -5,12 +5,9 @@ import { TranslateModule } from '@ngx-translate/core';
 import { PricingService } from '../../services/pricing.service';
 import { ThemeName, ThemeService } from '../../services/theme.service';
 
-const THEME_IMAGES: Partial<Record<ThemeName, string>> = {
-  COMPAGNY_MUREX: '/assets/Compagny_Murex.jpg',
-  COMPAGNY_MISTRAL_AI: '/assets/Compagny_Mistral-AI.jpg',
+const THEME_ARTWORK_OVERRIDES: Partial<Record<ThemeName, string>> = {
   COMPAGNY_CDC_GROUP: '/assets/Compagny_CDC_Groupe.jpg',
   COMPAGNY_CDC_INFORMATIQUE: '/assets/Compagny_CDC_Informatique.jpg',
-  'DC-COMICS_BATMAN': '/assets/DC-Comics-Batman.jpg',
   'DC-COMICS_SUPERMAN': '/assets/DC-Comics-Superman.jpg',
   MARVEL_IRONMAN: '/assets/Marvel_Ironman.jpg',
   MARVEL_HULK: '/assets/Marvel_Hulk.jpg'
@@ -37,7 +34,8 @@ export class PresentationPageComponent {
 
   get selectedThemeArtwork(): string {
     const theme = this.themeService.theme;
-    return THEME_IMAGES[theme] ?? `/assets/theme-${theme.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    return THEME_ARTWORK_OVERRIDES[theme]
+      ?? `/assets/theme-${theme.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.webp`;
   }
 
   get selectedThemeLabel(): string {

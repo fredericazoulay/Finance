@@ -1,16 +1,15 @@
 :host {
   display: block;
-  min-height: 100%;
   color: var(--ui-text);
 }
 
 .presentation-page {
   display: grid;
   align-content: start;
-  gap: 30px;
+  gap: 22px;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 18px 4px 36px;
+  padding: 12px 4px 16px;
 }
 
 .presentation-heading,
@@ -145,7 +144,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 650; }
 
 .theme-art {
   display: grid;
-  min-height: 220px;
+  min-height: 140px;
   place-items: center;
   overflow: hidden;
 }
@@ -154,8 +153,14 @@ h2 { margin: 0; font-size: 18px; font-weight: 650; }
   display: block;
   width: auto;
   max-width: min(100%, 760px);
-  max-height: 300px;
+  max-height: 180px;
   object-fit: contain;
+}
+
+@media (max-height: 800px) {
+  .presentation-page { gap: 16px; padding: 8px 4px 12px; }
+  .theme-art { min-height: 100px; }
+  .theme-art img { max-height: 130px; }
 }
 
 @media (max-width: 900px) {
