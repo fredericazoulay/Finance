@@ -14,6 +14,7 @@ import { PricingService } from '../../services/pricing.service';
 export class TopbarComponent implements OnInit {
   language = 'en';
   login = 'user1';
+  environment: 'PROD' | 'PREX1' | 'REC1' | 'INT1' = 'PROD';
 
   constructor(
     readonly themeService: ThemeService,
@@ -40,6 +41,12 @@ export class TopbarComponent implements OnInit {
 
   setTheme(theme: ThemeName): void {
     this.themeService.setTheme(theme);
+  }
+
+  setEnvironment(environment: string): void {
+    if (environment === 'PROD' || environment === 'PREX1' || environment === 'REC1' || environment === 'INT1') {
+      this.environment = environment;
+    }
   }
 
   setLogin(login: string): void {

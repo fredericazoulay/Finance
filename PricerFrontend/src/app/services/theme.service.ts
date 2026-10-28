@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
-export type ThemeName = 'DARK' | 'LIGHT' | 'RAINBOW' | 'NEON' | 'POP';
+export type ThemeName = 'DARK' | 'LIGHT' | 'RAINBOW' | 'NEON' | 'POP' | 'BLOOMBERG';
 
 @Injectable({
   providedIn: 'root'
@@ -51,7 +51,7 @@ export class ThemeService {
     let selectedTheme: ThemeName = 'DARK';
     try {
       const stored = localStorage.getItem('theme');
-      if (stored === 'LIGHT' || stored === 'DARK' || stored === 'RAINBOW' || stored === 'NEON' || stored === 'POP') {
+      if (stored === 'LIGHT' || stored === 'DARK' || stored === 'RAINBOW' || stored === 'NEON' || stored === 'POP' || stored === 'BLOOMBERG') {
         selectedTheme = stored;
       } else if (typeof window !== 'undefined' && window.matchMedia) {
         selectedTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'LIGHT' : 'DARK';
@@ -68,7 +68,7 @@ export class ThemeService {
 
   private applyThemeToBody(theme: ThemeName): void {
     if (typeof document === 'undefined' || !document.body) return;
-    document.body.classList.remove('dark-theme', 'light-theme', 'rainbow-theme', 'neon-theme', 'pop-theme');
+    document.body.classList.remove('dark-theme', 'light-theme', 'rainbow-theme', 'neon-theme', 'pop-theme', 'bloomberg-theme');
     document.body.classList.add(`${theme.toLowerCase()}-theme`);
   }
 }

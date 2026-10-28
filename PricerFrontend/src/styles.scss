@@ -103,6 +103,86 @@ body.pop-theme {
   --ui-action-ink: #ffffff;
 }
 
+body.bloomberg-theme {
+  color-scheme: dark;
+  --bg: #101010;
+  --panel: #181818;
+  --panel-2: #252525;
+  --text: #f2f2f2;
+  --muted: #a6a6a6;
+  --accent: #ff8c00;
+  --ui-page: #101010;
+  --ui-surface: #181818;
+  --ui-raised: #252525;
+  --ui-field: #111111;
+  --ui-text: #f2f2f2;
+  --ui-muted: #a6a6a6;
+  --ui-border: #454545;
+  --ui-accent: #ff8c00;
+  --ui-accent-soft: rgba(255, 140, 0, 0.14);
+  --ui-action-ink: #111111;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.bloomberg-theme .content {
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+body.bloomberg-theme .content :is(.panel, .target-section, .panel-section, .result-section, .calculator-section, .calculator-results, .result-card, .quote-box, .amortization-chart-panel, .chart-panel, .risk-chart-panel, .portfolio-panel, .portfolio-controls, .portfolio-rail, .portfolio-main > section, .portfolio-welcome, .kpi, .currency-panel, .ai-analysis-section, .answer-panel) {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.24);
+}
+
+body.bloomberg-theme .content :is(.panel-header, .schedule-table-wrapper th) {
+  background: var(--ui-raised);
+  border-color: var(--ui-border);
+  color: var(--ui-accent);
+}
+
+body.bloomberg-theme .content :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea) {
+  background: var(--ui-field);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.bloomberg-theme .content :is(label, .label, .picker-label, .calculator-description, .import-hint, .source-note, .table-toolbar, .footer-note) {
+  color: var(--ui-muted);
+}
+
+body.bloomberg-theme .content :is(th, td) {
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.bloomberg-theme .content :is(.secondary, .secondary-button, .quiet-button, .export-button, .quick-btn) {
+  background: var(--ui-accent-soft);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+
+body.bloomberg-theme .content :is(.primary, .primary-button) {
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-action-ink);
+}
+
+body.bloomberg-theme .content :is(.pricing-layout, .calculators-page-layout, .calculator-layout, .calculator-picker, .schedule-table-wrapper, .quick-tools-bar, .quote-tabs) {
+  border-color: var(--ui-border);
+}
+
+body.bloomberg-theme .content :is(.bond-screen, .markowitz-screen, .portfolio-workspace) {
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: var(--ui-border);
+  --surface: var(--ui-surface);
+  --green: var(--ui-accent);
+  color: var(--ui-text);
+}
+
 body.light-theme,
 body.rainbow-theme,
 body.neon-theme,

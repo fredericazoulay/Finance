@@ -1,4 +1,5 @@
 .topbar {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -9,6 +10,16 @@
   border-bottom: 1px solid rgba(124, 181, 255, 0.18);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.topbar.production-environment {
+  &::after {
+    position: absolute;
+    inset: 0;
+    border: 2px solid #e53935;
+    content: '';
+    pointer-events: none;
+  }
 }
 
 .brand {
@@ -190,6 +201,24 @@
   .theme-select { color: #25333a; }
   .theme-select option { background: #fffdf6; color: #25333a; }
   .control-shell:focus-within { border-color: #ef6a57; box-shadow: 0 0 0 2px rgba(239, 106, 87, 0.16); }
+}
+
+:host-context(body.bloomberg-theme) .topbar {
+  border-bottom-color: #ff8c00;
+  background: #101010;
+  box-shadow: inset 0 -1px 0 #ff8c00, 0 8px 24px rgba(0, 0, 0, 0.3);
+  color: #f2f2f2;
+  font-family: 'Consolas', 'Courier New', monospace;
+
+  .brand-name { color: #f2f2f2; }
+  .brand-name span, .control-label { color: #ffad33; }
+  .brand-mark { border-color: rgba(255, 140, 0, 0.6); background: rgba(255, 140, 0, 0.12); }
+  .brand-mark span { background: #ff8c00; }
+  .control-shell { border-color: #555; border-radius: 2px; background: #1b1b1b; }
+  .theme-select { color: #f2f2f2; }
+  .theme-select option { background: #1b1b1b; color: #f2f2f2; }
+  .control-shell:hover { border-color: #ff8c00; }
+  .control-shell:focus-within { border-color: #ff8c00; box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.2); }
 }
 
 @media (max-width: 1100px) {

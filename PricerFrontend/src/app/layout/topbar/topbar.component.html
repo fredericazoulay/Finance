@@ -1,9 +1,13 @@
-<header class="topbar">
+<header class="topbar" [class.production-environment]="environment === 'PROD'">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
     <span class="brand-name">Finance Pricer <span>Terminal</span></span>
     <span class="brand-name">Hackathon GDA 2026</span>
     <img src="assets/logoCaisse2026.png" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
+    <img src="assets/logoMurex.png" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
+    <img src="assets/Compagny_Mistral-AI.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
+    <img src="assets/Compagny_CDC_Group.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
+    <img src="assets/Compagny_CDC_Informatique2026.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
   </div>
   <div class="status">
     <label class="control-group">
@@ -15,6 +19,20 @@
         </select>
       </span>
     </label>
+
+    <label class="control-group">
+      <span class="control-label">{{ 'environment' | translate }}</span>
+      <span class="control-shell">
+        <select id="environment-select" class="environment-select" [attr.aria-label]="'environment' | translate" (change)="setEnvironment($any($event.target).value)" [value]="environment">
+          <!-- ENVIRONMENTS  (PROD, PREX1, REC1, INT1) : PROD display a red border on the topbar -->
+          <option value="PROD">Production</option>
+          <option value="PREX1">Pré-Exploitation</option>
+          <option value="REC1">Recette</option>
+          <option value="INT1">Intégration</option>
+        </select>
+      </span>
+    </label>
+
     <label class="control-group">
       <span class="control-label">{{ 'theme' | translate }}</span>
       <span class="control-shell theme-shell">
@@ -24,6 +42,88 @@
         <option value="RAINBOW">RAINBOW</option>
         <option value="NEON">NEON</option>
         <option value="POP">POP</option>
+        <!-- Terminal BLOOMBERG THEME -->
+        <option value="BLOOMBERG">BLOOMBERG</option>
+        <!-- COMPAGNY THEMES -->
+        <option value="COMPAGNY_MUREX">COMPAGNY MUREX</option>
+        <option value="COMPAGNY_MISTRAL_AI">COMPAGNY MISTRAL AI</option>
+        <option value="COMPAGNY_CDC_GROUP">COMPAGNY CDC GROUP(Caisse des Dépôts et Consignations)</option>
+        <option value="COMPAGNY_CDC_INFORMATIQUE">COMPAGNY CDC INFORMATIQUE</option>
+        <!-- DC-COMICS THEMES -->
+        <option value="DC-COMICS_BATMAN">DC-COMICS BATMAN</option>
+        <option value="DC-COMICS_SUPERMAN">DC-COMICS SUPERMAN</option>
+        <option value="DC-COMICS_FLASH">DC-COMICS FLASH</option>
+        <option value="DC-COMICS_GREENLANTERN">DC-COMICS GREEN LANTERN</option>
+        <option value="DC-COMICS_AQUAMAN">DC-COMICS AQUAMAN</option>
+        <option value="DC-COMICS_CYBORG">DC-COMICS CYBORG</option>
+        <option value="DC-COMICS_SHAZAM">DC-COMICS SHAZAM</option>
+        <option value="DC-COMICS_GREENARROW">DC-COMICS GREEN ARROW</option>
+        <option value="DC-COMICS_BLACKADAM">DC-COMICS BLACK ADAM</option>
+        <option value="DC-COMICS_CHAOS">DC-COMICS CHAOS</option>
+        <option value="DC-COMICS_BATGIRL">DC-COMICS BATGIRL</option>
+        <option value="DC-COMICS_ROBIN">DC-COMICS ROBIN</option>
+        <option value="DC-COMICS_NIGHTWING">DC-COMICS NIGHTWING</option>
+        <option value="DC-COMICS_WONDERWOMAN">DC-COMICS WONDERWOMAN</option>
+        <!-- MARVEL THEMES -->
+        <option value="MARVEL_IRONMAN">MARVEL IRONMAN</option>
+        <option value="MARVEL_CAPTAINAMERICA">MARVEL CAPTAIN AMERICA</option>
+        <option value="MARVEL_THOR">MARVEL THOR</option>
+        <option value="MARVEL_HULK">MARVEL HULK</option>
+        <option value="MARVEL_BLACKWIDOW">MARVEL BLACK WIDOW</option>
+        <option value="MARVEL_HAWKEYE">MARVEL HAWKEYE</option>
+        <option value="MARVEL_SCARLETWITCH">MARVEL SCARLET WITCH</option>
+        <option value="MARVELVISION">MARVEL VISION</option>
+        <option value="MARVELBLACKPANTHER">MARVEL BLACK PANTHER</option>
+        <option value="MARVELANTMAN">MARVEL ANT MAN</option>
+        <option value="MARVELWASP">MARVEL WASP</option>
+        <option value="MARVELFALCON">MARVEL FALCON</option>
+        <option value="MARVELWINTERSOLDIER">MARVEL WINTER SOLDIER</option>
+        <option value="MARVELDOCTORSTRANGE">MARVEL DOCTOR STRANGE</option>
+        <option value="MARVELSPIDERMAN">MARVEL SPIDER MAN</option>
+        <option value="MARVELBLACKPANTHER">MARVEL BLACK PANTHER</option>
+        <!-- Additional theme options can be added here -->
+        <option value="CYBERPUNK">CYBERPUNK</option>
+        <option value="FUTURISTIC">FUTURISTIC</option>
+        <option value="RETRO">RETRO</option>
+        <option value="VINTAGE">VINTAGE</option>
+        <option value="MINIMAL">MINIMAL</option>
+        <option value="DYSTOPIAN">DYSTOPIAN</option>
+        <option value="STEAMPUNK">STEAMPUNK</option>
+        <option value="SOLARIZED">SOLARIZED</option>
+        <option value="MONOKAI">MONOKAI</option>
+        <option value="GRUVBOX">GRUVBOX</option>
+        <option value="DRACULA">DRACULA</option>
+        <option value="ATOM">ATOM</option>
+        <option value="BLINK">BLINK</option>
+        <option value="SOLID">SOLID</option>
+        <option value="GLASS">GLASS</option>
+        <option value="WOOD">WOOD</option>
+        <option value="MARBLE">MARBLE</option>
+        <option value="CONCRETE">CONCRETE</option>
+        <option value="BRUTALIST">BRUTALIST</option>
+        <option value="FANTASY">FANTASY</option>
+        <option value="CYBERGOTH">CYBERGOTH</option>
+        <option value="VAPORWAVE">VAPORWAVE</option>
+        <option value="RETROFUTURE">RETROFUTURE</option>
+        <option value="RETROWAVE">RETROWAVE</option>
+        <option value="SYNTHWAVE">SYNTHWAVE</option>
+        <option value="LOFI">LOFI</option>
+        <option value="CHROMATIC">CHROMATIC</option>
+        <option value="PRISMATIC">PRISMATIC</option>
+        <option value="HOLOGRAPHIC">HOLOGRAPHIC</option>
+        <option value="NEBULA">NEBULA</option>
+        <option value="GALAXY">GALAXY</option>
+        <option value="UNIVERSE">UNIVERSE</option>
+        <option value="MULTIVERSE">MULTIVERSE</option>
+        <option value="OMNIVERSE">OMNIVERSE</option>
+        <option value="METAVERSE">METAVERSE</option>
+        <option value="ARCADE">ARCADE</option>
+        <option value="PIXEL">PIXEL</option>
+        <option value="8BIT">8BIT</option>
+        <option value="16BIT">16BIT</option>
+        <option value="32BIT">32BIT</option>
+        <option value="64BIT">64BIT</option>
+        <option value="128BIT">128BIT</option>
         </select>
       </span>
     </label>
