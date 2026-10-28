@@ -1,5 +1,6 @@
 <section class="portfolio-workspace">
   <aside class="portfolio-rail" aria-label="Liste des portefeuilles">
+    <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup }}</strong></div>
     <div class="rail-heading"><p class="eyebrow">Gestion</p><h2>Portefeuilles</h2></div>
     <div class="portfolio-list" *ngIf="portfolios.length; else noPortfolios">
       <button type="button" class="portfolio-entry" *ngFor="let portfolio of portfolios" [class.selected]="activePortfolioId === portfolio.id" (click)="activePortfolioId = portfolio.id; portfolioPendingDeletion = ''; error = ''">

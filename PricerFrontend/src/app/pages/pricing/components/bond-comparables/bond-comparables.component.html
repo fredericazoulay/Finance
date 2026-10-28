@@ -5,7 +5,10 @@
       <p class="eyebrow">Fixed income / valuation</p>
       <h1>Pricing obligataire</h1>
     </div>
-    <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+    <div class="screen-context">
+      <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup }}</strong></div>
+      <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+    </div>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">

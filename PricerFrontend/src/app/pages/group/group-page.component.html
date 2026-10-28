@@ -1,19 +1,25 @@
 <main class="group-page">
-  <a class="back-link" routerLink="/presentation">
-    <span aria-hidden="true">←</span>
-    {{ 'group_back' | translate }}
-  </a>
-
-  <header class="group-heading">
-    <p class="eyebrow">{{ 'group_eyebrow' | translate }}</p>
-    <h1>{{ 'group_welcome' | translate }}</h1>
-    <p>{{ 'group_intro' | translate }}</p>
+  <header class="group-header">
+    <div class="heading-copy">
+      <a class="back-link" routerLink="/presentation"><span aria-hidden="true">←</span>{{ 'group_back' | translate }}</a>
+      <p class="eyebrow">{{ 'group_eyebrow' | translate }}</p>
+      <h1>{{ 'group_welcome' | translate }}</h1>
+      <p class="intro">{{ 'group_intro' | translate }}</p>
+    </div>
+    <aside class="active-context" aria-live="polite">
+      <span class="context-label">{{ 'group_selected' | translate }}</span>
+      <strong>{{ selectedGroup }}</strong>
+      <span class="context-status"><i aria-hidden="true"></i>{{ 'group_context_active' | translate }}</span>
+    </aside>
   </header>
 
   <section class="group-picker" aria-labelledby="group-picker-heading">
     <div class="picker-heading">
-      <h2 id="group-picker-heading">{{ visibleGroups.length }} {{ (visibleGroups.length === 1 ? 'group_count_singular' : 'group_count') | translate }}</h2>
-      <span class="heading-rule" aria-hidden="true"></span>
+      <div class="section-title"><span class="section-index">01</span><div>
+        <h2 id="group-picker-heading">{{ 'group_count' | translate }}</h2>
+        <p>{{ visibleGroups.length }} / {{ groups.length }} {{ 'group_available' | translate }}</p>
+      </div></div>
+      <span class="terminal-state"><i aria-hidden="true"></i>{{ 'group_context_active' | translate }}</span>
     </div>
 
     <div class="group-controls">
@@ -23,15 +29,11 @@
         <input type="search" [(ngModel)]="searchQuery" [placeholder]="'group_search_placeholder' | translate">
       </label>
       <button type="button" class="favorites-filter" [class.active]="favoritesOnly" [attr.aria-pressed]="favoritesOnly" (click)="favoritesOnly = !favoritesOnly">
-        <span aria-hidden="true">★</span>
-        {{ 'group_favorites_only' | translate }}
+        <span aria-hidden="true">★</span>{{ 'group_favorites_only' | translate }}
       </button>
     </div>
 
-    <p class="selected-group" *ngIf="selectedGroup">
-      <span aria-hidden="true">✓</span>
-      {{ 'group_selected' | translate }} <strong>{{ selectedGroup }}</strong>
-    </p>
+    <p class="selected-group" *ngIf="selectedGroup"><span aria-hidden="true">✓</span>{{ 'group_selected' | translate }} <strong>{{ selectedGroup }}</strong></p>
 
     <div class="group-grid" *ngIf="visibleGroups.length; else noGroups">
       <article class="group-tile" *ngFor="let group of visibleGroups" [class.selected]="selectedGroup === group.code">
@@ -39,19 +41,16 @@
           <strong>{{ group.code }}</strong>
           <span class="group-type">{{ group.typeKey | translate }}</span>
           <span class="group-detail" *ngIf="group.detailKey">{{ group.detailKey | translate }}</span>
-          <span class="group-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="favorite-toggle" [class.favorite]="isFavorite(group.code)" [attr.aria-label]="(isFavorite(group.code) ? 'group_remove_favorite' : 'group_add_favorite') | translate" [attr.aria-pressed]="isFavorite(group.code)" (click)="toggleFavorite(group.code)">
           {{ isFavorite(group.code) ? '★' : '☆' }}
         </button>
+        <span class="group-state" *ngIf="selectedGroup === group.code">{{ 'group_context_active' | translate }}</span>
       </article>
     </div>
 
     <ng-template #noGroups>
-      <div class="empty-state">
-        <strong>{{ 'group_empty_title' | translate }}</strong>
-        <span>{{ 'group_empty_message' | translate }}</span>
-      </div>
+      <div class="empty-state"><strong>{{ 'group_empty_title' | translate }}</strong><span>{{ 'group_empty_message' | translate }}</span></div>
     </ng-template>
   </section>
 </main>

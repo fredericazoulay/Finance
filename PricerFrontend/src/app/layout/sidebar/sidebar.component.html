@@ -33,6 +33,15 @@
       <span class="nav-icon">👥</span>
       <span class="nav-label" *ngIf="!collapsed">{{ 'group_page_title' | translate }}</span>
     </a>
+    <a
+      routerLink="/presentation/murex"
+      routerLinkActive="active"
+      class="nav-button nav-sub-button"
+      [title]="(collapsed ? ( 'murex_page_title' | translate) : '')"
+    >
+      <span class="nav-icon">MX</span>
+      <span class="nav-label" *ngIf="!collapsed">{{ 'murex_page_title' | translate }}</span>
+    </a>
 
     <div class="menu-title" *ngIf="!collapsed">{{ 'instrument' | translate }}</div>
     <ng-container *ngFor="let item of instruments">

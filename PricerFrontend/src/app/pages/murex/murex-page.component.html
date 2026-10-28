@@ -1,0 +1,216 @@
+<main class="murex-terminal" aria-label="Murex MX.3 workspace">
+  <header class="mx-header">
+    <div class="mx-brand">
+      <img src="assets/logoMurex.png" alt="Murex" />
+      <div><span class="mx-product">MX.3</span><strong>Murex Workspace</strong></div>
+    </div>
+    <div class="mx-session">
+      <span class="session-label">{{ 'group' | translate }}</span>
+      <strong>{{ workGroupService.selectedGroup }}</strong>
+      <span class="session-state"><i></i>{{ 'murex_demo_badge' | translate }}</span>
+    </div>
+  </header>
+
+  <nav class="mx-shortcuts" aria-label="{{ 'murex_quick_access' | translate }}">
+    <button type="button" *ngFor="let screen of quickAccessScreens" [class.active]="activeScreenId === screen.id" (click)="selectScreen(screen)">
+      <span class="shortcut-code">{{ screen.id === 'e-tradepad' ? 'ETP' : screen.id === 'order-query' ? 'OQ' : 'TQ' }}</span>
+      {{ screen.title }}
+    </button>
+    <span class="shortcut-spacer"></span>
+    <span class="market-state"><i></i>{{ 'murex_sample_data' | translate }}</span>
+  </nav>
+
+  <div class="mx-workspace">
+    <aside class="mx-command-panel" aria-label="{{ 'murex_catalogue' | translate }}">
+      <div class="command-search">
+        <label for="mx-screen-search">{{ 'murex_catalogue' | translate }}</label>
+        <input id="mx-screen-search" type="search" [(ngModel)]="screenSearch" [placeholder]="'murex_search_screens' | translate" />
+      </div>
+      <nav class="screen-catalog" aria-label="{{ 'murex_screens' | translate }}">
+        <section class="catalog-section" *ngFor="let section of visibleSections">
+          <h2>{{ section.name }}</h2>
+          <button type="button" class="catalog-entry" *ngFor="let screen of section.screens" [class.active]="activeScreenId === screen.id" (click)="selectScreen(screen)">
+            <span class="entry-marker" aria-hidden="true"></span>
+            <span>{{ screen.title }}</span>
+          </button>
+        </section>
+        <p class="catalog-empty" *ngIf="!visibleSections.length">{{ 'murex_no_screens' | translate }}</p>
+      </nav>
+      <div class="command-footer"><span>MX.3</span><span>{{ screens.length }} {{ 'murex_screens' | translate }}</span></div>
+    </aside>
+
+    <section class="mx-main" aria-live="polite">
+      <header class="screen-heading">
+        <div>
+          <p class="screen-path">{{ activeScreen.command }}</p>
+          <h1>{{ activeScreen.title }}</h1>
+          <p class="screen-description">{{ activeScreen.description }}</p>
+        </div>
+        <div class="screen-stamps"><span class="workspace-stamp">{{ activeScreen.section }}</span><span class="demo-stamp">{{ 'murex_demo_badge' | translate }}</span></div>
+      </header>
+
+      <ng-container [ngSwitch]="activeScreen.kind">
+        <section class="query-workspace" *ngSwitchCase="'query'">
+          <form class="query-form" (ngSubmit)="runQuery()">
+            <div class="query-toolbar">
+              <label class="query-primary"><span>{{ isOrderQuery ? 'Order ID' : 'Financial contract ID' }}</span><input [(ngModel)]="referenceFilter" [ngModelOptions]="{standalone: true}" /></label>
+              <label><span>{{ isOrderQuery ? 'Order Type' : 'Additional filter' }}</span><input [(ngModel)]="instrumentFilter" [ngModelOptions]="{standalone: true}" /></label>
+              <label class="check-control"><input type="checkbox" /><span>{{ 'murex_all_versions' | translate }}</span></label>
+            </div>
+
+            <div class="query-columns">
+              <div class="query-column">
+                <section class="filter-block">
+                  <h2>{{ 'murex_product_type' | translate }}</h2>
+                  <div class="filter-grid product-filters">
+                    <label><span>Typology</span><select [(ngModel)]="productTypeFilter" [ngModelOptions]="{standalone: true}"><option>All</option><option>Bond</option><option>IRS</option><option>Equity</option><option>FX Forward</option></select></label>
+                    <label><span>Family</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Fixed income</option><option>Rates</option><option>Equities</option></select></label>
+                    <label><span>Group</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>GOV_EUR</option><option>RATES_EUR</option></select></label>
+                    <label><span>Type</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Cash</option><option>Swap</option><option>Forward</option></select></label>
+                  </div>
+                </section>
+
+                <section class="filter-block">
+                  <h2>{{ isOrderQuery ? 'Order information' : 'Trade information' }}</h2>
+                  <div class="filter-grid">
+                    <label><span>Counterpart</span><input [(ngModel)]="counterpartyFilter" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Portfolio</span><input [(ngModel)]="portfolioFilter" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Instrument</span><input [(ngModel)]="instrumentFilter" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Closing entity</span><input [ngModelOptions]="{standalone: true}" ngModel /></label>
+                    <label><span>User</span><select [(ngModel)]="userFilter" [ngModelOptions]="{standalone: true}"><option>All</option><option>USR-01</option><option>USR-02</option><option>USR-03</option></select></label>
+                    <label><span>Status</span><select [(ngModel)]="statusFilter" [ngModelOptions]="{standalone: true}"><option>All</option><option>Validated</option><option>Pending</option><option>Amended</option><option>Open</option><option>Executed</option><option>Cancelled</option><option>Partially filled</option></select></label>
+                  </div>
+                </section>
+
+                <section class="filter-block date-block">
+                  <h2>{{ 'murex_key_dates' | translate }}</h2>
+                  <div class="filter-grid date-grid">
+                    <label><span>{{ isOrderQuery ? 'Insertion date' : 'Transaction date' }}</span><input type="date" [ngModelOptions]="{standalone: true}" ngModel /></label>
+                    <label><span>{{ isOrderQuery ? 'Trading date' : 'Insertion date' }}</span><input type="date" [ngModelOptions]="{standalone: true}" ngModel /></label>
+                    <label><span>Expiry date</span><input type="date" [ngModelOptions]="{standalone: true}" ngModel /></label>
+                  </div>
+                </section>
+              </div>
+
+              <div class="query-column">
+                <section class="filter-block">
+                  <h2>{{ isOrderQuery ? 'Order classification' : 'Event details' }}</h2>
+                  <div class="filter-grid">
+                    <label><span>{{ isOrderQuery ? 'Order status' : 'Last event date' }}</span><select *ngIf="!isOrderQuery" [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Today</option><option>Last 5 days</option></select><select *ngIf="isOrderQuery" [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Open</option><option>Executed</option><option>Cancelled</option></select></label>
+                    <label><span>{{ isOrderQuery ? 'Order category' : 'Last event type' }}</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Trade</option><option>Amendment</option><option>Validation</option></select></label>
+                  </div>
+                  <div class="check-row"><label class="check-control"><input type="checkbox" /><span>Include cancelled</span></label><label class="check-control"><input type="checkbox" /><span>Search impacting events only</span></label></div>
+                </section>
+
+                <section class="filter-block">
+                  <h2>{{ isOrderQuery ? 'Order dates and status' : 'Trade classification' }}</h2>
+                  <div class="filter-grid">
+                    <label><span>{{ isOrderQuery ? 'Order status' : 'Deal status' }}</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Validated</option><option>Pending</option><option>Cancelled</option></select></label>
+                    <label><span>{{ isOrderQuery ? 'Order type' : 'Trade purpose' }}</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Client</option><option>Hedge</option><option>Internal</option></select></label>
+                    <label><span>Trade category</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Cash</option><option>Derivative</option></select></label>
+                    <label><span>Settlement method</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Standard</option><option>Cleared</option></select></label>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <div class="query-actions"><button type="button" class="secondary-action" (click)="clearQuery()">{{ 'murex_clear' | translate }}</button><span class="action-spacer"></span><button type="submit" class="primary-action">{{ 'murex_search' | translate }}</button></div>
+          </form>
+
+          <section class="results-panel" aria-label="{{ 'murex_results' | translate }}">
+            <header class="panel-heading"><div><span class="panel-index">01</span><h2>{{ 'murex_results' | translate }}</h2></div><span class="result-count" *ngIf="queryExecuted">{{ filteredRecords.length }} {{ 'murex_rows' | translate }}</span><span class="snapshot-note">{{ 'murex_demo_badge' | translate }}</span></header>
+            <div class="result-empty" *ngIf="!queryExecuted"><strong>{{ 'murex_run_query' | translate }}</strong><span>{{ 'murex_query_hint' | translate }}</span></div>
+            <div class="result-empty" *ngIf="queryExecuted && !filteredRecords.length"><strong>{{ 'murex_no_results' | translate }}</strong><span>{{ 'murex_no_results_hint' | translate }}</span></div>
+            <div class="table-scroll" *ngIf="queryExecuted && filteredRecords.length">
+              <table class="mx-table">
+                <thead><tr><th>{{ isOrderQuery ? 'Order ID' : 'Contract reference' }}</th><th>Version</th><th>Status</th><th>Product</th><th>Instrument</th><th>Side</th><th>Quantity</th><th>Currency</th><th>Counterpart</th><th>Portfolio</th><th>Date</th><th>User</th></tr></thead>
+                <tbody><tr *ngFor="let record of filteredRecords"><td class="reference-cell">{{ record.reference }}</td><td>{{ record.version }}</td><td><span class="record-status" [attr.data-status]="record.status.toLowerCase()">{{ record.status }}</span></td><td>{{ record.product }}</td><td>{{ record.instrument }}</td><td>{{ record.side }}</td><td class="number-cell">{{ record.quantity }}</td><td>{{ record.currency }}</td><td>{{ record.counterparty }}</td><td>{{ record.portfolio }}</td><td>{{ record.tradeDate }}</td><td>{{ record.user }}</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="ticket-workspace" *ngSwitchCase="'ticket'">
+          <aside class="product-tree" aria-label="{{ 'murex_products' | translate }}">
+            <div class="tree-heading"><span class="tree-glyph">▤</span><strong>{{ 'murex_products' | translate }}</strong><span>⌕</span></div>
+            <label class="tree-search"><span class="visually-hidden">{{ 'murex_search_products' | translate }}</span><input type="search" [placeholder]="'murex_search_products' | translate" /></label>
+            <div class="tree-branch"><span class="branch-glyph">▾</span>Orders</div>
+            <button type="button" class="tree-item" *ngFor="let product of productFamilies" [class.selected]="ticketProduct === product" (click)="selectProduct(product)"><span>◇</span>{{ product }}</button>
+            <div class="tree-branch"><span class="branch-glyph">▾</span>Trades</div>
+            <button type="button" class="tree-item" (click)="selectProduct('Bond')"><span>◇</span>Fixed Income / Bond</button>
+            <button type="button" class="tree-item" (click)="selectProduct('Equity')"><span>◇</span>Equity / ETF</button>
+            <div class="tree-branch muted-branch"><span class="branch-glyph">▸</span>Technical</div>
+            <div class="tree-branch muted-branch"><span class="branch-glyph">▸</span>Previews</div>
+          </aside>
+
+          <div class="ticket-main">
+            <div class="ticket-toolbar"><span class="trade-tab"><i></i>{{ ticketProduct }}</span><span class="toolbar-date">Pricing: {{ 'now' | date:'dd MMM yyyy' }}</span><span class="toolbar-status"><i></i>{{ 'murex_sample_data' | translate }}</span></div>
+            <form class="ticket-form" (ngSubmit)="submitTicket()">
+              <div class="ticket-fields">
+                <section class="ticket-section instrument-section">
+                  <header><span>01</span><h2>{{ 'murex_instrument' | translate }}</h2><small>{{ ticketProduct }}</small></header>
+                  <div class="ticket-grid">
+                    <label class="wide-field"><span>Instrument</span><input [(ngModel)]="ticketInstrument" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Product</span><select [(ngModel)]="ticketProduct" [ngModelOptions]="{standalone: true}"><option>Bond</option><option>Equity</option><option>Fund</option><option>Credit (IRS)</option><option>FX Swap</option></select></label>
+                    <label><span>Currency</span><select [(ngModel)]="ticketCurrency" [ngModelOptions]="{standalone: true}"><option>EUR</option><option>USD</option><option>GBP</option><option>CHF</option></select></label>
+                    <label><span>Portfolio</span><input [(ngModel)]="ticketPortfolio" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Counterpart</span><input [(ngModel)]="ticketCounterparty" [ngModelOptions]="{standalone: true}" /></label>
+                  </div>
+                </section>
+
+                <section class="ticket-section trade-section">
+                  <header><span>02</span><h2>{{ 'murex_trade_terms' | translate }}</h2><small>{{ 'murex_draft_only' | translate }}</small></header>
+                  <div class="ticket-grid">
+                    <fieldset class="side-control"><legend>Buy / Sell</legend><div><button type="button" [class.active]="ticketSide === 'Buy'" [attr.aria-pressed]="ticketSide === 'Buy'" (click)="ticketSide = 'Buy'">Buy</button><button type="button" [class.active]="ticketSide === 'Sell'" [attr.aria-pressed]="ticketSide === 'Sell'" (click)="ticketSide = 'Sell'">Sell</button></div></fieldset>
+                    <label><span>Quantity</span><input type="number" min="1" step="1000" [(ngModel)]="ticketQuantity" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Trade clean price %</span><input type="number" min="0.001" step="0.001" [(ngModel)]="ticketPrice" [ngModelOptions]="{standalone: true}" /></label>
+                    <label><span>Trade date</span><input type="date" [ngModelOptions]="{standalone: true}" [ngModel]="'2026-10-28'" /></label>
+                    <label><span>Settlement date</span><input type="date" [ngModelOptions]="{standalone: true}" [ngModel]="'2026-10-30'" /></label>
+                  </div>
+                </section>
+              </div>
+              <aside class="ticket-summary" aria-label="{{ 'murex_order_summary' | translate }}">
+                <div class="summary-heading"><span>{{ 'murex_order_summary' | translate }}</span><strong>{{ ticketSide }}</strong></div>
+                <div><span>Instrument</span><strong>{{ ticketInstrument }}</strong></div>
+                <div><span>Nominal</span><strong>{{ ticketQuantity | number:'1.0-0' }} {{ ticketCurrency }}</strong></div>
+                <div><span>Clean price</span><strong>{{ ticketPrice | number:'1.3-3' }}</strong></div>
+                <div><span>Portfolio</span><strong>{{ ticketPortfolio }}</strong></div>
+                <div class="summary-estimate"><span>{{ 'murex_estimated_amount' | translate }}</span><strong>{{ ticketQuantity * ticketPrice / 100 | currency:ticketCurrency:'code':'1.0-0' }}</strong></div>
+                <p class="ticket-disclaimer">{{ 'murex_ticket_disclaimer' | translate }}</p>
+                <output class="ticket-status" *ngIf="ticketStatus">{{ ticketStatus }}</output>
+                <div class="ticket-actions"><button type="button" class="secondary-action" (click)="clearTicket()">{{ 'murex_clear' | translate }}</button><button type="submit" class="primary-action">{{ 'murex_save_draft' | translate }}</button></div>
+              </aside>
+            </form>
+
+            <section class="blotter-panel">
+              <header class="panel-heading"><div><span class="panel-index">02</span><h2>{{ 'murex_daily_blotter' | translate }}</h2></div><span class="snapshot-note">{{ ticketRows.length }} {{ 'murex_rows' | translate }}</span></header>
+              <div class="table-scroll"><table class="mx-table"><thead><tr><th>Contract nb</th><th>Trade nb</th><th>Status</th><th>Typology</th><th>Instrument</th><th>Face nominal</th><th>Face cur</th><th>Counterparty</th><th>Portfolio</th><th>Source</th><th>User</th></tr></thead><tbody><tr *ngFor="let record of ticketRows"><td>{{ record.reference }}</td><td>{{ record.version }}</td><td><span class="record-status" [attr.data-status]="record.status.toLowerCase()">{{ record.status }}</span></td><td>{{ record.product }}</td><td>{{ record.instrument }}</td><td class="number-cell">{{ record.quantity }}</td><td>{{ record.currency }}</td><td>{{ record.counterparty }}</td><td>{{ record.portfolio }}</td><td>DEMO</td><td>{{ record.user }}</td></tr></tbody></table></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="module-workspace" *ngSwitchDefault>
+          <div class="module-toolbar">
+            <label><span>{{ 'murex_filter' | translate }}</span><input type="search" [(ngModel)]="moduleSearch" [placeholder]="'murex_filter_placeholder' | translate" /></label>
+            <label><span>{{ 'murex_as_of' | translate }}</span><input type="date" [ngModel]="'2026-10-28'" [ngModelOptions]="{standalone: true}" /></label>
+            <button type="button" class="secondary-action" (click)="moduleSearch = ''">{{ 'murex_clear' | translate }}</button>
+            <span class="action-spacer"></span><span class="module-status"><i></i>{{ 'murex_sample_data' | translate }}</span>
+          </div>
+
+          <div class="risk-metrics" *ngIf="activeScreen.kind === 'risk'">
+            <article><span>{{ 'murex_portfolios' | translate }}</span><strong>04</strong><small>Demonstration perimeter</small></article>
+            <article><span>{{ 'murex_var_99' | translate }}</span><strong>1.28M</strong><small>EUR · sample output</small></article>
+            <article><span>{{ 'murex_stress_loss' | translate }}</span><strong class="negative-value">−2.41M</strong><small>EUR · scenario demo</small></article>
+            <article><span>{{ 'murex_market_timestamp' | translate }}</span><strong>18:00</strong><small>28/10/2026 · static sample</small></article>
+          </div>
+
+          <section class="results-panel module-results">
+            <header class="panel-heading"><div><span class="panel-index">01</span><h2>{{ activeScreen.title }}</h2></div><span class="result-count">{{ moduleRows.length }} {{ 'murex_rows' | translate }}</span><span class="snapshot-note">{{ activeScreen.command }}</span></header>
+            <div class="table-scroll"><table class="mx-table"><thead><tr><th>{{ 'murex_code' | translate }}</th><th>{{ 'murex_label' | translate }}</th><th>{{ 'murex_details' | translate }}</th><th>{{ 'murex_status' | translate }}</th><th>{{ 'murex_as_of' | translate }}</th></tr></thead><tbody><tr *ngFor="let row of moduleRows"><td class="reference-cell">{{ row.code }}</td><td>{{ row.label }}</td><td>{{ row.detail }}</td><td><span class="record-status" [attr.data-status]="row.status.toLowerCase()">{{ row.status }}</span></td><td>{{ row.asOf }}</td></tr><tr *ngIf="!moduleRows.length"><td class="empty-cell" colspan="5">{{ 'murex_no_results' | translate }}</td></tr></tbody></table></div>
+          </section>
+          <p class="module-footnote">{{ 'murex_data_disclaimer' | translate }}</p>
+        </section>
+      </ng-container>
+    </section>
+  </div>
+</main>

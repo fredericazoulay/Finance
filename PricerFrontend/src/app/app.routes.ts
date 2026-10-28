@@ -3,8 +3,13 @@ import { PricingPageComponent } from './pages/pricing/pricing-page.component';
 import { CalculatorsPageComponent } from './pages/calculators/calculators-page.component';
 import { PresentationPageComponent } from './pages/presentation/presentation-page.component';
 import { GroupPageComponent } from './pages/group/group-page.component';
+import { MurexPageComponent } from './pages/murex/murex-page.component';
 
 export const routes: Routes = [
+  {
+    path: 'presentation/murex',
+    component: MurexPageComponent
+  },
   {
     path: 'presentation/groupe',
     component: GroupPageComponent

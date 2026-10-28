@@ -3,12 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
-
-interface WorkGroup {
-  code: string;
-  typeKey: string;
-  detailKey?: string;
-}
+import { WorkGroup, WorkGroupService } from '../../services/work-group.service';
 
 @Component({
   selector: 'app-group-page',
@@ -18,36 +13,22 @@ interface WorkGroup {
   styleUrls: ['./group-page.component.scss']
 })
 export class GroupPageComponent implements OnInit {
-  readonly groups: WorkGroup[] = [
-    { code: 'BO', typeKey: 'group_type_processing' },
-    { code: 'BO_ANALYSE', typeKey: 'group_type_fo', detailKey: 'group_detail_fod1' },
-    { code: 'BO_CASH', typeKey: 'group_type_processing' },
-    { code: 'BO_COMPTA', typeKey: 'group_type_processing', detailKey: 'group_detail_configurator' },
-    { code: 'BO_EOD', typeKey: 'group_type_processing' },
-    { code: 'BO_EXT', typeKey: 'group_type_processing' },
-    { code: 'BO_EXTOTPL', typeKey: 'group_type_pl' },
-    { code: 'BO_EXTEPEL', typeKey: 'group_type_pl' },
-    { code: 'BO_EXTVMPL', typeKey: 'group_type_pl' },
-    { code: 'BO_EXT_OTC', typeKey: 'group_type_processing' },
-    { code: 'BO_EXT_PE', typeKey: 'group_type_processing' },
-    { code: 'BO_EXT_VMO', typeKey: 'group_type_processing' },
-    { code: 'BO_MANAGER', typeKey: 'group_type_operations' },
-    { code: 'BO_OPS', typeKey: 'group_type_operations' },
-    { code: 'BO_OPS_FLX', typeKey: 'group_type_operations' }
-  ];
-
   searchQuery = '';
   favoritesOnly = false;
-  selectedGroup = '';
   favoriteGroups = new Set<string>();
+
+  constructor(readonly workGroupService: WorkGroupService) {}
+
+  get groups(): WorkGroup[] {
+    return this.workGroupService.groups;
+  }
+
+  get selectedGroup(): string {
+    return this.workGroupService.selectedGroup;
+  }
 
   ngOnInit(): void {
     try {
-      const selectedGroup = localStorage.getItem('murexSelectedGroup');
-      if (selectedGroup && this.groups.some(group => group.code === selectedGroup)) {
-        this.selectedGroup = selectedGroup;
-      }
-
       const storedFavorites = JSON.parse(localStorage.getItem('murexFavoriteGroups') ?? '[]');
       if (Array.isArray(storedFavorites)) {
         this.favoriteGroups = new Set(storedFavorites.filter((value: unknown): value is string =>
@@ -69,12 +50,7 @@ export class GroupPageComponent implements OnInit {
   }
 
   selectGroup(code: string): void {
-    this.selectedGroup = code;
-    try {
-      localStorage.setItem('murexSelectedGroup', code);
-    } catch {
-      this.selectedGroup = code;
-    }
+    this.workGroupService.setSelectedGroup(code);
   }
 
   toggleFavorite(code: string): void {

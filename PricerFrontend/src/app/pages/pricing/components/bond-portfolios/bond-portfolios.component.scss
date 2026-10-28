@@ -3,6 +3,9 @@
 .portfolio-workspace { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; color: var(--ink, #eaf6ff); }
 .portfolio-rail, .portfolio-main > section, .portfolio-welcome { min-width: 0; border: 1px solid var(--line, rgba(124, 181, 255, 0.2)); background: var(--surface, rgba(9, 25, 34, 0.95)); }
 .portfolio-rail { position: sticky; top: 12px; padding: 14px; }
+.workspace-context { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 8px 9px; border: 1px solid var(--line, rgba(124, 181, 255, 0.2)); border-left: 3px solid var(--green, #3ae374); background: var(--ui-raised, #102532); }
+.workspace-context span { color: var(--muted, #8eaec5); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.workspace-context strong { color: var(--green, #3ae374); font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; }
 .rail-heading { padding-bottom: 12px; border-bottom: 1px solid var(--line, rgba(124, 181, 255, 0.2)); }
 .eyebrow { margin: 0 0 5px; color: var(--green, #3ae374); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 h2, h3, p { margin-top: 0; }
@@ -14,7 +17,7 @@ h2, h3, p { margin-top: 0; }
 .portfolio-entry span, .rail-empty { color: var(--muted, #8eaec5); font-size: 10px; line-height: 1.4; }
 .create-portfolio { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--line, rgba(124, 181, 255, 0.2)); }
 .create-portfolio label, .position-form label { display: grid; gap: 5px; color: var(--muted, #8eaec5); font-size: 11px; }
-input, select { box-sizing: border-box; width: 100%; min-width: 0; height: 34px; border: 1px solid var(--line, rgba(124, 181, 255, 0.2)); border-radius: 2px; padding: 0 8px; background: #0c1b27; color: var(--ink, #eaf6ff); font: inherit; font-size: 12px; }
+input, select { box-sizing: border-box; width: 100%; min-width: 0; height: 34px; border: 1px solid var(--line, rgba(124, 181, 255, 0.2)); border-radius: 2px; padding: 0 8px; background: var(--ui-field, #0c1b27); color: var(--ink, #eaf6ff); font: inherit; font-size: 12px; }
 input:focus, select:focus { outline: 1px solid var(--green, #3ae374); border-color: var(--green, #3ae374); }
 button { font: inherit; }
 .primary-button, .danger-button, .quiet-button { min-height: 32px; padding: 0 10px; border: 1px solid var(--line, rgba(124, 181, 255, 0.2)); border-radius: 2px; font-size: 11px; font-weight: 700; cursor: pointer; }

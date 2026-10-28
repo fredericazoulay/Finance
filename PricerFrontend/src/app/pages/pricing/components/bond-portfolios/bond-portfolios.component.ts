@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { BondComparable } from '../../../../models/bond-comparables.model';
+import { WorkGroupService } from '../../../../services/work-group.service';
 
 interface PortfolioPosition {
   id: string;
@@ -53,12 +55,14 @@ interface PositionDraft {
 @Component({
   selector: 'app-bond-portfolios',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './bond-portfolios.component.html',
   styleUrls: ['./bond-portfolios.component.scss']
 })
 export class BondPortfoliosComponent implements OnInit {
   @Input() bonds: BondComparable[] = [];
+
+  constructor(readonly workGroupService: WorkGroupService) {}
 
   private readonly storageKey = 'finance-pricer.bond-portfolios.v1';
   portfolios: BondPortfolio[] = [];

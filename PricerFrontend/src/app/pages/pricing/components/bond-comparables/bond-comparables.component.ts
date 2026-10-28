@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, toArray } from 'rxjs';
 import {
@@ -23,6 +24,7 @@ import { BondPeriodicCalculatorComponent } from '../bond-periodic-calculator/bon
 import { BondAnalyticsDashboardComponent } from '../bond-analytics-dashboard/bond-analytics-dashboard.component';
 import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 import { BondBloombergComponent } from '../bond-bloomberg/bond-bloomberg.component';
+import { WorkGroupService } from '../../../../services/work-group.service';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
@@ -97,6 +99,7 @@ interface PersistedBondComparablesState {
   imports: [
     CommonModule,
     FormsModule,
+    TranslateModule,
     AiAnalysisComponent,
     FullOptionGraphsComponent,
     BondMarkowitzComponent,
@@ -251,7 +254,8 @@ export class BondComparablesComponent {
     private readonly comparablesService: BondComparablesService,
     private readonly pricingService: PricingService,
     private readonly aiAssistantService: AiAssistantService,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    readonly workGroupService: WorkGroupService
   ) {
     this.apiOnline$ = this.pricingService.apiOnline$;
     this.restoreState();

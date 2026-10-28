@@ -1,11 +1,11 @@
 :host { display: block; min-height: 100%; }
 
 .bond-screen {
-  --ink: #eaf6ff;
-  --muted: #8eaec5;
-  --line: rgba(124, 181, 255, 0.2);
-  --surface: rgba(9, 25, 34, 0.95);
-  --green: #3ae374;
+  --ink: var(--ui-text, #eaf6ff);
+  --muted: var(--ui-muted, #8eaec5);
+  --line: var(--ui-border, rgba(124, 181, 255, 0.2));
+  --surface: var(--ui-surface, rgba(9, 25, 34, 0.95));
+  --green: var(--ui-accent, #3ae374);
   color: var(--ink);
   padding: 22px 26px 30px;
   display: grid;
@@ -17,6 +17,10 @@
 .screen-heading, .section-heading, .panel-actions, .result-section { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .advanced-section-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
 .screen-heading { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.screen-context { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.workspace-context { display: flex; align-items: center; gap: 9px; min-height: 31px; padding: 0 10px; border: 1px solid var(--line); background: var(--surface); }
+.workspace-context span { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.workspace-context strong { color: var(--green); font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; }
 .mode-tabs { display: flex; width: 100%; max-width: 100%; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
 .mode-tabs button { flex: 0 0 auto; min-height: 40px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); white-space: nowrap; }
 .mode-tabs button.active { border-bottom-color: var(--green); color: var(--ink); }
@@ -46,11 +50,11 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .target-extraction { display: grid; gap: 8px; margin: 0 0 16px; }
 .target-extraction > label { color: var(--muted); font-size: 13px; }
 .target-extraction .import-hint { margin: 0; }
-.target-extraction textarea { width: 100%; min-height: 72px; box-sizing: border-box; resize: vertical; border: 1px solid var(--line); border-radius: 3px; background: #0c1b27; color: var(--ink); padding: 9px; font: inherit; font-size: 13px; }
+.target-extraction textarea { width: 100%; min-height: 72px; box-sizing: border-box; resize: vertical; border: 1px solid var(--line); border-radius: 3px; background: var(--ui-field, #0c1b27); color: var(--ink); padding: 9px; font: inherit; font-size: 13px; }
 .target-extraction textarea:focus { outline: 1px solid var(--green); border-color: var(--green); }
 .message.warning { color: var(--ink); }
 label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
-input, select { min-width: 0; height: 36px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 3px; background: #0c1b27; color: var(--ink); padding: 0 9px; font: inherit; font-size: 13px; }
+input, select { min-width: 0; height: 36px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 3px; background: var(--ui-field, #0c1b27); color: var(--ink); padding: 0 9px; font: inherit; font-size: 13px; }
 input:focus, select:focus { outline: 1px solid var(--green); border-color: var(--green); }
 .panel-actions { align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -121,7 +125,7 @@ th { color: var(--muted); font-size: 12px; text-transform: uppercase; font-weigh
 .yield-filter { display: grid; grid-template-columns: repeat(2, minmax(0, 58px)); gap: 4px; }
 .eligibility-filter-cell { position: relative; min-width: 135px; }
 .eligibility-filter { position: relative; }
-.eligibility-filter summary { min-height: 32px; display: flex; align-items: center; padding: 0 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink); background: #0c1b27; cursor: pointer; font-size: 12px; list-style: none; }
+.eligibility-filter summary { min-height: 32px; display: flex; align-items: center; padding: 0 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink); background: var(--ui-field, #0c1b27); cursor: pointer; font-size: 12px; list-style: none; }
 .eligibility-filter summary::-webkit-details-marker { display: none; }
 .eligibility-options { position: absolute; top: calc(100% + 4px); right: 0; z-index: 10; min-width: 190px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24); }
 .eligibility-options label { display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 5px 0; color: var(--ink); cursor: pointer; font-size: 12px; }
@@ -174,6 +178,7 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 @media (max-width: 680px) {
   .bond-screen { padding: 14px 12px 22px; gap: 12px; }
   .screen-heading, .section-heading { align-items: flex-start; flex-direction: column; }
+  .screen-context { width: 100%; align-items: flex-start; justify-content: flex-start; }
   .data-status { align-self: flex-start; }
   .target-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mode-tabs { width: 100%; overflow-x: auto; }
