@@ -37,6 +37,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
   isPricing = false;
 
   private chart: Chart | null = null;
+  private themeObserver: MutationObserver | null = null;
   private viewInitialized = false;
 
   constructor(
@@ -55,6 +56,10 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
   ngAfterViewInit(): void {
     this.viewInitialized = true;
     this.updateChart();
+    if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+      this.themeObserver = new MutationObserver(() => this.updateChart());
+      this.themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -62,6 +67,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
   }
 
   ngOnDestroy(): void {
+    this.themeObserver?.disconnect();
     this.chart?.destroy();
   }
 
@@ -159,6 +165,9 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
 
     const payments = this.presentValuePayments();
     const formatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const isBloomberg = document.body.classList.contains('bloomberg-theme');
+    const chartText = isBloomberg ? '#c9c9c9' : '#657080';
+    const chartGrid = isBloomberg ? 'rgba(255, 140, 0, 0.15)' : 'rgba(101, 112, 128, 0.15)';
     this.chart = new Chart(this.cashFlowChart.nativeElement, {
       type: 'bar',
       data: {
@@ -166,7 +175,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         datasets: [{
           label: 'Valeur actuelle des paiements',
           data: payments.map(payment => payment.amount),
-          backgroundColor: '#4169f5',
+          backgroundColor: isBloomberg ? '#ff8c00' : '#4169f5',
           borderRadius: 2
         }]
       },
@@ -174,7 +183,7 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: true, position: 'bottom', labels: { color: '#657080', boxWidth: 12 } },
+          legend: { display: true, position: 'bottom', labels: { color: chartText, boxWidth: 12 } },
           tooltip: {
             callbacks: {
               label: context => ` Valeur actuelle : ${formatter.format(Number(context.raw))} ${this.currency}`
@@ -183,15 +192,15 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         },
         scales: {
           x: {
-            title: { display: true, text: 'Nombre de paiements', color: '#657080' },
-            ticks: { color: '#657080' },
+            title: { display: true, text: 'Nombre de paiements', color: chartText },
+            ticks: { color: chartText },
             grid: { display: false }
           },
           y: {
             beginAtZero: true,
-            title: { display: true, text: `Valeur (${this.currency})`, color: '#657080' },
-            ticks: { color: '#657080' },
-            grid: { color: 'rgba(101, 112, 128, 0.15)' }
+            title: { display: true, text: `Valeur (${this.currency})`, color: chartText },
+            ticks: { color: chartText },
+            grid: { color: chartGrid }
           }
         }
       }

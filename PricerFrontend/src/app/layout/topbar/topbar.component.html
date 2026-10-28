@@ -1,13 +1,12 @@
-<header class="topbar" [class.production-environment]="environment === 'PROD'">
+<header class="topbar">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
     <span class="brand-name">Finance Pricer <span>Terminal</span></span>
     <span class="brand-name">Hackathon GDA 2026</span>
     <img src="assets/logoCaisse2026.png" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
     <img src="assets/logoMurex.png" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
-    <img src="assets/Compagny_Mistral-AI.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
-    <img src="assets/Compagny_CDC_Group.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
-    <img src="assets/Compagny_CDC_Informatique2026.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 54px; margin-top: 0;">
+    <img src="assets/Compagny_Mistral-AI.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 100px; margin-top: 0;">
+    <img src="assets/logo_CDC_Informatique.jpg" [attr.alt]="'HEADER.LOGO_ALT' | translate" style="width: 100%; max-width: 300px; margin-top: 0;">
   </div>
   <div class="status">
     <label class="control-group">
@@ -22,8 +21,8 @@
 
     <label class="control-group">
       <span class="control-label">{{ 'environment' | translate }}</span>
-      <span class="control-shell">
-        <select id="environment-select" class="environment-select" [attr.aria-label]="'environment' | translate" (change)="setEnvironment($any($event.target).value)" [value]="environment">
+      <span class="control-shell environment-shell">
+        <select id="environment-select" class="theme-select environment-select" [class.production-environment]="environment === 'PROD'" [attr.aria-label]="'environment' | translate" (change)="setEnvironment($any($event.target).value)" [value]="environment">
           <!-- ENVIRONMENTS  (PROD, PREX1, REC1, INT1) : PROD display a red border on the topbar -->
           <option value="PROD">Production</option>
           <option value="PREX1">Pré-Exploitation</option>

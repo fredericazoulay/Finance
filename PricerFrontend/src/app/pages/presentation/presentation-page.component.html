@@ -1,0 +1,48 @@
+<main class="presentation-page">
+  <header class="presentation-heading">
+    <div class="heading-copy">
+      <p class="eyebrow">{{ 'presentation_eyebrow' | translate }}</p>
+      <h1>{{ 'presentation_title' | translate }}</h1>
+      <p class="intro">{{ 'presentation_intro' | translate }}</p>
+    </div>
+    <ng-container *ngIf="pricingService.apiOnline$ | async; else apiUnavailable">
+      <span class="api-state online"><span></span>{{ 'presentation_api_online' | translate }}</span>
+    </ng-container>
+    <ng-template #apiUnavailable>
+      <span class="api-state"><span></span>{{ 'presentation_api_offline' | translate }}</span>
+    </ng-template>
+  </header>
+
+  <section class="instrument-section" aria-labelledby="instrument-heading">
+    <header class="section-heading">
+      <div>
+        <p class="eyebrow">01 / {{ 'instrument' | translate }}</p>
+        <h2 id="instrument-heading">{{ 'presentation_products_heading' | translate }}</h2>
+      </div>
+      <span class="product-count">{{ 'presentation_products_count' | translate }}</span>
+    </header>
+
+    <div class="instrument-grid">
+      <a class="instrument-link" *ngFor="let instrument of instruments" [routerLink]="['/pricing', instrument.code]">
+        <span class="instrument-icon" aria-hidden="true">{{ instrument.icon }}</span>
+        <span class="instrument-copy">
+          <strong>{{ instrument.code | translate }}</strong>
+          <span>{{ instrument.descriptionKey | translate }}</span>
+        </span>
+        <span class="instrument-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="calculator-section" aria-labelledby="calculators-heading">
+    <div class="calculator-copy">
+      <p class="eyebrow">02 / {{ 'financial_calculators' | translate }}</p>
+      <h2 id="calculators-heading">{{ 'presentation_calculators_heading' | translate }}</h2>
+      <p>{{ 'presentation_calculators_description' | translate }}</p>
+    </div>
+    <a class="calculator-action" routerLink="/calculators/loan">
+      <span>{{ 'presentation_calculators_action' | translate }}</span>
+      <span aria-hidden="true">→</span>
+    </a>
+  </section>
+</main>

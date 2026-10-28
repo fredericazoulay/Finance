@@ -22,6 +22,7 @@ Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, Lin
 const MATURITY_BUCKETS = ['0-5Y', '5-10Y', '10-20Y', '20Y+'];
 const RATINGS = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];
 const CHART_COLORS = ['#4169f5', '#b44848', '#87a847', '#795d9b', '#44a1b3', '#e2863e', '#38a8a0', '#9d78c1'];
+const BLOOMBERG_CHART_COLORS = ['#ff8c00', '#f4c542', '#54b7a5', '#56a8d8', '#e66b5b', '#a28ac2', '#8eb04a', '#e89b63'];
 
 @Component({
   selector: 'app-bond-analytics-dashboard',
@@ -41,6 +42,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   @ViewChild('couponYieldChart') couponYieldChart!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
+  private themeObserver: MutationObserver | null = null;
   private viewInitialized = false;
 
   get bondsWithRating(): BondComparable[] {
@@ -66,6 +68,10 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   ngAfterViewInit(): void {
     this.viewInitialized = true;
     this.updateCharts();
+    if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+      this.themeObserver = new MutationObserver(() => this.updateCharts());
+      this.themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -73,6 +79,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   }
 
   ngOnDestroy(): void {
+    this.themeObserver?.disconnect();
     this.destroyCharts();
   }
 
@@ -92,13 +99,14 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         .map(bond => bond.yieldToMaturity * 100);
       return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0;
     });
+    const chartColors = this.chartColors;
 
     this.charts = [
       new Chart(this.currencyChart.nativeElement, {
         type: 'pie',
         data: {
           labels: [...currencyCounts.keys()],
-          datasets: [{ data: [...currencyCounts.values()], backgroundColor: CHART_COLORS }]
+          datasets: [{ data: [...currencyCounts.values()], backgroundColor: chartColors }]
         },
         options: this.chartOptions('Obligations par devise', true)
       }),
@@ -106,7 +114,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         type: 'bar',
         data: {
           labels: MATURITY_BUCKETS,
-          datasets: [{ label: 'Nombre d’obligations', data: MATURITY_BUCKETS.map(bucket => maturityCounts.get(bucket) ?? 0), backgroundColor: CHART_COLORS }]
+          datasets: [{ label: 'Nombre d’obligations', data: MATURITY_BUCKETS.map(bucket => maturityCounts.get(bucket) ?? 0), backgroundColor: chartColors }]
         },
         options: this.chartOptions('Obligations par tranche d’échéance')
       }),
@@ -114,7 +122,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         type: 'bar',
         data: {
           labels: ratings,
-          datasets: [{ label: 'Nombre d’obligations', data: ratings.map(rating => ratingCounts.get(rating) ?? 0), backgroundColor: CHART_COLORS }]
+          datasets: [{ label: 'Nombre d’obligations', data: ratings.map(rating => ratingCounts.get(rating) ?? 0), backgroundColor: chartColors }]
         },
         options: this.chartOptions('Obligations par notation')
       }),
@@ -122,18 +130,18 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         type: 'bar',
         data: {
           labels: sectors,
-          datasets: [{ label: 'Nombre d’obligations', data: sectors.map(sector => sectorCounts.get(sector) ?? 0), backgroundColor: CHART_COLORS }]
+          datasets: [{ label: 'Nombre d’obligations', data: sectors.map(sector => sectorCounts.get(sector) ?? 0), backgroundColor: chartColors }]
         },
         options: this.chartOptions('Obligations par secteur')
       }),
       new Chart(this.maturityYieldChart.nativeElement, {
         type: 'scatter',
-        data: { datasets: this.maturityYieldDatasets() },
+        data: { datasets: this.maturityYieldDatasets(chartColors) },
         options: this.scatterChartOptions('YTM selon l’échéance', 'Années jusqu’à l’échéance', 'YTM (%)')
       }),
       new Chart(this.couponYieldChart.nativeElement, {
         type: 'scatter',
-        data: { datasets: this.couponYieldDatasets() },
+        data: { datasets: this.couponYieldDatasets(chartColors) },
         options: this.scatterChartOptions('YTM selon le coupon', 'Coupon annuel (%)', 'YTM (%)')
       })
     ];
@@ -142,7 +150,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
       type: 'bar',
       data: {
         labels: ratings,
-        datasets: [{ label: 'YTM moyen (%)', data: averageYields, backgroundColor: CHART_COLORS }]
+        datasets: [{ label: 'YTM moyen (%)', data: averageYields, backgroundColor: chartColors }]
       },
       options: this.chartOptions('YTM moyen par notation')
     }));
@@ -151,12 +159,13 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   private chartOptions(title: string, isPie: true): ChartOptions<'pie'>;
   private chartOptions(title: string, isPie?: false): ChartOptions<'bar'>;
   private chartOptions(title: string, isPie = false): ChartOptions<'bar'> | ChartOptions<'pie'> {
+    const textColor = this.chartTextColor;
     const plugins = {
-      title: { display: true, text: title, color: '#263445' },
+      title: { display: true, text: title, color: this.isBloombergTheme ? '#ffad33' : '#263445' },
       legend: {
         display: isPie,
         position: 'right' as const,
-        labels: { color: '#58677a', boxWidth: 10 }
+        labels: { color: textColor, boxWidth: 10 }
       },
       tooltip: { enabled: true }
     };
@@ -168,39 +177,40 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
       maintainAspectRatio: false,
       plugins,
       scales: {
-        x: { ticks: { color: '#58677a' }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: '#58677a' }, grid: { color: 'rgba(88, 103, 122, 0.15)' } }
+        x: { ticks: { color: textColor }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: this.chartGridColor } }
       }
     };
   }
 
   private scatterChartOptions(title: string, xTitle: string, yTitle: string): ChartOptions<'scatter'> {
+    const textColor = this.chartTextColor;
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        title: { display: true, text: title, color: '#263445' },
-        legend: { display: true, position: 'bottom', labels: { color: '#58677a', boxWidth: 10 } },
+        title: { display: true, text: title, color: this.isBloombergTheme ? '#ffad33' : '#263445' },
+        legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
         tooltip: { enabled: true }
       },
       scales: {
         x: {
           type: 'linear',
-          title: { display: true, text: xTitle, color: '#58677a' },
-          ticks: { color: '#58677a' },
-          grid: { color: 'rgba(88, 103, 122, 0.15)' }
+          title: { display: true, text: xTitle, color: textColor },
+          ticks: { color: textColor },
+          grid: { color: this.chartGridColor }
         },
         y: {
           type: 'linear',
-          title: { display: true, text: yTitle, color: '#58677a' },
-          ticks: { color: '#58677a' },
-          grid: { color: 'rgba(88, 103, 122, 0.15)' }
+          title: { display: true, text: yTitle, color: textColor },
+          ticks: { color: textColor },
+          grid: { color: this.chartGridColor }
         }
       }
     };
   }
 
-  private maturityYieldDatasets(): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
+  private maturityYieldDatasets(chartColors: string[]): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
     const bondsByRating = new Map<string, Array<{ x: number; y: number }>>();
     for (const bond of this.bonds) {
       const years = this.yearsToMaturity(bond.maturityDate);
@@ -213,11 +223,11 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     return [...bondsByRating.entries()].map(([rating, data], index) => ({
       label: rating,
       data,
-      backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+      backgroundColor: chartColors[index % chartColors.length]
     }));
   }
 
-  private couponYieldDatasets(): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
+  private couponYieldDatasets(chartColors: string[]): Array<{ label: string; data: Array<{ x: number; y: number }>; backgroundColor: string }> {
     const bondsByRating = new Map<string, Array<{ x: number; y: number }>>();
     for (const bond of this.bonds) {
       if (bond.couponRate == null || !Number.isFinite(bond.couponRate) || !Number.isFinite(bond.yieldToMaturity)) continue;
@@ -229,7 +239,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     return [...bondsByRating.entries()].map(([rating, data], index) => ({
       label: rating,
       data,
-      backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+      backgroundColor: chartColors[index % chartColors.length]
     }));
   }
 
@@ -263,6 +273,22 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
+  }
+
+  private get isBloombergTheme(): boolean {
+    return typeof document !== 'undefined' && document.body.classList.contains('bloomberg-theme');
+  }
+
+  private get chartColors(): string[] {
+    return this.isBloombergTheme ? BLOOMBERG_CHART_COLORS : CHART_COLORS;
+  }
+
+  private get chartTextColor(): string {
+    return this.isBloombergTheme ? '#c9c9c9' : '#58677a';
+  }
+
+  private get chartGridColor(): string {
+    return this.isBloombergTheme ? 'rgba(255, 140, 0, 0.15)' : 'rgba(88, 103, 122, 0.15)';
   }
 
   private normalizeRating(value: string | undefined): string {

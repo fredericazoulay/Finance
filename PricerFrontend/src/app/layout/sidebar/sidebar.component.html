@@ -12,6 +12,18 @@
   <div class="menu-divider"></div>
 
   <nav class="nav-menu">
+
+    <div class="menu-title" *ngIf="!collapsed">{{ 'welcome' | translate }}</div>
+    <a
+      routerLink="/presentation"
+      routerLinkActive="active"
+      class="nav-button"
+      [title]="(collapsed ? ( 'presentation' | translate) : '')"
+    >
+      <span class="nav-icon">🧮</span>
+      <span class="nav-label" *ngIf="!collapsed">{{ 'presentation' | translate }}</span>
+    </a>
+
     <div class="menu-title" *ngIf="!collapsed">{{ 'instrument' | translate }}</div>
     <ng-container *ngFor="let item of instruments">
       <a

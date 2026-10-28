@@ -1,8 +1,13 @@
 import { Routes } from '@angular/router';
 import { PricingPageComponent } from './pages/pricing/pricing-page.component';
 import { CalculatorsPageComponent } from './pages/calculators/calculators-page.component';
+import { PresentationPageComponent } from './pages/presentation/presentation-page.component';
 
 export const routes: Routes = [
+  {
+    path: 'presentation',
+    component: PresentationPageComponent
+  },
   {
     path: 'pricing/:product',
     component: PricingPageComponent

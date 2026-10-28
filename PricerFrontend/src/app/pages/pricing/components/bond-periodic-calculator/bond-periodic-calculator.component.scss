@@ -28,6 +28,66 @@ button:disabled { opacity: 0.55; cursor: wait; }
 .cash-flow-panel { min-width: 0; padding: 16px; border: 1px solid #d6deea; border-radius: 6px; background: #fff; }
 .chart-wrapper { position: relative; height: 360px; }
 .chart-placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; color: #7a8798; background: #fff; text-align: center; font-size: 13px; }
+
+:host-context(body.bloomberg-theme) .periodic-calculator {
+  border-color: #454545;
+  background: #111;
+  color: #f2f2f2;
+}
+
+:host-context(body.bloomberg-theme) .eyebrow,
+:host-context(body.bloomberg-theme) .currency-tag,
+:host-context(body.bloomberg-theme) .calculated-value output {
+  color: #ffad33;
+}
+
+:host-context(body.bloomberg-theme) .input-group,
+:host-context(body.bloomberg-theme) .cash-flow-panel,
+:host-context(body.bloomberg-theme) .chart-placeholder {
+  border-color: #414141;
+  background: #191919;
+  color: #c9c9c9;
+}
+
+:host-context(body.bloomberg-theme) label,
+:host-context(body.bloomberg-theme) .unit-input > span,
+:host-context(body.bloomberg-theme) .price-output,
+:host-context(body.bloomberg-theme) .price-placeholder {
+  color: #b0b0b0;
+}
+
+:host-context(body.bloomberg-theme) input,
+:host-context(body.bloomberg-theme) select {
+  border-color: #4a4a4a;
+  background: #0e0e0e;
+  color: #f2f2f2;
+}
+
+:host-context(body.bloomberg-theme) input:focus,
+:host-context(body.bloomberg-theme) select:focus {
+  outline-color: #ff8c00;
+  border-color: #ff8c00;
+}
+
+:host-context(body.bloomberg-theme) .calculated-value {
+  border-color: #454545;
+  background: #222;
+}
+
+:host-context(body.bloomberg-theme) .price-output strong { color: #ffad33; }
+
+:host-context(body.bloomberg-theme) .primary-button {
+  border-color: #ff8c00;
+  background: #ff8c00;
+  color: #111;
+}
+
+:host-context(body.bloomberg-theme) .secondary-button {
+  border-color: #555;
+  background: #222;
+  color: #e6e6e6;
+}
+
 @media (max-width: 760px) {
   .calculator-layout { grid-template-columns: 1fr; }
   .chart-wrapper { height: 290px; }
