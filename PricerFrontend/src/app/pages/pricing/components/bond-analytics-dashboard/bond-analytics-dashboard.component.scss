@@ -1,41 +1,17 @@
-.dashboard-section { padding: 18px; border: 1px solid #d6deea; border-radius: 6px; background: #f7f9fc; color: #263445; }
+.dashboard-section { padding: 18px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-page, #f7f9fc); color: var(--ui-text, #263445); }
 .dashboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.dashboard-heading > span { color: #315bf2; font-size: 12px; font-weight: 700; }
-.eyebrow { margin: 0 0 5px; color: #62728a; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+.dashboard-heading > span { color: var(--ui-accent, #315bf2); font-size: 12px; font-weight: 700; }
+.eyebrow { margin: 0 0 5px; color: var(--ui-accent, #62728a); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 h2, h3, p { margin-top: 0; }
 h2 { margin-bottom: 0; font-size: 18px; }
 h3 { margin-bottom: 8px; font-size: 14px; }
-.data-note { margin: 12px 0 16px; color: #58677a; font-size: 12px; }
+.data-note { margin: 12px 0 16px; color: var(--ui-muted, #58677a); font-size: 12px; }
 .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.chart-card { min-width: 0; min-height: 250px; padding: 12px; border: 1px solid #d6deea; border-radius: 6px; background: #fff; }
+.chart-card { min-width: 0; min-height: 250px; padding: 12px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-surface, #fff); color: var(--ui-text, #263445); }
 .chart-area { position: relative; height: 245px; }
-.chart-note { margin: 0; color: #657387; font-size: 11px; }
+.chart-note { margin: 0; color: var(--ui-muted, #657387); font-size: 11px; }
 .unavailable-card { display: flex; flex-direction: column; justify-content: center; min-height: 180px; box-sizing: border-box; }
-.unavailable-card p { margin-bottom: 0; color: #657387; font-size: 12px; line-height: 1.5; }
-
-:host-context(body.bloomberg-theme) .dashboard-section {
-  border-color: #454545;
-  background: #111;
-  color: #f2f2f2;
-}
-
-:host-context(body.bloomberg-theme) .dashboard-heading > span,
-:host-context(body.bloomberg-theme) .eyebrow {
-  color: #ffad33;
-}
-
-:host-context(body.bloomberg-theme) .data-note,
-:host-context(body.bloomberg-theme) .chart-note,
-:host-context(body.bloomberg-theme) .unavailable-card p {
-  color: #b0b0b0;
-}
-
-:host-context(body.bloomberg-theme) .chart-card,
-:host-context(body.bloomberg-theme) .unavailable-card {
-  border-color: #414141;
-  background: #191919;
-  color: #e6e6e6;
-}
+.unavailable-card p { margin-bottom: 0; color: var(--ui-muted, #657387); font-size: 12px; line-height: 1.5; }
 
 @media (max-width: 760px) {
   .chart-grid { grid-template-columns: 1fr; }

@@ -1,13 +1,13 @@
-.formulas-section { padding: 18px; border: 1px solid #d6deea; border-radius: 6px; background: #f7f9fc; color: #263445; }
+.formulas-section { padding: 18px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-page, #f7f9fc); color: var(--ui-text, #263445); }
 header { margin-bottom: 12px; }
-.eyebrow { margin: 0 0 5px; color: #62728a; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+.eyebrow { margin: 0 0 5px; color: var(--ui-accent, #62728a); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 h2 { margin: 0; font-size: 18px; }
-.formula-note { margin: 0 0 14px; color: #58677a; font-size: 12px; line-height: 1.5; }
-.table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid #d6deea; border-radius: 5px; background: #fff; }
+.formula-note { margin: 0 0 14px; color: var(--ui-muted, #58677a); font-size: 12px; line-height: 1.5; }
+.table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--ui-border, #d6deea); border-radius: 5px; background: var(--ui-surface, #fff); }
 table { width: 100%; border-collapse: collapse; text-align: left; }
-th, td { padding: 10px 12px; border-bottom: 1px solid #e1e6ee; vertical-align: top; font-size: 12px; }
-thead th { background: #164b5b; color: #fff; font-weight: 700; }
-tbody th { min-width: 150px; color: #263445; font-weight: 700; white-space: nowrap; }
-td { color: #34445a; }
-td code { color: #263445; font-family: Consolas, 'Courier New', monospace; font-size: 11px; overflow-wrap: anywhere; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--ui-border, #e1e6ee); vertical-align: top; font-size: 12px; }
+thead th { background: var(--ui-raised, #164b5b); color: var(--ui-accent, #fff); font-weight: 700; }
+tbody th { min-width: 150px; color: var(--ui-text, #263445); font-weight: 700; white-space: nowrap; }
+td { color: var(--ui-text, #34445a); }
+td code { color: var(--ui-text, #263445); font-family: Consolas, 'Courier New', monospace; font-size: 11px; overflow-wrap: anywhere; }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }

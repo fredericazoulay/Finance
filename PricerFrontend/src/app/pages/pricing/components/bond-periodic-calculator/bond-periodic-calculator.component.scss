@@ -1,92 +1,33 @@
-.periodic-calculator { color: #263445; background: #f7f9fc; border: 1px solid #d6deea; }
+.periodic-calculator { color: var(--ui-text, #263445); background: var(--ui-page, #f7f9fc); border: 1px solid var(--ui-border, #d6deea); }
 .section-heading { align-items: center; }
-.eyebrow { margin: 0 0 5px; color: #62728a; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+.eyebrow { margin: 0 0 5px; color: var(--ui-accent, #62728a); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 h2, h3, p { margin-top: 0; }
 h2 { margin-bottom: 0; font-size: 18px; }
 h3 { margin: 0 0 13px; font-size: 14px; }
-.currency-tag { color: #315bf2; font-size: 12px; font-weight: 700; }
+.currency-tag { color: var(--ui-accent, #315bf2); font-size: 12px; font-weight: 700; }
 .calculator-layout { display: grid; grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr); gap: 16px; margin-top: 16px; }
 .calculator-inputs { display: grid; align-content: start; gap: 12px; }
-.input-group { display: grid; gap: 11px; padding: 14px; border: 1px solid #d6deea; border-radius: 6px; background: #fff; }
-label { display: grid; gap: 5px; color: #58677a; font-size: 12px; }
-input, select { box-sizing: border-box; width: 100%; min-width: 0; height: 36px; border: 1px solid #cad4e3; border-radius: 4px; background: #f8faff; color: #263445; padding: 0 9px; font: inherit; }
-input:focus, select:focus { outline: 1px solid #4169f5; border-color: #4169f5; }
+.input-group { display: grid; gap: 11px; padding: 14px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-surface, #fff); }
+label { display: grid; gap: 5px; color: var(--ui-muted, #58677a); font-size: 12px; }
+input, select { box-sizing: border-box; width: 100%; min-width: 0; height: 36px; border: 1px solid var(--ui-border, #cad4e3); border-radius: 4px; background: var(--ui-field, #f8faff); color: var(--ui-text, #263445); padding: 0 9px; font: inherit; }
+input:focus, select:focus { outline: 1px solid var(--ui-accent, #4169f5); border-color: var(--ui-accent, #4169f5); }
 .unit-input { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px; }
-.unit-input > span { min-width: 42px; color: #58677a; font-size: 11px; text-align: right; }
-.calculated-value { min-height: 36px; box-sizing: border-box; padding: 0 9px; border: 1px solid #d8e0ec; border-radius: 4px; background: #edf1f7; }
-.calculated-value output { color: #315bf2; font-size: 13px; font-weight: 700; }
-.price-output { display: grid; gap: 5px; padding-top: 7px; color: #58677a; font-size: 12px; }
-.price-output strong { color: #263445; font-size: 20px; font-variant-numeric: tabular-nums; }
+.unit-input > span { min-width: 42px; color: var(--ui-muted, #58677a); font-size: 11px; text-align: right; }
+.calculated-value { min-height: 36px; box-sizing: border-box; padding: 0 9px; border: 1px solid var(--ui-border, #d8e0ec); border-radius: 4px; background: var(--ui-raised, #edf1f7); }
+.calculated-value output { color: var(--ui-accent, #315bf2); font-size: 13px; font-weight: 700; }
+.price-output { display: grid; gap: 5px; padding-top: 7px; color: var(--ui-muted, #58677a); font-size: 12px; }
+.price-output strong { color: var(--ui-text, #263445); font-size: 20px; font-variant-numeric: tabular-nums; }
 .price-output small { font-size: 12px; font-weight: 600; }
-.price-placeholder { padding-top: 7px; color: #7a8798; font-size: 12px; }
+.price-placeholder { padding-top: 7px; color: var(--ui-muted, #7a8798); font-size: 12px; }
 .calculator-actions { display: flex; gap: 8px; }
-button { min-height: 36px; border: 1px solid #cad4e3; border-radius: 4px; padding: 0 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.primary-button { background: #4169f5; border-color: #4169f5; color: #fff; }
-.secondary-button { background: #fff; color: #34445a; }
+button { min-height: 36px; border: 1px solid var(--ui-border, #cad4e3); border-radius: 4px; padding: 0 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.primary-button { background: var(--ui-accent, #4169f5); border-color: var(--ui-accent, #4169f5); color: var(--ui-action-ink, #fff); }
+.secondary-button { background: var(--ui-accent-soft, #fff); color: var(--ui-text, #34445a); }
 button:disabled { opacity: 0.55; cursor: wait; }
 .message.error { margin: 0; color: #b42318; font-size: 12px; }
-.cash-flow-panel { min-width: 0; padding: 16px; border: 1px solid #d6deea; border-radius: 6px; background: #fff; }
+.cash-flow-panel { min-width: 0; padding: 16px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-surface, #fff); }
 .chart-wrapper { position: relative; height: 360px; }
-.chart-placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; color: #7a8798; background: #fff; text-align: center; font-size: 13px; }
-
-:host-context(body.bloomberg-theme) .periodic-calculator {
-  border-color: #454545;
-  background: #111;
-  color: #f2f2f2;
-}
-
-:host-context(body.bloomberg-theme) .eyebrow,
-:host-context(body.bloomberg-theme) .currency-tag,
-:host-context(body.bloomberg-theme) .calculated-value output {
-  color: #ffad33;
-}
-
-:host-context(body.bloomberg-theme) .input-group,
-:host-context(body.bloomberg-theme) .cash-flow-panel,
-:host-context(body.bloomberg-theme) .chart-placeholder {
-  border-color: #414141;
-  background: #191919;
-  color: #c9c9c9;
-}
-
-:host-context(body.bloomberg-theme) label,
-:host-context(body.bloomberg-theme) .unit-input > span,
-:host-context(body.bloomberg-theme) .price-output,
-:host-context(body.bloomberg-theme) .price-placeholder {
-  color: #b0b0b0;
-}
-
-:host-context(body.bloomberg-theme) input,
-:host-context(body.bloomberg-theme) select {
-  border-color: #4a4a4a;
-  background: #0e0e0e;
-  color: #f2f2f2;
-}
-
-:host-context(body.bloomberg-theme) input:focus,
-:host-context(body.bloomberg-theme) select:focus {
-  outline-color: #ff8c00;
-  border-color: #ff8c00;
-}
-
-:host-context(body.bloomberg-theme) .calculated-value {
-  border-color: #454545;
-  background: #222;
-}
-
-:host-context(body.bloomberg-theme) .price-output strong { color: #ffad33; }
-
-:host-context(body.bloomberg-theme) .primary-button {
-  border-color: #ff8c00;
-  background: #ff8c00;
-  color: #111;
-}
-
-:host-context(body.bloomberg-theme) .secondary-button {
-  border-color: #555;
-  background: #222;
-  color: #e6e6e6;
-}
+.chart-placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; color: var(--ui-muted, #7a8798); background: var(--ui-surface, #fff); text-align: center; font-size: 13px; }
 
 @media (max-width: 760px) {
   .calculator-layout { grid-template-columns: 1fr; }

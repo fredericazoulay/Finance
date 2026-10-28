@@ -165,10 +165,10 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
 
     const payments = this.presentValuePayments();
     const formatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const isThemedDark = document.body.classList.contains('bloomberg-theme') || document.body.classList.contains('custom-theme');
-    const chartAccent = isThemedDark ? getComputedStyle(document.body).getPropertyValue('--ui-accent').trim() : '#4169f5';
-    const chartText = isThemedDark ? '#c9c9c9' : '#657080';
-    const chartGrid = isThemedDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(101, 112, 128, 0.15)';
+    const bodyStyles = getComputedStyle(document.body);
+    const chartAccent = bodyStyles.getPropertyValue('--ui-accent').trim() || '#4169f5';
+    const chartText = bodyStyles.getPropertyValue('--ui-muted').trim() || '#657080';
+    const chartGrid = bodyStyles.getPropertyValue('--ui-border').trim() || 'rgba(101, 112, 128, 0.15)';
     this.chart = new Chart(this.cashFlowChart.nativeElement, {
       type: 'bar',
       data: {

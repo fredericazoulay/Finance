@@ -275,36 +275,25 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     return counts;
   }
 
-  private get isBloombergTheme(): boolean {
-    return typeof document !== 'undefined' && document.body.classList.contains('bloomberg-theme');
-  }
-
-  private get isCustomTheme(): boolean {
-    return typeof document !== 'undefined' && document.body.classList.contains('custom-theme');
-  }
-
-  private get customThemeAccent(): string {
-    if (!this.isCustomTheme) return '#ff8c00';
-    return getComputedStyle(document.body).getPropertyValue('--ui-accent').trim() || '#ff8c00';
+  private themeColor(variable: string, fallback: string): string {
+    if (typeof document === 'undefined') return fallback;
+    return getComputedStyle(document.body).getPropertyValue(variable).trim() || fallback;
   }
 
   private get chartColors(): string[] {
-    if (this.isCustomTheme) return [this.customThemeAccent, ...BLOOMBERG_CHART_COLORS.slice(1)];
-    return this.isBloombergTheme ? BLOOMBERG_CHART_COLORS : CHART_COLORS;
+    return [this.themeColor('--ui-accent', '#4169f5'), ...BLOOMBERG_CHART_COLORS.slice(1)];
   }
 
   private get chartTextColor(): string {
-    return this.isBloombergTheme || this.isCustomTheme ? '#c9c9c9' : '#58677a';
+    return this.themeColor('--ui-muted', '#58677a');
   }
 
   private get chartGridColor(): string {
-    if (this.isCustomTheme) return 'rgba(255, 255, 255, 0.12)';
-    return this.isBloombergTheme ? 'rgba(255, 140, 0, 0.15)' : 'rgba(88, 103, 122, 0.15)';
+    return this.themeColor('--ui-border', 'rgba(88, 103, 122, 0.15)');
   }
 
   private get chartTitleColor(): string {
-    if (this.isCustomTheme) return this.customThemeAccent;
-    return this.isBloombergTheme ? '#ffad33' : '#263445';
+    return this.themeColor('--ui-accent', '#263445');
   }
 
   private normalizeRating(value: string | undefined): string {
