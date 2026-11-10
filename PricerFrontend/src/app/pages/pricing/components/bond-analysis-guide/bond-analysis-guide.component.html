@@ -9,13 +9,13 @@
   </header>
 
   <nav class="guide-nav" aria-label="Sections de l’analyse obligataire">
-    <a href="#rate-simulator">Sensibilité</a>
-    <a href="#bond-valuation">Valorisation</a>
-    <a href="#credit-spread">Spread et rendement net</a>
-    <a href="#risk-framework">Risques</a>
-    <a href="#credit-ratings">Notation et ESG</a>
-    <a href="#bond-comparison">Comparaison</a>
-    <a href="#analysis-checklist">Checklist</a>
+    <a [routerLink]="[]" [fragment]="'rate-simulator'" (click)="scrollToSection('rate-simulator')">Sensibilité</a>
+    <a [routerLink]="[]" [fragment]="'bond-valuation'" (click)="scrollToSection('bond-valuation')">Valorisation</a>
+    <a [routerLink]="[]" [fragment]="'credit-spread'" (click)="scrollToSection('credit-spread')">Spread et rendement net</a>
+    <a [routerLink]="[]" [fragment]="'risk-framework'" (click)="scrollToSection('risk-framework')">Risques</a>
+    <a [routerLink]="[]" [fragment]="'credit-ratings'" (click)="scrollToSection('credit-ratings')">Notation et ESG</a>
+    <a [routerLink]="[]" [fragment]="'bond-comparison'" (click)="scrollToSection('bond-comparison')">Comparaison</a>
+    <a [routerLink]="[]" [fragment]="'analysis-checklist'" (click)="scrollToSection('analysis-checklist')">Checklist</a>
   </nav>
 
   <section id="rate-simulator" class="analysis-section">

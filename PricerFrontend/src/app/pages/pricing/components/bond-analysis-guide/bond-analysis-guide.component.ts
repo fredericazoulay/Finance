@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 interface BondMetrics {
   price: number;
@@ -26,7 +27,7 @@ interface AnalysisChecklistItem {
 @Component({
   selector: 'app-bond-analysis-guide',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './bond-analysis-guide.component.html',
   styleUrls: ['./bond-analysis-guide.component.scss']
 })
@@ -99,6 +100,10 @@ export class BondAnalysisGuideComponent {
 
   constructor() {
     this.calculateValuation();
+  }
+
+  scrollToSection(sectionId: string): void {
+    requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   get estimatedMoveRatio(): number {
