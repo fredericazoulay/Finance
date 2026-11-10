@@ -24,6 +24,7 @@ import { BondPeriodicCalculatorComponent } from '../bond-periodic-calculator/bon
 import { BondAnalyticsDashboardComponent } from '../bond-analytics-dashboard/bond-analytics-dashboard.component';
 import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 import { BondBloombergComponent } from '../bond-bloomberg/bond-bloomberg.component';
+import { BondAnalysisGuideComponent } from '../bond-analysis-guide/bond-analysis-guide.component';
 import { WorkGroupService } from '../../../../services/work-group.service';
 
 interface BondComparableRow extends BondComparable {
@@ -37,7 +38,7 @@ type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
-type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis';
+type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus' | 'eligible';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
@@ -107,7 +108,8 @@ interface PersistedBondComparablesState {
     BondPeriodicCalculatorComponent,
     BondAnalyticsDashboardComponent,
     BondFormulasComponent,
-    BondBloombergComponent
+    BondBloombergComponent,
+    BondAnalysisGuideComponent
   ],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']

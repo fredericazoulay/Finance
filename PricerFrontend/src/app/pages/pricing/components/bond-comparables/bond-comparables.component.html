@@ -7,7 +7,7 @@
     </div>
     <div class="screen-context">
       <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup }}</strong></div>
-      <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+      <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
     </div>
   </header>
 
@@ -16,6 +16,7 @@
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'periodic-calculator'" [class.active]="activeMode === 'periodic-calculator'" (click)="setMode('periodic-calculator')">Coupon par période</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bond-graphs'" [class.active]="activeMode === 'bond-graphs'" (click)="setMode('bond-graphs')">Graphiques</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'formulas'" [class.active]="activeMode === 'formulas'" (click)="setMode('formulas')">Formules</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bond-analysis'" [class.active]="activeMode === 'bond-analysis'" (click)="setMode('bond-analysis')">Analyse obligataire</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'advanced'" [class.active]="activeMode === 'advanced'" (click)="setMode('advanced')">Tarification détaillée</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bloomberg'" [class.active]="activeMode === 'bloomberg'" (click)="setMode('bloomberg')">Bloomberg</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparables-light'" [class.active]="activeMode === 'comparables-light'" (click)="setMode('comparables-light')">Comparables light</button>
@@ -64,6 +65,10 @@
 
   <ng-container *ngIf="activeMode === 'formulas'">
     <app-bond-formulas></app-bond-formulas>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'bond-analysis'">
+    <app-bond-analysis-guide [currency]="target.currency || 'EUR'"></app-bond-analysis-guide>
   </ng-container>
 
   <section class="calculator-section" *ngIf="activeMode === 'advanced'">

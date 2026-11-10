@@ -1,0 +1,233 @@
+<main class="bond-analysis" aria-labelledby="bond-analysis-title">
+  <header class="analysis-intro">
+    <div>
+      <p class="eyebrow">Fixed income / analyse de risque</p>
+      <h2 id="bond-analysis-title">Analyser une obligation</h2>
+      <p>Rendement, sensibilité, crédit et structure contractuelle : une lecture complète avant toute décision.</p>
+    </div>
+    <span class="currency-label">Devise de travail · {{ currency }}</span>
+  </header>
+
+  <nav class="guide-nav" aria-label="Sections de l’analyse obligataire">
+    <a href="#rate-simulator">Sensibilité</a>
+    <a href="#bond-valuation">Valorisation</a>
+    <a href="#credit-spread">Spread et rendement net</a>
+    <a href="#risk-framework">Risques</a>
+    <a href="#credit-ratings">Notation et ESG</a>
+    <a href="#bond-comparison">Comparaison</a>
+    <a href="#analysis-checklist">Checklist</a>
+  </nav>
+
+  <section id="rate-simulator" class="analysis-section">
+    <div class="section-heading">
+      <div><p class="eyebrow">01 / Scénarios de taux</p><h3>Simulateur de sensibilité</h3></div>
+      <span class="section-tag">Approximation duration / convexité</span>
+    </div>
+    <div class="simulator-layout">
+      <div class="simulator-controls">
+        <label class="range-control">
+          <span class="control-heading"><span>Duration modifiée</span><strong>{{ modifiedDuration | number:'1.1-2' }} ans</strong></span>
+          <input type="range" min="1" max="15" step="0.1" [(ngModel)]="modifiedDuration" aria-label="Duration modifiée en années" />
+          <span class="range-bounds"><span>1 an</span><span>15 ans</span></span>
+        </label>
+        <label class="range-control">
+          <span class="control-heading"><span>Variation des taux</span><strong>{{ rateShockPoints > 0 ? '+' : '' }}{{ rateShockPoints | number:'1.1-1' }} pt</strong></span>
+          <input type="range" min="-3" max="3" step="0.1" [(ngModel)]="rateShockPoints" aria-label="Variation des taux en points de pourcentage" />
+          <span class="range-bounds"><span>−3 pt</span><span>0</span><span>+3 pt</span></span>
+        </label>
+        <label class="range-control">
+          <span class="control-heading"><span>Valeur de marché</span><strong>{{ portfolioValue | currency:currency:'symbol':'1.0-0' }}</strong></span>
+          <input type="range" min="1000" max="100000" step="500" [(ngModel)]="portfolioValue" aria-label="Valeur de marché du portefeuille" />
+          <span class="range-bounds"><span>1 000</span><span>100 000 {{ currency }}</span></span>
+        </label>
+        <label class="optional-input"><span>Convexité (optionnelle)</span><input type="number" min="0" step="0.01" [(ngModel)]="portfolioConvexity" placeholder="0 · duration seule" /></label>
+      </div>
+
+      <div class="simulator-results" aria-live="polite">
+        <p class="eyebrow">Impact estimé</p>
+        <div class="headline-result" [class.negative]="estimatedMoveAmount < 0" [class.positive]="estimatedMoveAmount > 0">
+          <span>Variation de valeur</span>
+          <strong>{{ estimatedMoveAmount | currency:currency:'symbol':'1.0-0' }}</strong>
+        </div>
+        <div class="result-line"><span>Variation estimée</span><strong>{{ estimatedMoveRatio * 100 | number:'1.2-2' }} %</strong></div>
+        <div class="result-line"><span>DV01 du portefeuille</span><strong>{{ portfolioDv01 | currency:currency:'symbol':'1.2-2' }} / pb</strong></div>
+        <p class="model-note">ΔP/P ≈ −D<sub>mod</sub> × Δy + ½ × Conv × (Δy)². Le choc est converti en taux décimal avant calcul; +1 point avec une duration de 8,5 donne −8,5 % hors convexité.</p>
+      </div>
+    </div>
+
+    <div class="scenario-table-wrap">
+      <table class="scenario-table">
+        <caption>Scénarios parallèles indicatifs · mêmes hypothèses de duration et convexité</caption>
+        <thead><tr><th>Choc de taux</th><th>Variation estimée</th><th>Impact sur le portefeuille</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let scenario of scenarioRows" [class.current-scenario]="scenario.shock === rateShockPoints * 100">
+            <td>{{ scenario.shock > 0 ? '+' : '' }}{{ scenario.shock }} pb</td>
+            <td>{{ scenario.movePercent | number:'1.2-2' }} %</td>
+            <td>{{ scenario.moveAmount | currency:currency:'symbol':'1.0-0' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="disclaimer">Estimation de premier ou second ordre, pas une valorisation complète. Elle suppose un déplacement parallèle et homogène des rendements. Elle exclut les variations de spread, les options, les mouvements non parallèles, le défaut, la liquidité, les frais et le change. Saisissez une convexité cohérente avec la convention de duration utilisée.</p>
+  </section>
+
+  <section id="bond-valuation" class="analysis-section">
+    <div class="section-heading">
+      <div><p class="eyebrow">02 / Flux contractuels</p><h3>Prix théorique et rendement actuariel</h3></div>
+      <span class="section-tag">{{ solveFor === 'PRICE' ? 'Prix à partir du YTM' : 'YTM à partir du prix' }}</span>
+    </div>
+    <p class="section-copy">Modèle à taux actuariel constant, coupons réguliers et remboursement au pair. Le calcul est effectué à une date de coupon : prix clean et dirty sont donc égaux dans ce modèle.</p>
+    <div class="valuation-layout">
+      <div class="valuation-inputs">
+        <label><span>Résoudre</span><select [(ngModel)]="solveFor"><option value="PRICE">Prix à partir du YTM</option><option value="YTM">YTM à partir du prix</option></select></label>
+        <label><span>Nominal ({{ currency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="faceValue" /></label>
+        <label><span>Coupon annuel (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="couponRatePercent" /></label>
+        <label><span>Fréquence</span><select [(ngModel)]="couponFrequency"><option [ngValue]="1">Annuelle</option><option [ngValue]="2">Semestrielle</option><option [ngValue]="4">Trimestrielle</option><option [ngValue]="12">Mensuelle</option></select></label>
+        <label><span>Échéance (années)</span><input type="number" min="0.1" step="0.5" [(ngModel)]="maturityYears" /></label>
+        <label *ngIf="solveFor === 'PRICE'"><span>YTM annuel (%)</span><input type="number" step="0.01" [(ngModel)]="yieldPercent" /></label>
+        <label *ngIf="solveFor === 'YTM'"><span>Prix de marché ({{ currency }})</span><input type="number" min="0.01" step="0.01" [(ngModel)]="marketPrice" /></label>
+        <button type="button" class="primary-button" (click)="calculateValuation()">Calculer les indicateurs</button>
+      </div>
+      <div class="valuation-output" *ngIf="valuation as metrics">
+        <p class="eyebrow">Résultats au pair de coupon</p>
+        <div class="metric-lead"><span>{{ solveFor === 'PRICE' ? 'Prix théorique' : 'YTM calculé' }}</span><strong>{{ solveFor === 'PRICE' ? (metrics.price | currency:currency:'symbol':'1.2-2') : (metrics.yieldPercent | number:'1.2-4') + ' %' }}</strong></div>
+        <div class="metric-grid">
+          <div><span>YTM</span><strong>{{ metrics.yieldPercent | number:'1.2-4' }} %</strong></div>
+          <div><span>Rendement courant</span><strong>{{ metrics.currentYieldPercent | number:'1.2-4' }} %</strong></div>
+          <div><span>Duration Macaulay</span><strong>{{ metrics.macaulayDuration | number:'1.2-3' }} ans</strong></div>
+          <div><span>Duration modifiée</span><strong>{{ metrics.modifiedDuration | number:'1.2-3' }} ans</strong></div>
+          <div><span>Convexité</span><strong>{{ metrics.convexity | number:'1.2-3' }}</strong></div>
+          <div><span>DV01</span><strong>{{ metrics.dv01 | currency:currency:'symbol':'1.2-4' }}</strong></div>
+        </div>
+      </div>
+      <p class="message error" role="alert" *ngIf="valuationError">{{ valuationError }}</p>
+    </div>
+    <p class="disclaimer">Le YTM est un taux actuariel théorique si les flux sont payés et si l’obligation est conservée jusqu’à l’échéance. Le rendement réalisé dépend aussi du réinvestissement des coupons, du prix de revente, des frais, de la fiscalité et du risque de crédit. Le modèle ne traite pas de stub de coupon, de jour exact, d’option ni d’intérêts courus.</p>
+  </section>
+
+  <section id="credit-spread" class="analysis-section">
+    <div class="section-heading"><div><p class="eyebrow">03 / Prime de risque</p><h3>Spread, inflation et rendement net</h3></div></div>
+    <div class="spread-layout">
+      <div class="spread-tool">
+        <h4>Calcul du spread</h4>
+        <label><span>Rendement de l’obligation (%)</span><input type="number" step="0.01" [(ngModel)]="creditYieldPercent" /></label>
+        <label><span>Rendement de référence (%)</span><input type="number" step="0.01" [(ngModel)]="referenceYieldPercent" /></label>
+        <div class="spread-output"><span>Spread indicatif</span><strong>{{ spreadBasisPoints | number:'1.0-1' }} pb</strong></div>
+        <p class="model-note">Un point de base vaut 0,01 point de pourcentage. Le spread n’est ni une probabilité de défaut ni un rendement supplémentaire garanti; comparez des maturités, devises et méthodes cohérentes.</p>
+      </div>
+      <div class="spread-tool net-yield-tool">
+        <h4>Rendement réel net simplifié</h4>
+        <p class="section-copy">Estimation pédagogique à partir du YTM, sans modéliser le calendrier fiscal des coupons et des plus-values.</p>
+        <label><span>Inflation (%)</span><input type="number" step="0.1" [(ngModel)]="inflationPercent" /></label>
+        <label><span>Taux d’imposition indicatif (%)</span><input type="number" min="0" max="100" step="0.1" [(ngModel)]="taxRatePercent" /></label>
+        <label><span>Frais annuels (%)</span><input type="number" min="0" step="0.01" [(ngModel)]="annualFeesPercent" /></label>
+        <div class="spread-output"><span>Rendement net réel approx.</span><strong [class.negative]="approximateRealNetYieldPercent < 0">{{ approximateRealNetYieldPercent | number:'1.2-2' }} %</strong></div>
+        <p class="model-note">Approximation : YTM × (1 − taux d’imposition) − frais − inflation. La fiscalité française varie selon le compte, l’instrument, la situation et les règles en vigueur; cette sortie ne constitue pas un calcul fiscal.</p>
+      </div>
+    </div>
+    <div class="spread-definitions">
+      <div><strong>G-spread</strong><span>Écart par rapport à une obligation souveraine de référence.</span></div>
+      <div><strong>Z-spread</strong><span>Écart constant appliqué à une courbe zéro-coupon pour actualiser les flux.</span></div>
+      <div><strong>OAS</strong><span>Spread ajusté de la valeur estimée des options intégrées.</span></div>
+      <div><strong>Spread duration</strong><span>Sensibilité du prix à une variation du spread de crédit.</span></div>
+    </div>
+  </section>
+
+  <section id="risk-framework" class="analysis-section">
+    <div class="section-heading"><div><p class="eyebrow">04 / Lecture du risque</p><h3>Les risques à dissocier</h3></div></div>
+    <div class="risk-table-wrap">
+      <table class="risk-table">
+        <thead><tr><th>Risque</th><th>Effet possible</th><th>Points de contrôle</th></tr></thead>
+        <tbody><tr *ngFor="let risk of riskTopics"><th scope="row">{{ risk.title }}</th><td>{{ risk.description }}</td><td>{{ risk.monitor }}</td></tr></tbody>
+      </table>
+    </div>
+    <div class="concept-grid">
+      <article><h4>Coupon</h4><p>Intérêt contractuel rapporté au nominal. Il peut être fixe, variable ou indexé; il ne mesure pas seul la performance.</p></article>
+      <article><h4>Rendement courant</h4><p>Coupon annuel divisé par le prix de marché. Il ignore le remboursement final et la décote ou prime d’achat.</p></article>
+      <article><h4>YTM</h4><p>Taux qui égalise le prix et la valeur actualisée des flux prévus, sous conventions données.</p></article>
+      <article><h4>YTW / YTC</h4><p>Rendement au pire scénario contractuel pertinent / rendement si l’émetteur exerce une option de remboursement prévue.</p></article>
+      <article><h4>Duration</h4><p>Macaulay : temps moyen pondéré des flux. Modifiée : approximation de sensibilité relative du prix au rendement.</p></article>
+      <article><h4>Convexité</h4><p>Courbure prix-rendement, utile pour améliorer l’approximation lorsque le choc de taux est important.</p></article>
+      <article><h4>Prix clean et dirty</h4><p>Le prix dirty correspond au prix clean augmenté des intérêts courus entre deux coupons.</p></article>
+      <article><h4>Remboursement à l’échéance</h4><p>Détenir jusqu’à l’échéance n’élimine ni le risque de défaut, ni le coût d’opportunité, ni le risque de réinvestissement.</p></article>
+    </div>
+    <div class="market-context">
+      <h4>Relier le marché au cycle économique</h4>
+      <div class="context-grid">
+        <p><strong>Inflation persistante</strong><span>Peut relever les rendements exigés et peser sur les prix des obligations nominales.</span></p>
+        <p><strong>Récession</strong><span>Peut soutenir les souverains de qualité, tandis que les spreads des entreprises risquées s’écartent.</span></p>
+        <p><strong>Crise de crédit</strong><span>La hausse des spreads peut dominer une baisse des taux de référence.</span></p>
+        <p><strong>Courbe inversée</strong><span>Les taux courts dépassent les taux longs; signal de marché, pas prévision certaine de récession.</span></p>
+      </div>
+      <p class="model-note">Les marchés anticipent souvent les banques centrales. Taux directeurs, taux souverains et taux de crédit interagissent sans être identiques.</p>
+    </div>
+  </section>
+
+  <section id="credit-ratings" class="analysis-section">
+    <div class="section-heading"><div><p class="eyebrow">05 / Émetteur et durabilité</p><h3>Notation, structure et critères ESG</h3></div></div>
+    <div class="two-column-content">
+      <div>
+        <h4>Repères de notation</h4>
+        <div class="table-wrap"><table class="compact-table"><thead><tr><th>Niveau</th><th>S&amp;P / Fitch</th><th>Moody’s</th></tr></thead><tbody><tr *ngFor="let row of ratingRows"><td>{{ row.quality }}</td><td>{{ row.sp }}</td><td>{{ row.moodys }}</td></tr></tbody></table></div>
+        <p class="disclaimer">La frontière conventionnelle investment grade / high yield est BBB− chez S&amp;P et Fitch, et Baa3 chez Moody’s. La note d’une émission peut différer de celle de l’émetteur selon garanties et rang. Perspective, surveillance et migration restent à examiner.</p>
+      </div>
+      <div>
+        <h4>Caractéristiques contractuelles</h4>
+        <dl class="terms-list">
+          <div><dt>Séniorité et garanties</dt><dd>Déterminent la priorité et les protections relatives en cas de défaut.</dd></div>
+          <div><dt>Covenants</dt><dd>Obligations ou limites prévues au contrat pour protéger les créanciers.</dd></div>
+          <div><dt>Callable / putable</dt><dd>Remboursement anticipé possible à l’initiative de l’émetteur / de l’investisseur selon les clauses.</dd></div>
+          <div><dt>Convertible / subordonnée</dt><dd>Option de conversion en actions / rang inférieur avec pertes potentielles plus élevées.</dd></div>
+          <div><dt>Taux variable / indexé</dt><dd>Coupons révisés selon un indice / flux ajustés selon les modalités d’indexation.</dd></div>
+          <div><dt>Perpétuelle / zéro coupon</dt><dd>Sans échéance classique / sans coupon périodique; profils à analyser séparément.</dd></div>
+        </dl>
+      </div>
+    </div>
+    <div class="esg-section">
+      <div><h4>E · Environnement</h4><p>Émissions, transition, consommation des ressources, biodiversité et risques physiques.</p></div>
+      <div><h4>S · Social</h4><p>Conditions de travail, droits humains, fournisseurs, consommateurs et communautés.</p></div>
+      <div><h4>G · Gouvernance</h4><p>Contrôle interne, transparence, audit, corruption, conseil et discipline financière.</p></div>
+    </div>
+    <div class="sustainable-grid"><article *ngFor="let type of sustainableBondTypes"><h4>{{ type.name }}</h4><p>{{ type.description }}</p></article></div>
+    <p class="disclaimer">Les scores ESG peuvent diverger selon les données et pondérations. Un label ou un score ne garantit ni solvabilité ni performance. Pour limiter le greenwashing, vérifiez l’usage des fonds, les rapports d’allocation et d’impact, la revue externe et la cohérence avec la stratégie globale de l’émetteur.</p>
+  </section>
+
+  <section id="bond-comparison" class="analysis-section">
+    <div class="section-heading"><div><p class="eyebrow">06 / Mise en perspective</p><h3>Comparer deux obligations</h3></div><span class="section-tag">Valeurs modifiables · illustration sans flux marché</span></div>
+    <p class="section-copy">La comparaison est pertinente à devise, échéance, structure et date de valorisation comparables. Une prime de rendement rémunère des risques, elle ne suffit pas à conclure.</p>
+    <div class="comparison-table-wrap">
+      <table class="comparison-table">
+        <thead><tr><th>Indicateur</th><th>Obligation A <input aria-label="YTM obligation A" type="number" step="0.1" [(ngModel)]="comparisonA.yieldPercent" /> % YTM</th><th>Obligation B <input aria-label="YTM obligation B" type="number" step="0.1" [(ngModel)]="comparisonB.yieldPercent" /> % YTM</th></tr></thead>
+        <tbody>
+          <tr><th>Notation illustrative</th><td><input aria-label="Notation obligation A" [(ngModel)]="comparisonA.rating" /></td><td><input aria-label="Notation obligation B" [(ngModel)]="comparisonB.rating" /></td></tr>
+          <tr><th>Duration modifiée</th><td><input aria-label="Duration obligation A" type="number" min="0" step="0.1" [(ngModel)]="comparisonA.modifiedDuration" /> ans</td><td><input aria-label="Duration obligation B" type="number" min="0" step="0.1" [(ngModel)]="comparisonB.modifiedDuration" /> ans</td></tr>
+          <tr><th>Spread indicatif</th><td><input aria-label="Spread obligation A" type="number" step="0.1" [(ngModel)]="comparisonA.spreadPercent" /> %</td><td><input aria-label="Spread obligation B" type="number" step="0.1" [(ngModel)]="comparisonB.spreadPercent" /> %</td></tr>
+          <tr><th>Liquidité qualitative</th><td><select aria-label="Liquidité obligation A" [(ngModel)]="comparisonA.liquidity"><option>Bonne</option><option>Moyenne</option><option>Faible</option></select></td><td><select aria-label="Liquidité obligation B" [(ngModel)]="comparisonB.liquidity"><option>Bonne</option><option>Moyenne</option><option>Faible</option></select></td></tr>
+          <tr><th>Impact estimé d’un écartement de spread de +100 pb</th><td>{{ -comparisonA.modifiedDuration | number:'1.1-2' }} % approx.</td><td>{{ -comparisonB.modifiedDuration | number:'1.1-2' }} % approx.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="disclaimer">L’impact de spread utilise ici la duration modifiée comme proxy de spread duration; ce n’est pas une donnée calculée de l’obligation. L’effet réel dépend de la convexité, du spread initial, des options, du défaut et de la liquidité.</p>
+    <div class="vehicle-grid">
+      <article><h4>Obligation individuelle</h4><p>Flux et échéance identifiables; diversification parfois coûteuse et risque concentré sur l’émetteur.</p></article>
+      <article><h4>Fonds obligataire</h4><p>Diversification et gestion professionnelle; pas de remboursement unique d’un nominal à une date garantie.</p></article>
+      <article><h4>ETF obligataire</h4><p>Cotation et diversification; prix de marché, frais, écart de suivi et spread bid-ask restent présents.</p></article>
+      <article><h4>ETF à échéance définie</h4><p>Date de fin prévue, mais absence de garantie d’un capital donné.</p></article>
+    </div>
+  </section>
+
+  <section class="analysis-section">
+    <div class="section-heading"><div><p class="eyebrow">07 / Données et limites</p><h3>Ce que le panel permet de conclure</h3></div></div>
+    <p class="section-copy">Les résultats de ce module proviennent des hypothèses affichées et des données saisies. Le panel importé de l’application ne fournit pas nécessairement prix bid/ask, courbe de référence, historique de volumes, données financières détaillées d’émetteur ou scores ESG validés. Sans ces données, spread, liquidité, crédit et ESG ne sont pas évalués par le moteur.</p>
+    <div class="data-boundaries"><span><strong>Calculable ici</strong> Prix/YTM de modèle, rendement courant, durations, convexité, DV01 et scénarios paramétrés.</span><span><strong>À fournir ou vérifier</strong> Convention exacte, prix de marché, courbe, spread observé, rating actuel, documentation, données ESG et fiscalité personnelle.</span></div>
+  </section>
+
+  <section id="analysis-checklist" class="analysis-section checklist-section">
+    <div class="section-heading"><div><p class="eyebrow">08 / Discipline d’analyse</p><h3>Checklist obligataire</h3></div><span class="section-tag">{{ completedChecklistCount }} / {{ checklist.length }} examinés</span></div>
+    <div class="checklist-grid"><label *ngFor="let item of checklist" class="checklist-item"><input type="checkbox" [(ngModel)]="item.checked" /><span>{{ item.label }}</span></label></div>
+    <div class="takeaways">
+      <h4>À retenir</h4>
+      <p>Comparer le YTM plutôt que le coupon seul. Séparer risque de taux et risque de crédit. Traiter le spread comme une prime risquée, pas comme un gain promis. Vérifier la structure, la liquidité, la devise, l’inflation, les frais et la fiscalité. Une obligation à rendement élevé n’est pas automatiquement la meilleure.</p>
+    </div>
+  </section>
+</main>
