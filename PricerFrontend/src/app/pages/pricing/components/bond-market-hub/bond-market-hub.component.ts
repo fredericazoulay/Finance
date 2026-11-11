@@ -61,8 +61,10 @@ export class BondMarketHubComponent implements OnInit, AfterViewInit, OnDestroy 
 
   refresh(): void {
     this.marketDataService.refreshLiveMarketData().subscribe({
-      next: () => {
-        this.appliedSuccessMessage = 'Données de marché actualisées avec succès (FRED / BCE / Yahoo).';
+      next: snapshot => {
+        this.appliedSuccessMessage = snapshot.isLive
+          ? 'Données de marché actualisées depuis au moins une source externe.'
+          : 'Aucune source externe ne répond; les données de secours sont conservées.';
         setTimeout(() => this.appliedSuccessMessage = '', 4000);
       }
     });
@@ -70,7 +72,7 @@ export class BondMarketHubComponent implements OnInit, AfterViewInit, OnDestroy 
 
   onApplyLiveRates(): void {
     this.applyLiveRates.emit();
-    this.appliedSuccessMessage = 'Courbes des taux live appliquées au Pricer et au Comparateur.';
+    this.appliedSuccessMessage = 'Actualisation des courbes demandée pour le Pricer et le Comparateur.';
     setTimeout(() => this.appliedSuccessMessage = '', 4000);
   }
 

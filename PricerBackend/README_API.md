@@ -291,6 +291,42 @@ Request rates are decimals (`0.045` means 4.5%). `maturityToleranceMonths` defau
 
 The response includes each panel row's eligibility, rank, ranking reasons and exclusion reason, the selected security and applied yield, the ranking criteria, plus clean price, dirty price, accrued interest and day-count convention.
 
+### POST /api/v1/calculators/bonds/comparables/search
+
+Searches a configured licensed market-data gateway for candidate bonds. The endpoint is disabled with HTTP 503 until `PRICER_BOND_MARKET_DATA_BASE_URL` is configured. The gateway must accept the request below and return a JSON array of normalized comparable bonds using the same field names as the pricing endpoint. Each returned bond must include an ISO `asOf` date; missing `source` values are filled with `PRICER_BOND_MARKET_DATA_SOURCE`.
+
+Configuration:
+
+- `PRICER_BOND_MARKET_DATA_BASE_URL`: licensed gateway base URL.
+- `PRICER_BOND_MARKET_DATA_SEARCH_PATH`: path appended to the base URL; defaults to `/bonds/comparables/search`.
+- `PRICER_BOND_MARKET_DATA_SOURCE`: provenance label applied when an item omits `source`.
+- `PRICER_BOND_MARKET_DATA_BEARER_TOKEN`: optional bearer token. Keep it in the backend environment, never in the frontend.
+- `PRICER_BOND_MARKET_DATA_CONNECT_TIMEOUT_MS` and `PRICER_BOND_MARKET_DATA_READ_TIMEOUT_MS`: upstream timeouts.
+
+The provider-specific authentication and payload mapping must be implemented in, or behind, the licensed gateway. This generic adapter does not assume a Bloomberg, LSEG or FactSet API schema.
+
+The request body is `{ "target": <TargetBond>, "maturityToleranceMonths": 24 }`. The upstream response is an array such as:
+
+```json
+[
+  {
+    "securityId": "COMP-001",
+    "name": "Comparable bond",
+    "issuer": "Example issuer",
+    "currency": "EUR",
+    "maturityDate": "2032-04-23",
+    "yieldToMaturity": 0.052,
+    "couponRate": 0.045,
+    "marketPrice": 97.2,
+    "rating": "A",
+    "source": "Licensed feed",
+    "asOf": "2026-10-22",
+    "sector": "Financials",
+    "seniority": "Senior unsecured"
+  }
+]
+```
+
 ---
 
 ## AI bond analysis

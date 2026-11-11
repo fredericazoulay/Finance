@@ -7,7 +7,7 @@
     </div>
     <div class="screen-context">
       <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup$ | async }}</strong></div>
-      <span class="data-status">{{ activeMode === 'market-hub' ? 'Flux obligataire live · FRED, BCE et Yahoo Finance connectés' : activeMode === 'comparator' ? 'Comparateur synoptique côte-à-côte · simulation de choc de taux et audit' : activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+      <span class="data-status">{{ activeMode === 'market-hub' ? 'Références macro et courbes · FRED, BCE, Yahoo Finance' : activeMode === 'comparator' ? 'Comparateur synoptique côte-à-côte · simulation de choc de taux et audit' : activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
     </div>
   </header>
 
@@ -182,6 +182,9 @@
       <div class="panel-action-area">
         <span class="actions-label">Actions</span>
         <div class="panel-actions">
+          <button type="button" class="primary-button" [disabled]="isSearchingPanel" (click)="searchMarketPanel()" title="Rechercher des obligations comparables auprès du fournisseur configuré">
+            {{ isSearchingPanel ? 'Recherche…' : 'Rechercher via le fournisseur' }}
+          </button>
           <button type="button" class="secondary-button" (click)="loadDefaultBenchmarkUniverse()" title="Charger un panel représentatif d’emprunts d’État et d’entreprises">
             🏛️ Univers démo (12 titres)
           </button>
@@ -212,6 +215,8 @@
       securityId; currency; maturityDate (AAAA-MM-JJ); yieldToMaturity; emissionDate (AAAA-MM-JJ); issuer; rating; source; settlementDate (AAAA-MM-JJ).
       Les taux peuvent être saisis en décimal ou avec « % ».</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
+    <p class="message error" role="alert" *ngIf="marketSearchError">{{ marketSearchError }}</p>
+    <output class="message success" *ngIf="marketSearchMessage">{{ marketSearchMessage }}</output>
     <p class="message error" *ngIf="error">{{ error }}</p>
     <p class="message error" *ngIf="exportError">{{ exportError }}</p>
     <p class="message success" *ngIf="exportSuccess">{{ exportSuccess }}</p>

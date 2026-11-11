@@ -248,9 +248,12 @@ export class BondComparablesComponent {
   lastCalculatedAt: Date | null = null;
   error = '';
   importError = '';
+  marketSearchError = '';
+  marketSearchMessage = '';
   exportSuccess = '';
   isLoading = false;
   isImporting = false;
+  isSearchingPanel = false;
   isExporting = false;
   exportError = '';
   isFullOptionsExporting = false;
@@ -376,6 +379,47 @@ export class BondComparablesComponent {
       this.selectedBondIdsForCompare.add(this.panel[3].securityId);
     }
     this.persistState();
+  }
+
+  searchMarketPanel(): void {
+    this.marketSearchError = '';
+    this.marketSearchMessage = '';
+    if (!this.target.currency || !this.target.maturityDate) {
+      this.marketSearchError = 'Renseignez la devise et l’échéance de la cible avant la recherche.';
+      return;
+    }
+
+    this.isSearchingPanel = true;
+    this.comparablesService.searchPanel(this.target, Number(this.maturityToleranceMonths))
+      .pipe(finalize(() => {
+        this.isSearchingPanel = false;
+        this.cdr.detectChanges();
+      }))
+      .subscribe({
+        next: bonds => {
+          this.panel = bonds;
+          this.selectedBondIdsForCompare.clear();
+          this.invalidateResult();
+          if (bonds.length) {
+            const source = bonds.find(bond => bond.source)?.source ?? 'fournisseur configuré';
+            this.marketSearchMessage = `${bonds.length} obligation(s) reçue(s) depuis ${source}. Vérifiez les dates et la provenance avant le pricing.`;
+          } else {
+            this.marketSearchError = 'Le fournisseur n’a retourné aucun comparable pour ces critères.';
+          }
+          this.persistState();
+        },
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 503) {
+            this.marketSearchError = 'Le fournisseur de données obligataires n’est pas configuré côté backend.';
+          } else if (error.status === 502) {
+            this.marketSearchError = 'Le fournisseur de données obligataires est indisponible ou a renvoyé une réponse invalide.';
+          } else if (error.status === 0) {
+            this.marketSearchError = 'API backend inaccessible. Vérifiez le service sur le port 9092.';
+          } else {
+            this.marketSearchError = 'La recherche de comparables a échoué. Vérifiez la cible et réessayez.';
+          }
+        }
+      });
   }
 
   setMode(mode: BondScreenMode): void {
