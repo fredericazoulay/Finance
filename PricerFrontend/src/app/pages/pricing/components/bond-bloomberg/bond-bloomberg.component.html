@@ -33,7 +33,7 @@
     <div class="result-toolbar"><span>{{ filteredSecurities.length }} titres · {{ securities.length }} dans l’univers de démonstration</span><span>Security Finder / Corp</span></div>
     <div class="terminal-table-wrap">
       <table class="security-table">
-        <thead><tr><th>Instrument</th><th>Coupon</th><th>Échéance</th><th>Rating</th><th>Type</th><th>Devise</th><th>Ask Px</th><th>Source</th><th aria-label="Actions"></th></tr></thead>
+        <thead><tr><th>Instrument</th><th>Coupon</th><th>Échéance</th><th>Rating</th><th>Type</th><th>Devise</th><th>Ask Px</th><th>Source</th><th>DES</th><th>YAS</th><th>DEBT</th></tr></thead>
         <tbody>
           <tr *ngFor="let security of filteredSecurities" [class.selected-row]="security === selectedSecurity">
             <td><button type="button" class="instrument-link" (click)="selectForDescription(security)">{{ security.securityId }}<small>{{ security.issuer }}</small></button></td>
@@ -44,9 +44,11 @@
             <td>{{ security.currency }}</td>
             <td class="numeric-cell">{{ security.price | number:'1.2-3' }}</td>
             <td><span class="source-tag">{{ security.source }}</span></td>
-            <td class="row-actions"><button type="button" title="Ouvrir l’analyse rendement et spread" aria-label="Ouvrir YAS" (click)="selectForYieldAnalysis(security)">YAS</button></td>
+            <td class="row-actions"><button type="button" title="Ouvrir la description du titre" [attr.aria-label]="'Ouvrir DES pour ' + security.securityId" (click)="selectForDescription(security)">DES</button></td>
+            <td class="row-actions"><button type="button" title="Ouvrir l’analyse rendement et spread" [attr.aria-label]="'Ouvrir YAS pour ' + security.securityId" (click)="selectForYieldAnalysis(security)">YAS</button></td>
+            <td class="row-actions"><button type="button" title="Ouvrir la synthèse de dette de l’émetteur" [attr.aria-label]="'Ouvrir DEBT pour ' + security.issuer" (click)="selectForDebt(security)">DEBT</button></td>
           </tr>
-          <tr *ngIf="!filteredSecurities.length"><td class="empty-results" colspan="9">Aucun titre ne correspond aux filtres.</td></tr>
+          <tr *ngIf="!filteredSecurities.length"><td class="empty-results" colspan="11">Aucun titre ne correspond aux filtres.</td></tr>
         </tbody>
       </table>
     </div>
@@ -98,12 +100,15 @@
   </section>
 
   <section class="debt-screen" *ngIf="activeScreen === 'DEBT'">
-    <div class="debt-heading"><div><p class="section-kicker">ISSUER ANALYSIS · EUR (MM)</p><h2>Composition de la dette en circulation</h2></div><span>Électricité de France SA</span></div>
+    <div class="debt-heading"><div><p class="section-kicker">ISSUER ANALYSIS · EUR (MM)</p><h2>Composition de la dette en circulation</h2></div><span>{{ selectedSecurity.issuer }}</span></div>
+    <ng-container *ngIf="selectedSecurity.issuer === 'Électricité de France SA'; else unavailableDebt">
     <figure class="debt-chart" aria-label="Dette obligataire, prêts et total par trimestre, en millions d’euros">
       <div class="chart-legend"><span><i class="bond-key"></i>Obligations</span><span><i class="loan-key"></i>Prêts</span><span><i class="total-key"></i>Total</span></div>
       <div class="chart-columns"><div class="debt-column" *ngFor="let period of debtHistory"><div class="bar-set"><span class="debt-bar bonds-bar" [style.height.%]="barHeight(period.bonds)" [title]="'Obligations : ' + period.bonds + ' M EUR'"></span><span class="debt-bar loans-bar" [style.height.%]="barHeight(period.loans)" [title]="'Prêts : ' + period.loans + ' M EUR'"></span><span class="debt-bar total-bar" [style.height.%]="barHeight(period.total)" [title]="'Total : ' + period.total + ' M EUR'"></span></div><span class="period-label">{{ period.period }}</span></div></div>
     </figure>
     <div class="debt-table-wrap"><table class="debt-table"><thead><tr><th>Dette · EUR (MM)</th><th *ngFor="let period of debtHistory">{{ period.period }}</th></tr></thead><tbody><tr><th>Obligations</th><td *ngFor="let period of debtHistory">{{ period.bonds | number }}</td></tr><tr><th>Prêts</th><td *ngFor="let period of debtHistory">{{ period.loans | number }}</td></tr><tr class="total-row"><th>Total</th><td *ngFor="let period of debtHistory">{{ period.total | number }}</td></tr></tbody></table></div>
     <p class="debt-footnote">Série illustrative reprise des captures Bloomberg du document fourni; les données ne sont pas un historique financier validé.</p>
+    </ng-container>
+    <ng-template #unavailableDebt><div class="empty-analysis"><strong>Synthèse de dette indisponible pour cet émetteur</strong><span>Les données historiques de démonstration disponibles dans cet écran concernent Électricité de France SA.</span></div></ng-template>
   </section>
 </section>

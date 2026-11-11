@@ -127,6 +127,11 @@ export class BondBloombergComponent {
     this.setScreen('YAS');
   }
 
+  selectForDebt(security: BloombergSecurity): void {
+    this.selectSecurity(security);
+    this.setScreen('DEBT');
+  }
+
   barHeight(value: number): number {
     return Math.max(4, Math.round(value / 900));
   }
