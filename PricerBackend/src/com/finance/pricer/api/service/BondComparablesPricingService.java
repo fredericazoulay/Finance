@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Service
 public class BondComparablesPricingService {
@@ -40,6 +42,9 @@ public class BondComparablesPricingService {
         List<BondComparablesPricingResponse.PanelItem> items = new ArrayList<>();
         List<BondComparablesPricingRequest.ComparableBond> eligible = collectEligibleBonds(
             target, request.panel() == null ? List.of() : request.panel(), tolerance, items);
+        if (eligible.isEmpty()) {
+            throw new IllegalArgumentException(noEligibleComparablesMessage(items));
+        }
         eligible.sort(rankingComparator(target));
         BondComparablesPricingRequest.ComparableBond best = selectBestComparable(eligible);
         List<BondComparablesPricingResponse.PanelItem> rankedItems = markSelectedBond(items, eligible, best, target);
@@ -82,6 +87,18 @@ public class BondComparablesPricingService {
                 throw new IllegalArgumentException("No eligible comparable bonds in the panel");
             }
             return eligible.get(0);
+            }
+
+            private static String noEligibleComparablesMessage(List<BondComparablesPricingResponse.PanelItem> items) {
+            Map<String, Long> exclusionCounts = items.stream()
+                .map(BondComparablesPricingResponse.PanelItem::exclusionReason)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(reason -> reason, TreeMap::new, Collectors.counting()));
+            String exclusions = exclusionCounts.entrySet().stream()
+                .map(entry -> entry.getKey() + " (" + entry.getValue() + ")")
+                .collect(Collectors.joining("; "));
+            return "No eligible comparable bonds in the panel (exclusions: "
+                + (exclusions.isEmpty() ? "none" : exclusions) + ")";
             }
 
             private static List<BondComparablesPricingResponse.PanelItem> markSelectedBond(

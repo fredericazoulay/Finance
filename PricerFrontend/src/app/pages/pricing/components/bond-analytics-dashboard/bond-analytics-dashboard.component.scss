@@ -22,6 +22,13 @@ h3 { margin-bottom: 8px; font-size: 14px; }
 .scenario-controls label { display: flex; flex: 0 0 220px; flex-direction: column; gap: 4px; color: var(--ui-muted, #58677a); font-size: 12px; }
 .scenario-controls label strong { color: var(--ui-text, #263445); font-size: 14px; font-variant-numeric: tabular-nums; }
 .scenario-controls input { flex: 1; accent-color: var(--ui-accent, #315bf2); }
+.scenario-curve-controls { display: grid; grid-template-columns: minmax(180px, 0.7fr) minmax(0, 2fr); align-items: end; gap: 12px; }
+.curve-metric-control { display: flex; flex-direction: column; gap: 6px; color: var(--ui-muted, #58677a); font-size: 12px; }
+.curve-metric-control select { min-height: 34px; padding: 0 8px; border: 1px solid var(--ui-border, #d6deea); border-radius: 3px; background: var(--ui-surface, #fff); color: var(--ui-text, #263445); font: inherit; }
+.scenario-curve-controls fieldset { display: flex; flex-wrap: wrap; gap: 8px 14px; min-width: 0; margin: 0; padding: 8px 10px 10px; border: 1px solid var(--ui-border, #d6deea); border-radius: 5px; }
+.scenario-curve-controls legend { padding: 0 4px; color: var(--ui-muted, #58677a); font-size: 11px; }
+.scenario-curve-controls fieldset label { display: inline-flex; align-items: center; gap: 5px; color: var(--ui-text, #263445); font-size: 11px; font-variant-numeric: tabular-nums; }
+.scenario-curve-controls input { accent-color: var(--ui-accent, #315bf2); }
 .reset-button { min-height: 30px; border: 1px solid var(--ui-border, #d6deea); border-radius: 4px; background: transparent; color: var(--ui-text, #263445); font-size: 11px; font-weight: 700; }
 .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
 .metric-card { display: flex; min-height: 65px; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--ui-border, #d6deea); border-radius: 5px; background: var(--ui-surface, #fff); }
@@ -30,10 +37,15 @@ h3 { margin-bottom: 8px; font-size: 14px; }
 .metric-card.negative strong { color: #c94b4b; }
 .metric-card.positive strong { color: #23834c; }
 .scenario-chart-grid { margin-top: 2px; }
+.scenario-curve-card { grid-column: 1 / -1; }
+.scenario-curve-card .chart-area { height: 300px; }
 
 @media (max-width: 760px) {
   .chart-grid { grid-template-columns: 1fr; }
   .chart-area { height: 230px; }
+  .scenario-curve-controls { grid-template-columns: 1fr; }
+  .scenario-curve-card { grid-column: auto; }
+  .scenario-curve-card .chart-area { height: 260px; }
   .scenario-controls { align-items: stretch; flex-direction: column; gap: 8px; }
   .scenario-controls label { flex-basis: auto; }
 }

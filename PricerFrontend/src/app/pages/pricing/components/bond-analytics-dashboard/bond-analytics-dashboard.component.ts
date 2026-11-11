@@ -29,8 +29,23 @@ Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, Lin
 
 const MATURITY_BUCKETS = ['0-5Y', '5-10Y', '10-20Y', '20Y+'];
 const RATINGS = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];
+const PANEL_RATE_SHOCKS_BPS = [-100, -50, 50, 100];
 const CHART_COLORS = ['#4169f5', '#b44848', '#87a847', '#795d9b', '#44a1b3', '#e2863e', '#38a8a0', '#9d78c1'];
 const BLOOMBERG_CHART_COLORS = ['#ff8c00', '#f4c542', '#54b7a5', '#56a8d8', '#e66b5b', '#a28ac2', '#8eb04a', '#e89b63'];
+
+interface PanelRiskRow {
+  bond: BondComparable;
+  input: BondScenarioInput;
+  metrics: BondScenarioMetrics;
+}
+
+type ScenarioCurveMetric = 'price' | 'priceChange' | 'duration' | 'dv01' | 'convexity';
+
+interface ScenarioCurveMetricOption {
+  value: ScenarioCurveMetric;
+  label: string;
+  axisLabel: string;
+}
 
 @Component({
   selector: 'app-bond-analytics-dashboard',
@@ -55,12 +70,26 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   @ViewChild('maturityYieldChart') maturityYieldChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('couponYieldChart') couponYieldChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('priceYieldChart') priceYieldChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('maturityScenarioChart') maturityScenarioChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('cashFlowChart') cashFlowChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('panelRiskChart') panelRiskChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('panelShockChart') panelShockChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('marketModelPriceChart') marketModelPriceChart!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
   private themeObserver: MutationObserver | null = null;
   private viewInitialized = false;
   rateShockBps = 0;
+  readonly scenarioCurveMaturities = [1, 2, 3, 5, 7, 10, 15, 20, 30];
+  readonly scenarioCurveMetricOptions: ScenarioCurveMetricOption[] = [
+    { value: 'price', label: 'Prix', axisLabel: 'Prix dans la devise du nominal' },
+    { value: 'priceChange', label: 'Variation du prix (%)', axisLabel: 'Variation du prix (%)' },
+    { value: 'duration', label: 'Duration modifiée', axisLabel: 'Duration modifiée (années)' },
+    { value: 'dv01', label: 'DV01', axisLabel: 'DV01 dans la devise du nominal' },
+    { value: 'convexity', label: 'Convexité', axisLabel: 'Convexité' }
+  ];
+  selectedScenarioCurveMaturities = [1, 2, 3, 5, 10, 20];
+  scenarioCurveMetric: ScenarioCurveMetric = 'price';
 
   get scenario(): BondScenarioMetrics | null {
     return calculateBondScenario(this.scenarioInput, this.rateShockBps);
@@ -94,6 +123,14 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
 
   get bondsWithSectorCount(): number {
     return this.bonds.filter(bond => Boolean(bond.sector?.trim())).length;
+  }
+
+  get panelRiskCount(): number {
+    return this.panelRiskRows().length;
+  }
+
+  get panelMarketPriceCount(): number {
+    return this.panelRiskRows().filter(row => Number.isFinite(row.bond.marketPrice) && Number(row.bond.marketPrice) > 0).length;
   }
 
   ngAfterViewInit(): void {
@@ -145,6 +182,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         options: this.chartOptions('Obligations par devise', true)
       }),
       new Chart(this.maturityChart.nativeElement, {
+      ...this.createMaturityScenarioChart(chartColors),
         type: 'bar',
         data: {
           labels: MATURITY_BUCKETS,
@@ -177,18 +215,18 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         type: 'scatter',
         data: { datasets: this.couponYieldDatasets(chartColors) },
         options: this.scatterChartOptions('YTM selon le coupon', 'Coupon annuel (%)', 'YTM (%)')
-      })
+      }),
+      new Chart(this.yieldRatingChart.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: ratings,
+          datasets: [{ label: 'YTM moyen (%)', data: averageYields, backgroundColor: chartColors }]
+        },
+        options: this.chartOptions('YTM moyen par notation')
+      }),
+      ...this.createScenarioCharts(chartColors),
+      ...this.createPanelCharts(chartColors)
     ];
-
-    this.charts.push(new Chart(this.yieldRatingChart.nativeElement, {
-      type: 'bar',
-      data: {
-        labels: ratings,
-        datasets: [{ label: 'YTM moyen (%)', data: averageYields, backgroundColor: chartColors }]
-      },
-      options: this.chartOptions('YTM moyen par notation')
-    }));
-    this.createScenarioCharts(chartColors);
   }
 
   onRateShockChange(event: Event): void {
@@ -203,15 +241,31 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     });
   }
 
+  onScenarioCurveMetricChange(event: Event): void {
+    this.scenarioCurveMetric = (event.target as HTMLSelectElement).value as ScenarioCurveMetric;
+    this.updateCharts();
+  }
+
+  onScenarioCurveMaturityChange(maturity: number, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const selected = this.selectedScenarioCurveMaturities;
+    if (!checked && selected.length === 1 && selected[0] === maturity) return;
+
+    this.selectedScenarioCurveMaturities = checked
+      ? [...selected, maturity].sort((left, right) => left - right)
+      : selected.filter(value => value !== maturity);
+    this.updateCharts();
+  }
+
   resetRateShock(): void {
     this.rateShockBps = 0;
     this.updateCharts();
   }
 
-  private createScenarioCharts(chartColors: string[]): void {
+  private createScenarioCharts(chartColors: string[]): Chart[] {
     const scenario = calculateBondScenario(this.scenarioInput, this.rateShockBps);
     const baseScenario = calculateBondScenario(this.scenarioInput);
-    if (!scenario || !baseScenario) return;
+    if (!scenario || !baseScenario) return [];
 
     const input = this.scenarioInput;
     const frequency = Number(input.couponFrequency);
@@ -227,7 +281,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     ])].sort((left, right) => left - right);
     const textColor = this.chartTextColor;
 
-    this.charts.push(new Chart(this.priceYieldChart.nativeElement, {
+    return [new Chart(this.priceYieldChart.nativeElement, {
       type: 'line',
       data: {
         labels: yields.map(value => `${(value * 100).toFixed(2)} %`),
@@ -301,9 +355,9 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
           }
         }
       }
-    }));
+    }),
 
-    this.charts.push(new Chart(this.cashFlowChart.nativeElement, {
+    new Chart(this.cashFlowChart.nativeElement, {
       type: 'bar',
       data: {
         labels: scenario.cashFlows.map(flow => `${flow.timeYears.toFixed(2)} an(s)`),
@@ -334,8 +388,215 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
           y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: this.chartGridColor } }
         }
       }
-    }));
+    })];
 
+  }
+
+  private createMaturityScenarioChart(chartColors: string[]): Chart[] {
+    const input = this.scenarioInput;
+    const frequency = Number(input.couponFrequency);
+    const baseYield = Number(input.yieldToMaturityPercent) / 100;
+    const metric = this.scenarioCurveMetricOptions.find(option => option.value === this.scenarioCurveMetric)
+      ?? this.scenarioCurveMetricOptions[0];
+    if (!Number.isFinite(baseYield) || ![1, 2, 4, 12].includes(frequency)) return [];
+
+    const lowestYield = Math.max(baseYield - 0.03, -frequency + 0.0001);
+    const yields = Array.from({ length: 25 }, (_, index) => baseYield + (index - 12) * 0.0025)
+      .filter(value => value >= lowestYield && value <= baseYield + 0.03);
+    const datasets = this.selectedScenarioCurveMaturities.map((maturity, index) => {
+      const maturityInput = { ...input, maturityYears: maturity };
+      const baseMetrics = calculateBondScenario(maturityInput);
+      const color = chartColors[index % chartColors.length];
+      return {
+        label: `${maturity} an(s)`,
+        data: baseMetrics ? yields.flatMap(yieldRate => {
+          const metrics = calculateBondScenario({
+            ...maturityInput,
+            yieldToMaturityPercent: yieldRate * 100
+          });
+          if (!metrics) return [];
+          const value = this.scenarioCurveValue(metrics, metric.value, baseMetrics.basePrice);
+          return Number.isFinite(value) ? [{ x: yieldRate * 100, y: value }] : [];
+        }) : [],
+        showLine: true,
+        pointRadius: 0,
+        borderColor: color,
+        backgroundColor: color,
+        tension: 0.2
+      };
+    });
+
+    return [new Chart(this.maturityScenarioChart.nativeElement, {
+      type: 'scatter',
+      data: { datasets },
+      options: this.scatterChartOptions(
+        `${metric.label} selon le rendement et l’échéance`,
+        'Rendement actuariel (%)',
+        metric.axisLabel
+      )
+    })];
+  }
+
+  private scenarioCurveValue(metrics: BondScenarioMetrics, metric: ScenarioCurveMetric, basePrice: number): number {
+    switch (metric) {
+      case 'price': return metrics.price;
+      case 'priceChange': return (metrics.price - basePrice) / basePrice * 100;
+      case 'duration': return metrics.duration;
+      case 'dv01': return metrics.dv01;
+      case 'convexity': return metrics.convexity;
+    }
+  }
+
+  private createPanelCharts(chartColors: string[]): Chart[] {
+    const rows = this.panelRiskRows();
+    const textColor = this.chartTextColor;
+    const labels = rows.map(row => row.bond.securityId || row.bond.name);
+    const marketRows = rows.filter(row => Number.isFinite(row.bond.marketPrice) && Number(row.bond.marketPrice) > 0);
+    const pricePoints = marketRows.map(row => ({ x: Number(row.bond.marketPrice), y: row.metrics.basePrice }));
+    const priceExtent = pricePoints.flatMap(point => [point.x, point.y]);
+    const minPrice = Math.min(...priceExtent, 0);
+    const maxPrice = Math.max(...priceExtent, 100);
+
+    return [
+      new Chart(this.panelRiskChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Duration modifiée (ans)',
+            data: rows.map(row => row.metrics.duration),
+            backgroundColor: `${chartColors[0]}bb`,
+            xAxisID: 'x'
+          },
+          {
+            label: 'DV01 par 100 de nominal',
+            data: rows.map(row => row.metrics.dv01),
+            backgroundColor: `${chartColors[2]}bb`,
+            xAxisID: 'x1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          title: { display: true, text: 'Duration modifiée et DV01 par obligation', color: this.chartTitleColor },
+          legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: { display: true, text: 'Duration (années)', color: textColor },
+            ticks: { color: textColor },
+            grid: { color: this.chartGridColor }
+          },
+          x1: {
+            type: 'linear',
+            position: 'top',
+            title: { display: true, text: 'DV01 (par 100)', color: textColor },
+            ticks: { color: textColor },
+            grid: { drawOnChartArea: false }
+          },
+          y: { ticks: { color: textColor }, grid: { display: false } }
+        }
+      }
+    }),
+
+    new Chart(this.panelShockChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: PANEL_RATE_SHOCKS_BPS.map((shockBps, index) => ({
+          label: `${shockBps > 0 ? '+' : ''}${shockBps} pb`,
+          data: rows.map(row => {
+            const shocked = calculateBondScenario(row.input, shockBps);
+            return shocked ? shocked.pnl / shocked.basePrice * 100 : null;
+          }),
+          backgroundColor: `${chartColors[index % chartColors.length]}bb`
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Variation du prix selon le choc de rendement', color: this.chartTitleColor },
+          legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
+          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${Number(context.raw).toFixed(2)} %` } }
+        },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { display: false } },
+          y: {
+            title: { display: true, text: 'Variation du prix (%)', color: textColor },
+            ticks: { color: textColor },
+            grid: { color: this.chartGridColor }
+          }
+        }
+      }
+      }),
+      new Chart(this.marketModelPriceChart.nativeElement, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Référence marché = modèle',
+            data: [{ x: minPrice, y: minPrice }, { x: maxPrice, y: maxPrice }],
+            showLine: true,
+            pointRadius: 0,
+            borderColor: chartColors[1],
+            borderDash: [5, 4]
+          },
+          {
+            label: 'Obligations du panel',
+            data: pricePoints,
+            backgroundColor: chartColors[0],
+            pointRadius: 5
+          }
+        ]
+      },
+      options: {
+        ...this.scatterChartOptions('Prix de marché et prix théorique', 'Prix de marché par 100', 'Prix théorique par 100'),
+        plugins: {
+          title: { display: true, text: 'Prix de marché et prix théorique', color: this.chartTitleColor },
+          legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                if (context.datasetIndex === 0) return 'Référence : prix de marché = prix théorique';
+                const row = marketRows[context.dataIndex];
+                const marketPrice = context.parsed.x ?? 0;
+                const theoreticalPrice = context.parsed.y ?? 0;
+                return `${row?.bond.securityId ?? 'Obligation'} : marché ${marketPrice.toFixed(2)}, théorique ${theoreticalPrice.toFixed(2)}`;
+              }
+            }
+          }
+        }
+      }
+    })];
+  }
+
+  private panelRiskRows(): PanelRiskRow[] {
+    return this.bonds.flatMap(bond => {
+      const years = this.yearsToMaturity(bond.maturityDate);
+      const couponRate = Number(bond.couponRate);
+      const frequency = Number(bond.couponFrequency);
+      if (
+        years === null || !Number.isFinite(bond.yieldToMaturity) ||
+        !Number.isFinite(couponRate) || ![1, 2, 4, 12].includes(frequency)
+      ) return [];
+
+      const input: BondScenarioInput = {
+        faceValue: 100,
+        couponRatePercent: Math.abs(couponRate) <= 1 ? couponRate * 100 : couponRate,
+        couponFrequency: frequency,
+        maturityYears: years,
+        yieldToMaturityPercent: bond.yieldToMaturity * 100
+      };
+      const metrics = calculateBondScenario(input);
+      return metrics ? [{ bond, input, metrics }] : [];
+    });
   }
 
   private get scenarioInput(): BondScenarioInput {

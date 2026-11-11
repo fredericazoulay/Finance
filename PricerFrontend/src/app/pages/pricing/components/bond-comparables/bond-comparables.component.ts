@@ -801,14 +801,43 @@ export class BondComparablesComponent {
           this.error = 'API inaccessible. Vérifiez que le backend répond sur le port 9092.';
         } else if (error.status === 403) {
           this.error = 'Accès refusé par le backend (403). Vérifiez l’origine CORS autorisée.';
-        } else if (serverMessage === 'No eligible comparable bonds in the panel') {
-          this.error = 'Aucun comparable distinct de la cible : vérifiez la devise et l’échéance, augmentez la tolérance ou importez d’autres obligations.';
+        } else if (serverMessage.startsWith('No eligible comparable bonds in the panel')) {
+          this.error = this.noEligibleComparablesMessage(serverMessage);
         } else {
           this.error = serverMessage || 'Le calcul du panel a échoué. Vérifiez les données importées.';
         }
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private noEligibleComparablesMessage(serverMessage: string): string {
+    const details = serverMessage.match(/\(exclusions: (.*)\)$/)?.[1];
+    const labels: Record<string, string> = {
+      'Missing bond data': 'données de l’obligation manquantes',
+      'Missing security identifier': 'identifiant manquant',
+      'Target bond cannot be its own comparable': 'la cible elle-même',
+      'Currency differs from target': 'devise différente de la cible',
+      'Invalid maturity date': 'échéance invalide ou antérieure au règlement',
+      'Invalid yield to maturity': 'YTM absent ou invalide',
+      'Missing market data source': 'source de marché manquante',
+      'Missing market data as-of date': 'date de cotation manquante',
+      'Invalid market data as-of date': 'date de cotation invalide',
+      'Market data as-of date is after settlement': 'date de cotation postérieure au règlement',
+      'Market data is stale': 'date de cotation trop ancienne',
+      'Maturity outside configured tolerance': 'échéance hors tolérance'
+    };
+    const exclusions = details && details !== 'none'
+      ? details.split('; ').map(detail => {
+        const match = detail.match(/^(.*) \((\d+)\)$/);
+        return match ? `${labels[match[1]] ?? match[1]} : ${match[2]}` : detail;
+      })
+      : [];
+
+    if (!exclusions.length) {
+      return 'Aucun comparable admissible. Vérifiez que le panel contient un titre distinct de la cible, dans la même devise et dans la tolérance d’échéance, avec un YTM, une source et une date de cotation valides.';
+    }
+    return `Aucun comparable admissible. Motifs d’exclusion (nombre de titres) : ${exclusions.join('; ')}. Vérifiez notamment la source et la date de cotation, la devise et la tolérance d’échéance.`;
   }
 
   get panelRows(): BondComparableRow[] {
@@ -830,7 +859,7 @@ export class BondComparablesComponent {
 
   get filteredPanelRows(): BondComparableRow[] {
     return this.panelRows
-      .filter(row => !this.eligibilityFilters.size || this.eligibilityFilters.has(this.eligibilityFilterValue(row)))
+      .filter(row => !this.eligibilityFilters.size || [...this.eligibilityFilters].some(filter => this.matchesEligibilityFilter(row, filter)))
       .filter(row => (Object.keys(this.filters) as TextFilterColumn[]).every(column => {
         const filter = this.filters[column].trim().toLocaleLowerCase();
         if (column === 'yieldToMaturity') {
@@ -2083,10 +2112,13 @@ export class BondComparablesComponent {
     }
   }
 
-  private eligibilityFilterValue(row: BondComparableRow): EligibilityFilter {
-    if (row.selected) return 'best';
-    if (row.eligible === false) return 'excluded';
-    return row.eligible ? 'eligible' : 'pending';
+  private matchesEligibilityFilter(row: BondComparableRow, filter: EligibilityFilter): boolean {
+    switch (filter) {
+      case 'best': return row.selected;
+      case 'eligible': return row.eligible === true;
+      case 'excluded': return row.eligible === false;
+      case 'pending': return row.eligible === null;
+    }
   }
 
   private compareRows(left: BondComparableRow, right: BondComparableRow, column: BondColumn): number {

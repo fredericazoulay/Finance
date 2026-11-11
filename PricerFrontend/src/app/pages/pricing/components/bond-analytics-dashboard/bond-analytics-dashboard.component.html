@@ -66,10 +66,29 @@
     <ng-template #invalidScenario>
       <p class="chart-note">Saisissez un nominal, un coupon, une échéance, une fréquence (1, 2, 4 ou 12) et un rendement valides.</p>
     </ng-template>
+    <div class="scenario-curve-controls">
+      <label class="curve-metric-control">
+        Mesure affichée
+        <select [value]="scenarioCurveMetric" (change)="onScenarioCurveMetricChange($event)">
+          <option *ngFor="let metric of scenarioCurveMetricOptions" [value]="metric.value">{{ metric.label }}</option>
+        </select>
+      </label>
+      <fieldset>
+        <legend>Échéances comparées (années)</legend>
+        <label *ngFor="let maturity of scenarioCurveMaturities">
+          <input type="checkbox" [checked]="selectedScenarioCurveMaturities.includes(maturity)"
+            [disabled]="selectedScenarioCurveMaturities.length === 1 && selectedScenarioCurveMaturities.includes(maturity)"
+            (change)="onScenarioCurveMaturityChange(maturity, $event)" />
+          {{ maturity }}
+        </label>
+      </fieldset>
+    </div>
     <div class="chart-grid scenario-chart-grid">
       <article class="chart-card"><div class="chart-area"><canvas #priceYieldChart aria-label="Prix exact en fonction du rendement actuariel"></canvas></div></article>
       <article class="chart-card"><div class="chart-area"><canvas #cashFlowChart aria-label="Flux contractuels et flux actualisés du scénario"></canvas></div></article>
+      <article class="chart-card scenario-curve-card"><div class="chart-area"><canvas #maturityScenarioChart aria-label="Mesure obligataire selon le rendement et l’échéance"></canvas></div></article>
     </div>
+    <p class="chart-note">Comparaison à coupon, fréquence et nominal constants. Le prix et le DV01 sont exprimés dans la devise du nominal; la variation du prix est calculée par rapport au prix de chaque échéance au YTM initial. Courbes indicatives, sans intérêts courus, options ni frais.</p>
     <p class="chart-note">Courbe pleine : repricing exact. Courbes pointillées : approximations par duration seule, puis duration et convexité. Convention indicative : coupons fixes, période finale proratisée, sans intérêts courus, option, défaut, fiscalité ni frais. Les prix et le DV01 sont dans la devise du nominal saisi.</p>
   </section>
 
@@ -96,9 +115,18 @@
       <div class="chart-area"><canvas #couponYieldChart aria-label="Rendement selon le coupon annuel, par notation"></canvas></div>
       <p class="chart-note" *ngIf="!bondsWithCouponAndYieldCount">Indisponible : il faut le taux de coupon et le YTM de l’obligation.</p>
     </article>
-    <article class="chart-card unavailable-card">
-      <h3>Risques calculés du panel</h3>
-      <p>Duration, convexité et DV01 sont calculées ci-dessus pour le scénario de référence ; elles ne sont pas fournies pour chaque obligation importée.</p>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #panelRiskChart aria-label="Duration modifiée et DV01 par obligation"></canvas></div>
+      <p class="chart-note" *ngIf="!panelRiskCount">Indisponible : chaque obligation doit avoir un YTM, un coupon, une fréquence de coupons valide et une échéance future.</p>
+    </article>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #panelShockChart aria-label="Variation du prix des obligations du panel selon plusieurs chocs de rendement"></canvas></div>
+      <p class="chart-note" *ngIf="!panelRiskCount">Indisponible : les champs de calcul du risque par obligation sont incomplets.</p>
+    </article>
+    <article class="chart-card">
+      <div class="chart-area"><canvas #marketModelPriceChart aria-label="Comparaison des prix de marché et des prix théoriques"></canvas></div>
+      <p class="chart-note" *ngIf="!panelMarketPriceCount">Indisponible : aucun prix de marché comparable n’est fourni dans le panel.</p>
+      <p class="chart-note">Prix théorique indicatif par 100 de nominal, calculé avec des coupons fixes et le YTM du panel; sans intérêts courus ni ajustement de date de règlement.</p>
     </article>
     <article class="chart-card unavailable-card">
       <h3>Spread de crédit</h3>
