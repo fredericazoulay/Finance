@@ -1,0 +1,162 @@
+import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
+import { BondComparable } from '../../../../models/bond-comparables.model';
+import {
+  BondComputedMetrics,
+  calculateRateShockImpact,
+  computeBondAnalytics
+} from '../../../../services/bond-analytics-calc';
+
+export interface BondShockResult {
+  securityId: string;
+  name: string;
+  currentPrice: number;
+  newPrice: number;
+  pctChange: number;
+  monetaryChange: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  checked: boolean;
+}
+
+@Component({
+  selector: 'app-bond-comparator',
+  standalone: true,
+  imports: [CommonModule, FormsModule, TranslateModule],
+  templateUrl: './bond-comparator.component.html',
+  styleUrls: ['./bond-comparator.component.scss']
+})
+export class BondComparatorComponent implements OnChanges {
+  @Input() selectedBonds: BondComparable[] = [];
+  @Input() allBonds: BondComparable[] = [];
+
+  @Output() removeBond = new EventEmitter<string>();
+  @Output() addBond = new EventEmitter<string>();
+  @Output() openInBloomberg = new EventEmitter<string>();
+
+  metricsMap = new Map<string, BondComputedMetrics>();
+  selectedBondForChecklist = '';
+
+  // Simulator controls
+  rateShockBps = 100;
+  investedAmount = 100000;
+  bondToAddId = '';
+
+  // 10-point inspection checklist based on application_bonds2.md
+  checklist: ChecklistItem[] = [
+    { id: 'ytm', category: 'Rendement', title: 'YTM & Coupons', description: 'Le rendement actuariel (YTM) rémunère-t-il suffisamment la période d’immobilisation ?', checked: true },
+    { id: 'credit', category: 'Crédit', title: 'Notation & Solvabilité', description: 'La qualité de crédit (rating S&P/Moody’s) et la trajectoire d’endettement sont-elles saines ?', checked: true },
+    { id: 'rates', category: 'Taux', title: 'Duration & Convexité', description: 'La duration modifiée est-elle en adéquation avec votre tolérance aux hausses de taux ?', checked: true },
+    { id: 'spread', category: 'Spread', title: 'G-Spread vs Souverain', description: 'La prime de risque par rapport aux emprunts d’État (Bund / OAT) est-elle attractive ?', checked: true },
+    { id: 'liquidity', category: 'Liquidité', title: 'Liquidité & Encours', description: 'L’émission dépasse-t-elle 500 M€ et le spread bid/ask est-il raisonnable ?', checked: false },
+    { id: 'structure', category: 'Structure', title: 'Séniorité & Clauses', description: 'Rang de remboursement (Senior vs Subordonné) et absence de clauses défavorables de call ?', checked: true },
+    { id: 'macro', category: 'Macro', title: 'Inflation & Change', description: 'Le rendement net d’inflation reste-t-il positif et le risque de change est-il maîtrisé ?', checked: false },
+    { id: 'esg', category: 'ESG', title: 'Facteurs ESG & Green Bond', description: 'Prise en compte des risques de transition écologique et des controverses majeures ?', checked: true },
+    { id: 'tax', category: 'Fiscalité', title: 'Rendement net réel', description: 'Prise en compte du régime fiscal et des frais d’intermédiation ?', checked: false },
+    { id: 'portfolio', category: 'Portefeuille', title: 'Diversification & Poids', description: 'Le titre limite-t-il la concentration sectorielle ou émetteur dans votre portefeuille ?', checked: true }
+  ];
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['selectedBonds']) {
+      this.recalculateAllMetrics();
+      if (!this.selectedBondForChecklist && this.selectedBonds.length > 0) {
+        this.selectedBondForChecklist = this.selectedBonds[0].securityId;
+      }
+    }
+  }
+
+  private recalculateAllMetrics(): void {
+    this.metricsMap.clear();
+    for (const bond of this.selectedBonds) {
+      this.metricsMap.set(bond.securityId, computeBondAnalytics(bond));
+    }
+  }
+
+  getMetrics(securityId: string): BondComputedMetrics | undefined {
+    return this.metricsMap.get(securityId);
+  }
+
+  get availableBondsToAdd(): BondComparable[] {
+    const selectedIds = new Set(this.selectedBonds.map(b => b.securityId));
+    return this.allBonds.filter(b => !selectedIds.has(b.securityId));
+  }
+
+  onAddSelectedBond(): void {
+    if (this.bondToAddId) {
+      this.addBond.emit(this.bondToAddId);
+      this.bondToAddId = '';
+    }
+  }
+
+  onRemoveBond(securityId: string): void {
+    this.removeBond.emit(securityId);
+    if (this.selectedBondForChecklist === securityId) {
+      const remaining = this.selectedBonds.filter(b => b.securityId !== securityId);
+      this.selectedBondForChecklist = remaining.length > 0 ? remaining[0].securityId : '';
+    }
+  }
+
+  get checkedCount(): number {
+    return this.checklist.filter(item => item.checked).length;
+  }
+
+  get simulationResults(): BondShockResult[] {
+    return this.selectedBonds.map(bond => {
+      const metrics = this.getMetrics(bond.securityId);
+      if (!metrics) {
+        return {
+          securityId: bond.securityId,
+          name: bond.name || bond.securityId,
+          currentPrice: 100,
+          newPrice: 100,
+          pctChange: 0,
+          monetaryChange: 0
+        };
+      }
+
+      const impact = calculateRateShockImpact(
+        metrics.modifiedDuration,
+        metrics.convexity,
+        this.rateShockBps,
+        this.investedAmount,
+        metrics.cleanPrice
+      );
+
+      return {
+        securityId: bond.securityId,
+        name: bond.name || bond.securityId,
+        currentPrice: metrics.cleanPrice,
+        newPrice: impact.newPrice,
+        pctChange: impact.pctChange,
+        monetaryChange: impact.monetaryChange
+      };
+    });
+  }
+
+  setQuickShock(bps: number): void {
+    this.rateShockBps = bps;
+  }
+
+  toggleChecklistItem(item: ChecklistItem): void {
+    item.checked = !item.checked;
+  }
+
+  resetChecklist(): void {
+    for (const item of this.checklist) {
+      item.checked = false;
+    }
+  }
+
+  selectAllChecklist(): void {
+    for (const item of this.checklist) {
+      item.checked = true;
+    }
+  }
+}

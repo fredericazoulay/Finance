@@ -1,0 +1,311 @@
+<section class="comparator-container" aria-label="Comparateur obligataire synoptique">
+  <header class="comparator-header">
+    <div>
+      <p class="eyebrow">Fixed income / relative value analysis</p>
+      <h2>Comparateur synoptique d’obligations</h2>
+      <p class="subtitle">Analyse multi-critères, comparaison côte-à-côte, sensibilité aux taux et audit décisionnel.</p>
+    </div>
+    <div class="comparator-controls" *ngIf="selectedBonds.length < 5 && availableBondsToAdd.length > 0">
+      <label for="bond-add-select" class="visually-hidden">Ajouter une obligation</label>
+      <select id="bond-add-select" [(ngModel)]="bondToAddId" (change)="onAddSelectedBond()">
+        <option value="">+ Ajouter un titre au comparateur ({{ selectedBonds.length }}/5)</option>
+        <option *ngFor="let bond of availableBondsToAdd" [value]="bond.securityId">
+          {{ bond.securityId }} · {{ bond.name }} ({{ bond.rating || 'NR' }} · YTM {{ (bond.yieldToMaturity > 1 ? bond.yieldToMaturity : bond.yieldToMaturity * 100) | number:'1.2-2' }}%)
+        </option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Empty state if no bonds selected -->
+  <div class="empty-comparator" *ngIf="selectedBonds.length === 0">
+    <div class="empty-icon">⚖️</div>
+    <h3>Aucune obligation sélectionnée pour comparaison</h3>
+    <p>Sélectionnez au moins 2 obligations depuis le panel pour afficher la matrice comparative côte-à-côte.</p>
+    <div class="quick-sample-actions" *ngIf="allBonds.length > 0">
+      <button type="button" class="primary-button" (click)="addBond.emit(allBonds[0].securityId); addBond.emit(allBonds[1].securityId); allBonds.length > 2 && addBond.emit(allBonds[2].securityId)">
+        Charger un exemple comparatif (3 titres)
+      </button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="selectedBonds.length > 0">
+    <!-- Comparison Matrix Table -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>1. Matrice comparative côte-à-côte</h3>
+        <span class="count-tag">{{ selectedBonds.length }} titre(s) comparé(s)</span>
+      </div>
+
+      <div class="table-scroll-wrap">
+        <table class="synoptic-table">
+          <thead>
+            <tr>
+              <th class="metric-label-col">Critères d'analyse</th>
+              <th *ngFor="let bond of selectedBonds" class="bond-col">
+                <div class="bond-col-header">
+                  <div class="bond-titles">
+                    <strong class="bond-ticker">{{ bond.securityId }}</strong>
+                    <span class="bond-name">{{ bond.name }}</span>
+                  </div>
+                  <div class="col-actions">
+                    <button type="button" class="terminal-btn" (click)="openInBloomberg.emit(bond.securityId)" title="Ouvrir dans le terminal Bloomberg YAS">
+                      Terminal YAS ↗
+                    </button>
+                    <button type="button" class="remove-btn" (click)="onRemoveBond(bond.securityId)" title="Retirer de la comparaison">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- SECTION 1: IDENTITÉ -->
+            <tr class="section-divider-row"><td [attr.colspan]="selectedBonds.length + 1">Identification & Structure de l’émission</td></tr>
+            <tr>
+              <td class="metric-label">Émetteur & Pays</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <strong>{{ bond.issuer || '—' }}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Devise & Secteur</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <span class="currency-badge">{{ bond.currency }}</span>
+                <span class="sector-tag">{{ bond.sector || 'Général' }}</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Qualité de crédit (Rating)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <span class="rating-badge" [attr.data-rating]="bond.rating">{{ bond.rating || 'Non notée' }}</span>
+                <small class="rating-segment">{{ (bond.rating?.startsWith('BB') || bond.rating?.startsWith('B')) ? 'High Yield' : 'Investment Grade' }}</small>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Séniorité & Structure</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                {{ bond.seniority || 'Senior Unsecured' }}
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Label ESG / Vert</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <span *ngIf="bond.isGreenBond" class="esg-green-badge">🌱 Green Bond certifié</span>
+                <span *ngIf="!bond.isGreenBond" class="esg-standard-badge">Standard</span>
+              </td>
+            </tr>
+
+            <!-- SECTION 2: COURS & FLUX -->
+            <tr class="section-divider-row"><td [attr.colspan]="selectedBonds.length + 1">Valorisation de marché & Modalités de coupon</td></tr>
+            <tr>
+              <td class="metric-label">Prix Clean (Coté)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val highlight-val">
+                <strong>{{ getMetrics(bond.securityId)?.cleanPrice | number:'1.2-3' }} %</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Intérêts courus</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                {{ getMetrics(bond.securityId)?.accruedInterest | number:'1.2-3' }} {{ bond.currency }}
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Prix Dirty (Règlement)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <strong>{{ getMetrics(bond.securityId)?.dirtyPrice | number:'1.2-3' }} {{ bond.currency }}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Coupon annuel & Fréquence</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <strong>{{ (bond.couponRate != null ? bond.couponRate : 3.5) | number:'1.2-3' }} %</strong>
+                <small>({{ (bond.couponFrequency || 1) === 1 ? 'Annuel' : (bond.couponFrequency === 2 ? 'Semestriel' : 'Trimestriel') }})</small>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Échéance contractuelle</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <strong>{{ bond.maturityDate | date:'dd/MM/yyyy' }}</strong>
+                <small>({{ getMetrics(bond.securityId)?.yearsToMaturity | number:'1.1-1' }} ans)</small>
+              </td>
+            </tr>
+
+            <!-- SECTION 3: RENDEMENTS & SPREADS -->
+            <tr class="section-divider-row"><td [attr.colspan]="selectedBonds.length + 1">Rendements actuariels & Primes de risque</td></tr>
+            <tr class="key-metric-row">
+              <td class="metric-label">Rendement à l’échéance (YTM)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val ytm-val">
+                <strong>{{ getMetrics(bond.securityId)?.yieldToMaturity | number:'1.2-3' }} %</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Rendement courant (Current Yield)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                {{ getMetrics(bond.securityId)?.currentYield | number:'1.2-2' }} %
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">G-Spread vs Souverain</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val spread-val">
+                <strong>+{{ getMetrics(bond.securityId)?.gSpreadBps }} bp</strong>
+                <small>vs {{ getMetrics(bond.securityId)?.benchmarkSecurity }} ({{ getMetrics(bond.securityId)?.benchmarkYield }}%)</small>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">I-Spread / Z-Spread (estimé)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                +{{ getMetrics(bond.securityId)?.zSpreadBps }} bp
+              </td>
+            </tr>
+
+            <!-- SECTION 4: SENSIBILITÉS AUX TAUX -->
+            <tr class="section-divider-row"><td [attr.colspan]="selectedBonds.length + 1">Risque de taux & Sensibilités (Duration / Convexité)</td></tr>
+            <tr>
+              <td class="metric-label">Duration Macaulay</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                {{ getMetrics(bond.securityId)?.macaulayDuration | number:'1.2-2' }} ans
+              </td>
+            </tr>
+            <tr class="key-metric-row">
+              <td class="metric-label">Duration Modifiée (Sensibilité)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val mod-dur-val">
+                <strong>{{ getMetrics(bond.securityId)?.modifiedDuration | number:'1.2-2' }} ans</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Convexité</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                {{ getMetrics(bond.securityId)?.convexity | number:'1.3-3' }}
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">DV01 (pour 100 000 nominal)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <strong>{{ getMetrics(bond.securityId)?.dv01 | number:'1.1-1' }} {{ bond.currency }}</strong> / bp
+              </td>
+            </tr>
+
+            <!-- SECTION 5: RELATIVE VALUE & DÉCISION -->
+            <tr class="section-divider-row"><td [attr.colspan]="selectedBonds.length + 1">Analyse Relative Value & Ratios décisionnels</td></tr>
+            <tr>
+              <td class="metric-label">Ratio Rendement / Duration (YTM / ModDur)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <span class="ratio-pill">{{ getMetrics(bond.securityId)?.yieldToDurationRatio | number:'1.2-2' }} % / an</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="metric-label">Statut Valeur Relative (RV)</td>
+              <td *ngFor="let bond of selectedBonds" class="metric-val">
+                <ng-container [ngSwitch]="getMetrics(bond.securityId)?.relativeValueStatus">
+                  <span *ngSwitchCase="'CHEAP'" class="rv-status-badge cheap" title="Sur-rendement supérieur à la moyenne des pairs de même notation/maturité">
+                    🟢 CHEAP (+{{ getMetrics(bond.securityId)?.relativeValueSpreadResidueBps }} bp)
+                  </span>
+                  <span *ngSwitchCase="'RICH'" class="rv-status-badge rich" title="Rendement inférieur à la courbe de pairs">
+                    🔴 RICH ({{ getMetrics(bond.securityId)?.relativeValueSpreadResidueBps }} bp)
+                  </span>
+                  <span *ngSwitchDefault class="rv-status-badge fair">
+                    🔵 FAIR (Dans la courbe)
+                  </span>
+                </ng-container>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Rate Shock Simulator Section -->
+    <div class="simulation-card">
+      <div class="simulation-header">
+        <div>
+          <h3>2. Simulateur de choc de taux comparatif</h3>
+          <p class="section-description">
+            Évaluez simultanément l’impact d’une variation de taux sur chaque obligation via la formule du second ordre :
+            <code>ΔP/P ≈ -D_mod × Δy + ½ × Conv × (Δy)²</code>
+          </p>
+        </div>
+        <div class="simulation-inputs">
+          <div class="input-group">
+            <label for="invest-amount">Nominal investi (€)</label>
+            <input id="invest-amount" type="number" min="1000" step="5000" [(ngModel)]="investedAmount" />
+          </div>
+          <div class="input-group">
+            <label for="rate-shock-slider">Choc de taux : <strong>{{ rateShockBps > 0 ? '+' : '' }}{{ rateShockBps }} bp</strong> ({{ (rateShockBps / 100) | number:'1.2-2' }} pt)</label>
+            <div class="slider-row">
+              <input id="rate-shock-slider" type="range" min="-300" max="300" step="10" [(ngModel)]="rateShockBps" />
+            </div>
+            <div class="quick-presets">
+              <button type="button" class="preset-btn" (click)="setQuickShock(-100)">-100 bp</button>
+              <button type="button" class="preset-btn" (click)="setQuickShock(-50)">-50 bp</button>
+              <button type="button" class="preset-btn" (click)="setQuickShock(0)">0 bp</button>
+              <button type="button" class="preset-btn" (click)="setQuickShock(50)">+50 bp</button>
+              <button type="button" class="preset-btn" (click)="setQuickShock(100)">+100 bp</button>
+              <button type="button" class="preset-btn" (click)="setQuickShock(200)">+200 bp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shock-grid">
+        <div class="shock-card" *ngFor="let res of simulationResults" [class.positive]="res.monetaryChange > 0" [class.negative]="res.monetaryChange < 0">
+          <div class="shock-card-header">
+            <strong>{{ res.name }}</strong>
+            <span class="ticker-badge">{{ res.securityId }}</span>
+          </div>
+          <div class="shock-metrics">
+            <div class="shock-metric">
+              <span>Variation estimée %</span>
+              <strong class="change-pct">{{ res.pctChange > 0 ? '+' : '' }}{{ res.pctChange | number:'1.2-2' }} %</strong>
+            </div>
+            <div class="shock-metric">
+              <span>Impact capital</span>
+              <strong class="change-money">{{ res.monetaryChange > 0 ? '+' : '' }}{{ res.monetaryChange | number:'1.0-0' }} €</strong>
+            </div>
+            <div class="shock-metric">
+              <span>Nouveau cours</span>
+              <span class="new-price">{{ res.newPrice | number:'1.2-3' }} %</span>
+            </div>
+          </div>
+          <div class="bar-visual">
+            <div class="bar-fill" [style.width.%]="(res.pctChange > 0 ? res.pctChange : -res.pctChange) * 4" [class.green-bar]="res.pctChange > 0" [class.red-bar]="res.pctChange < 0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10-Point Analysis Checklist Section -->
+    <div class="checklist-card">
+      <div class="checklist-header">
+        <div>
+          <h3>3. Grille d’audit et de sélection obligataire (10 points de contrôle)</h3>
+          <p class="section-description">
+            Méthodologie issue du guide de finance de marché pour valider rigoureusement un investissement avant décision.
+          </p>
+        </div>
+        <div class="checklist-status">
+          <span class="score-badge" [class.good]="checkedCount >= 8" [class.average]="checkedCount >= 5 && checkedCount < 8">
+            Score : {{ checkedCount }} / 10 validé(s)
+          </span>
+          <div class="checklist-quick-actions">
+            <button type="button" class="secondary-btn" (click)="selectAllChecklist()">Tout valider</button>
+            <button type="button" class="secondary-btn" (click)="resetChecklist()">Réinitialiser</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="checklist-grid">
+        <label class="checklist-item" *ngFor="let item of checklist" [class.checked]="item.checked">
+          <input type="checkbox" [checked]="item.checked" (change)="toggleChecklistItem(item)" />
+          <div class="item-content">
+            <div class="item-top">
+              <span class="item-cat">{{ item.category }}</span>
+              <strong>{{ item.title }}</strong>
+            </div>
+            <p class="item-desc">{{ item.description }}</p>
+          </div>
+        </label>
+      </div>
+    </div>
+  </ng-container>
+</section>

@@ -26,6 +26,8 @@ import { BondScenarioInput } from '../bond-analytics-dashboard/bond-scenario';
 import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 import { BondBloombergComponent } from '../bond-bloomberg/bond-bloomberg.component';
 import { BondAnalysisGuideComponent } from '../bond-analysis-guide/bond-analysis-guide.component';
+import { BondComparatorComponent } from '../bond-comparator/bond-comparator.component';
+import { DEFAULT_BENCHMARK_BONDS } from '../../../../services/bond-analytics-calc';
 import { WorkGroupService } from '../../../../services/work-group.service';
 
 interface BondComparableRow extends BondComparable {
@@ -39,7 +41,7 @@ type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
-type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis';
+type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis' | 'comparator';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus' | 'eligible';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
@@ -110,7 +112,8 @@ interface PersistedBondComparablesState {
     BondAnalyticsDashboardComponent,
     BondFormulasComponent,
     BondBloombergComponent,
-    BondAnalysisGuideComponent
+    BondAnalysisGuideComponent,
+    BondComparatorComponent
   ],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
@@ -260,6 +263,9 @@ export class BondComparablesComponent {
   sortColumn: BondColumn = 'yieldToMaturity';
   sortDirection: 1 | -1 = -1;
 
+  selectedBondIdsForCompare = new Set<string>();
+  activeBloombergSecurityId?: string;
+
   constructor(
     private readonly comparablesService: BondComparablesService,
     private readonly pricingService: PricingService,
@@ -269,6 +275,64 @@ export class BondComparablesComponent {
   ) {
     this.apiOnline$ = this.pricingService.apiOnline$;
     this.restoreState();
+    if (this.panel.length === 0) {
+      this.loadDefaultBenchmarkUniverse();
+    } else if (this.selectedBondIdsForCompare.size === 0 && this.panel.length >= 2) {
+      this.selectedBondIdsForCompare.add(this.panel[0].securityId);
+      this.selectedBondIdsForCompare.add(this.panel[1].securityId);
+    }
+  }
+
+  get comparedBonds(): BondComparable[] {
+    return this.panel.filter(b => this.selectedBondIdsForCompare.has(b.securityId));
+  }
+
+  toggleCompareBond(securityId: string): void {
+    if (this.selectedBondIdsForCompare.has(securityId)) {
+      this.selectedBondIdsForCompare.delete(securityId);
+    } else {
+      if (this.selectedBondIdsForCompare.size >= 5) {
+        const first = this.selectedBondIdsForCompare.values().next().value;
+        if (first) this.selectedBondIdsForCompare.delete(first);
+      }
+      this.selectedBondIdsForCompare.add(securityId);
+    }
+    this.persistState();
+  }
+
+  isSelectedForCompare(securityId: string): boolean {
+    return this.selectedBondIdsForCompare.has(securityId);
+  }
+
+  clearComparedBonds(): void {
+    this.selectedBondIdsForCompare.clear();
+    this.persistState();
+  }
+
+  openComparator(ids?: string[]): void {
+    if (ids && ids.length > 0) {
+      this.selectedBondIdsForCompare = new Set(ids);
+    } else if (this.selectedBondIdsForCompare.size === 0 && this.panel.length >= 2) {
+      this.selectedBondIdsForCompare.add(this.panel[0].securityId);
+      this.selectedBondIdsForCompare.add(this.panel[1].securityId);
+    }
+    this.setMode('comparator');
+  }
+
+  openInBloomberg(securityId: string): void {
+    this.activeBloombergSecurityId = securityId;
+    this.setMode('bloomberg');
+  }
+
+  loadDefaultBenchmarkUniverse(): void {
+    this.panel = [...DEFAULT_BENCHMARK_BONDS];
+    this.selectedBondIdsForCompare.clear();
+    if (this.panel.length >= 3) {
+      this.selectedBondIdsForCompare.add(this.panel[0].securityId);
+      this.selectedBondIdsForCompare.add(this.panel[1].securityId);
+      this.selectedBondIdsForCompare.add(this.panel[3].securityId);
+    }
+    this.persistState();
   }
 
   setMode(mode: BondScreenMode): void {

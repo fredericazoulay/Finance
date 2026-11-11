@@ -416,3 +416,193 @@ Pour t’exercer, tu peux créer un tableau comparatif avec les colonnes suivant
 • Critères ESG
 • Rendement réel net
 
+Ran list files in pricing directory
+Ran list app directories
+Ran list models
+Ran list services
+Analyzed pricing-page.component.ts:L1-150
+Analyzed bond-bloomberg.component.ts:L1-140
+Analyzed bond-comparables.component.ts:L1-140
+Analyzed bond-comparables.component.html:L1-100
+Analyzed bond-comparables.component.html:L101-250
+Analyzed bond-bloomberg.component.html:L1-100
+Analyzed bond-analytics-dashboard.component.ts:L1-100
+Analyzed bond-comparables.model.ts:L1-91
+Analyzed bond-portfolios.component.ts:L1-80
+Analyzed bond-markowitz.component.ts:L1-80
+Analyzed financial-math.service.ts:L1-100
+Analyzed bond-comparables.service.ts:L1-24
+Analyzed bond-scenario.ts:L1-88
+Ran list bond components
+Ran check methods in bond comparables
+Analyzed bond-comparables.component.ts:L141-250
+Ran list root directories in Finance
+Analyzed PRICER.md:L1-51
+Ran list FinanceCalculatorBackend
+Ran list PricerBackend
+Ran find Java Bond classes
+
+Pour transformer ce module en une application de référence de **Fixed Income & Bond Analytics** (au niveau des standards professionnels tels que Bloomberg, FactSet ou Tradeweb), l'analyse du code source existant (`bond-bloomberg`, `bond-comparables`, `bond-analytics-dashboard`, etc.) révèle un socle technique solide mais plusieurs axes majeurs d'optimisation.
+
+---
+
+### État des lieux & diagnostic du code existant
+
+1. **Fragmentation de l'expérience utilisateur** : Le fichier [bond-comparables.component.html](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/pages/pricing/components/bond-comparables/bond-comparables.component.html) propose aujourd'hui **13 onglets plats** (`basic`, `periodic-calculator`, `bloomberg`, `comparables-light`, `comparables-full`, `bond-graphs`, `portfolios`, etc.). Cette surabondance crée une dispersion cognitive pour un analyste obligataire.
+2. **Couplage & monolithisme** : Le composant [bond-comparables.component.ts](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/pages/pricing/components/bond-comparables/bond-comparables.component.ts) approche les **1 900 lignes**, et mélange la gestion des options (`OptionImportRecord`, `FullOptionColumn`) avec celle des obligations.
+3. **Écran Bloomberg partiellement statique** : Dans [bond-bloomberg.component.ts](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/pages/pricing/components/bond-bloomberg/bond-bloomberg.component.ts), les écrans `DES`, `YAS` et `DEBT` reposent sur des données démo codées en dur (notamment pour EDF) au lieu de calculer dynamiquement les métriques pour n'importe quel titre importé par l'utilisateur.
+4. **Heuristique de valorisation simplifiée** : Dans l'approche par comparables, l'algorithme actuel sélectionne simplement le *meilleur YTM* dans une fenêtre de maturité ($\pm 24$ mois). En finance de marché réelle, la valorisation relative passe par le **spread de crédit interpolé**, le **Z-spread**, la **courbe zéro-coupon** et l'analyse de régression *Rich / Cheap*.
+
+---
+
+### Plan d'amélioration pour une application obligataire de premier ordre
+
+```mermaid
+flowchart TD
+    subgraph UX["1. Expérience & Workflow Unifié"]
+        direction TB
+        A["Screener & Univers (SRCH / FIW)"] --> B["Fiche Instrument Dynamique (DES / YAS)"]
+        A --> C["Comparateur Côte-à-Côte & Relative Value (RV)"]
+        B --> D["Analyse de Courbes & Spreads (YCRV)"]
+        C --> E["Portefeuille, Cash flows & Stress Tests (PORT)"]
+    end
+    subgraph Engine["2. Moteur Quant & Pricing"]
+        F["Courbe Zéro-Coupon (Bootstrap / Nelson-Siegel)"]
+        G["Spreads Réels : G-Spread, I-Spread, Z-Spread, OAS"]
+        H["Yield-to-Worst (YTW) pour Callables/Puttable"]
+        I["Key Rate Durations (KRD : 2Y, 5Y, 10Y, 30Y)"]
+    end
+    subgraph Arch["3. Architecture & Data"]
+        J["Séparation stricte Bonds vs Options"]
+        K["State Management avec Angular Signals"]
+        L["Flux de Marché Ouverts (BCE, FRED, Yahoo)"]
+    end
+    UX --> Engine
+    Engine --> Arch
+```
+
+---
+
+### 1. Affichage & Ergonomie : Un Terminal Dense et Réactif
+
+#### A. Restructurer les 13 onglets en 4 Espaces de Travail (Workspaces)
+Plutôt que 13 boutons disparates, regroupez les fonctionnalités selon le parcours naturel du gérant/trader :
+* **Workspace 1 : Screener & Univers (`SRCH`)** : Recherche, filtres multi-critères, grouping dynamique par secteur/rating/devise (actuellement dans `comparables-light` et `SECF`).
+* **Workspace 2 : Fiche Instrument & Rendement (`DES / YAS`)** : Vue détaillée du titre sélectionné, cash flows périodiques actualisés, calculatrice de sensibilités en direct.
+* **Workspace 3 : Comparateur & Relative Value (`RV / COMPS`)** : Comparaison côte-à-côte de 2 à 5 titres sélectionnés et détection *Rich / Cheap*.
+* **Workspace 4 : Portefeuille & Risque (`PORT / SCEN`)** : Portefeuilles virtuels, duration globale pondérée, DV01, scénarios de choc de taux (aplatissement/pentification).
+
+#### B. Rendre l'écran Bloomberg 100 % dynamique
+Actuellement, si l'utilisateur clique sur une obligation autre qu'EDF dans `SECF`, l'écran `YAS` indique *"Analyse YAS indisponible pour ce titre"*.
+* **Connecter le moteur actuariel au sélecteur de titre** : pour chaque obligation de l'univers (importée ou de démo), calculer à la volée son **Clean Price**, **Dirty Price**, **Intérêts courus**, **Macaulay**, **Modified Duration**, **Convexité**, **DV01** et son coupon couru exact avec la convention de calcul applicable (`ACT/ACT`, `30E/360`, etc.).
+
+#### C. Data Grid Financière Haute Performance
+* Intégrer un affichage avec colonnes épinglées (*freeze columns* : Ticker, ISIN, Émetteur).
+* **Coloration thermique financière** : heatmap sur les YTM et les spreads pour repérer immédiatement les anomalies de rendement.
+* **Badges de séniorité & notation** : différenciation visuelle immédiate entre *Investment Grade* (AAA à BBB-) et *High Yield* (BB+ à D), ainsi que le statut ESG (Green Bond, Social Bond).
+
+---
+
+### 2. Module de Comparaison & Sélection (Relative Value)
+
+#### A. Comparateur Côte-à-Côte Synoptique (2 à 5 obligations)
+Fournir un mode « Split-Screen » permettant de cocher 2 à 5 obligations dans la grille pour afficher un tableau comparatif direct :
+
+| Métrique / Titre | OAT 2.50% 2030 (Souverain) | BNP 4.125% 2030 (Senior Non-Pref) | TOTAL 3.875% 2030 (Corporate A+) |
+| :--- | :--- | :--- | :--- |
+| **Prix Clean / Dirty** | 99.85 / 101.20 | 101.40 / 102.85 | 100.95 / 102.10 |
+| **YTM / YTW** | 2.53 % | 3.84 % | 3.68 % |
+| **Duration Modifiée / DV01** | 5.21 ans / 52.0 € | 5.08 ans / 51.5 € | 5.14 ans / 51.8 € |
+| **Convexité** | 0.32 | 0.31 | 0.31 |
+| **G-Spread (vs Bund/OAT)** | Référence (0 bp) | **+131 bp** | **+115 bp** |
+| **I-Spread (vs Swap EUR)** | -15 bp | +116 bp | +100 bp |
+| **Ratio Rendement / Duration** | 0.49 % / an | **0.76 % / an** | 0.72 % / an |
+| **Notation (Composite)** | AA | A- | A+ |
+
+#### B. Détection Mathématique des Obligations "Rich / Cheap"
+* Sur le graphique Rendement vs Maturité ([bond-analytics-dashboard.component.ts](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/pages/pricing/components/bond-analytics-dashboard/bond-analytics-dashboard.component.ts)), ajuster une **courbe théorique** (régression polynomiale ou spline cubique pondérée par la notation).
+* Calculer l'écart résiduel (**Residual Spread**) :
+  $$\Delta = \text{YTM}_{\text{marché}} - \text{YTM}_{\text{théorique}}$$
+* Classer les obligations :
+  * $\Delta > +15 \text{ bps}$ : **Cheap** (Rendement anormalement attractif $\rightarrow$ recommandation d'achat).
+  * $\Delta < -15 \text{ bps}$ : **Rich** (Chère par rapport à ses pairs $\rightarrow$ recommandation d'arbitrage/vente).
+* Rendre les points du nuage de points cliquables : un clic sur un point du scatter plot sélectionne instantanément l'obligation dans la table et met à jour la fiche `YAS`.
+
+---
+
+### 3. Filtres & Outils de Sélection Avancés (Screener Institutionnel)
+
+Pour permettre une sélection rapide parmi des milliers de lignes, enrichir le modèle [BondComparable](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/models/bond-comparables.model.ts) avec les critères suivants :
+
+1. **Structure de dette / Séniorité** :
+   * *Senior Secured*, *Senior Unsecured*, *Senior Non-Preferred*, *Tier 2*, *Additional Tier 1 (AT1 / CoCo)*.
+2. **Options intégrées** :
+   * *Bullet*, *Callable* (Make-Whole Call vs Call paritaire), *Puttable*, *Perpétuelle*.
+3. **Type de taux / coupon** :
+   * Taux fixe (*Fixed*), Taux variable (*FRN* indexé Euribor/SOFR avec Floor/Cap), Indexé inflation (*OATi, TIPS*), Zéro-coupon (*STRIP*).
+4. **Filtres de liquidité & taille d'émission** :
+   * Volume nominal émis (> 500 M€ / benchmark issue).
+5. **Critères pré-paramétrés en 1 clic (Quick Screeners)** :
+   * *"High Yield court terme (< 3 ans, YTM > 6 %)"*
+   * *"Investment Grade défensif (Rating > A, Duration < 4 ans)"*
+   * *"Opportunités de pentification (Steepener plays)"*
+
+---
+
+### 4. Renforcement Actuariel & Modélisation Financière
+
+Le module utilise actuellement une approche à taux unique (*flat yield*). Pour atteindre la qualité d'une salle de marché :
+
+* **Courbe Zéro-Coupon & Spreads Réels** :
+  * Calculer le **Z-Spread** (Zero-volatility spread) : l'écart constant à ajouter à chaque point de la courbe des taux zéro-coupon souveraine/swap pour retrouver le prix de marché du titre :
+    $$P_{\text{dirty}} = \sum_{t=1}^N \frac{C_t}{(1 + (z_t + s)/k)^{k \cdot t}} + \frac{Nominal}{(1 + (z_N + s)/k)^{k \cdot N}}$$
+  * Calculer le **Yield to Worst (YTW)** : pour les obligations avec option de remboursement anticipé (*callable*), déterminer la date de call optimale et le rendement minimal garanti pour l'investisseur.
+* **Key Rate Durations (KRD)** :
+  * Actuellement, seul un choc parallèle est simulé dans [bond-scenario.ts](file:///c:/Users/frede/VSCode/Finance/PricerFrontend/src/app/pages/pricing/components/bond-analytics-dashboard/bond-scenario.ts) ($-300$ à $+300$ bps).
+  * Ajouter la décomposition des sensibilités aux nœuds clés (1 an, 2 ans, 5 ans, 10 ans, 30 ans) afin de mesurer le risque en cas de rotation de la courbe (*twist*) ou de modification de sa pente (*slope*).
+
+---
+
+### 5. Refactorisation Technique & Performance Angular
+
+#### A. Scinder `BondComparablesComponent`
+Le fichier de 1895 lignes doit être découpé selon le principe de responsabilité unique (SRP) :
+* Extraire la logique des options (`OptionImportRecord`) dans un module dédié aux dérivés d'actions (`EquityOptionsModule`).
+* Créer des services dédiés :
+  * `BondScreenerService` : gestion du filtrage, du tri et de la recherche.
+  * `BondRelativeValueService` : calculs de spread relatif, régression de courbe et scoring rich/cheap.
+  * `BondYieldCurveService` : gestion des courbes de référence (Bund, OAT, US Treasuries, SOFR).
+
+#### B. Modernisation avec Angular Signals
+Utiliser les **Signals** (`signal`, `computed`, `effect`) pour l'état du screener :
+```typescript
+readonly allBonds = signal<BondComparable[]>([]);
+readonly filters = signal<BondFilters>({ ... });
+
+// Recalcul instantané et sans cycle CD lourd
+readonly filteredBonds = computed(() => {
+  return applyBondFilters(this.allBonds(), this.filters());
+});
+
+readonly relativeValueMetrics = computed(() => {
+  return calculateCurveResidues(this.filteredBonds());
+});
+```
+
+#### C. Intégration de Flux de Marché Libres / Open Data
+Pour éviter de ne dépendre que de données statiques ou d'imports manuels :
+* Connecter l'API publique de la **BCE** ou de la **Banque de France** pour récupérer gratuitement les courbes de taux souveraines de la zone euro au jour le jour.
+* Connecter l'API **FRED** (Federal Reserve Economic Data) pour les rendements des US Treasuries et des taux SOFR.
+* Permettre l'exportation d'une fiche **"Tear Sheet PDF"** en 1 clic pour n'importe quelle obligation sélectionnée, prête à être partagée avec un client ou un comité d'investissement.
+
+---
+
+### Synthèse des Priorités Recommandées
+
+| Priorité | Chantier | Impact Utilisateur | Effort Estimé |
+| :---: | :--- | :--- | :---: |
+| **P1** | **Dynamisation de l'écran Bloomberg YAS/DES** sur n'importe quel titre sélectionné | Immédiat : crédibilité professionnelle totale | Moyen |
+| **P2** | **Comparateur synoptique côte-à-côte** (2 à 5 obligations avec écarts de spreads) | Majeur : fonction la plus demandée par les analystes | Faible-Moyen |
+| **P3** | **Unification ergonomique** (regrouper les 13 onglets en 4 workspaces clairs) | Majeur : fluidité et suppression de la friction UX | Moyen |
+| **P4** | **Détection automatique Rich / Cheap** sur la courbe des taux (Relative Value) | Très fort : valeur ajoutée financière directe | Moyen |
+| **P5** | **Nettoyage architectural** (séparation Options vs Obligations, passage aux Signals) | Forte maintenabilité et réactivité de l'application | Moyen |

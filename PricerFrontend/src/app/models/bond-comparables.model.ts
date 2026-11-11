@@ -15,6 +15,19 @@ export interface BondComparable {
   sector?: string;
   source?: string;
   asOf?: string;
+  seniority?: string;
+  isin?: string;
+  modifiedDuration?: number;
+  duration?: number;
+  convexity?: number;
+  dv01?: number;
+  spreadBps?: number;
+  zSpread?: number;
+  couponType?: 'Fixe' | 'Variable' | 'Zéro';
+  liquidity?: 'Élevée' | 'Moyenne' | 'Faible';
+  esgScore?: number;
+  isGreenBond?: boolean;
+  relativeValueStatus?: 'CHEAP' | 'FAIR' | 'RICH';
 }
 
 export interface BondComparablesRequest {

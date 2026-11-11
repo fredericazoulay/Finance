@@ -12,6 +12,7 @@
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparator'" [class.active]="activeMode === 'comparator'" (click)="setMode('comparator')">⚖️ Comparateur ({{ selectedBondIdsForCompare.size }})</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'basic'" [class.active]="activeMode === 'basic'" (click)="setMode('basic')">Calcul de base</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'periodic-calculator'" [class.active]="activeMode === 'periodic-calculator'" (click)="setMode('periodic-calculator')">Coupon par période</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'bond-graphs'" [class.active]="activeMode === 'bond-graphs'" (click)="setMode('bond-graphs')">Graphiques</button>
@@ -117,7 +118,17 @@
   </section>
 
   <ng-container *ngIf="activeMode === 'bloomberg'">
-    <app-bond-bloomberg></app-bond-bloomberg>
+    <app-bond-bloomberg [externalBonds]="panel" [activeSecurityId]="activeBloombergSecurityId"></app-bond-bloomberg>
+  </ng-container>
+
+  <ng-container *ngIf="activeMode === 'comparator'">
+    <app-bond-comparator
+      [selectedBonds]="comparedBonds"
+      [allBonds]="panel"
+      (removeBond)="toggleCompareBond($event)"
+      (addBond)="toggleCompareBond($event)"
+      (openInBloomberg)="openInBloomberg($event)"
+    ></app-bond-comparator>
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'comparables-light'">
@@ -163,6 +174,12 @@
       <div class="panel-action-area">
         <span class="actions-label">Actions</span>
         <div class="panel-actions">
+          <button type="button" class="secondary-button" (click)="loadDefaultBenchmarkUniverse()" title="Charger un panel représentatif d’emprunts d’État et d’entreprises">
+            🏛️ Univers démo (12 titres)
+          </button>
+          <button *ngIf="selectedBondIdsForCompare.size > 0" type="button" class="secondary-button" (click)="openComparator()" title="Ouvrir le comparateur côte-à-côte">
+            ⚖️ Comparer ({{ selectedBondIdsForCompare.size }})
+          </button>
           <label class="tolerance-control"><span>Écart échéance (mois)</span><input type="number" min="0" max="240" [(ngModel)]="maturityToleranceMonths" (ngModelChange)="invalidateResult()" /></label>
           <label class="visually-hidden" for="bond-panel-file-light">Fichier obligataire CSV ou Excel</label>
           <input #fileInputLight id="bond-panel-file-light" class="file-input" type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event, 'light')" />
@@ -245,11 +262,15 @@
       <table>
         <thead>
           <tr class="header-row">
+            <th class="compare-col-header">⚖️ Comparer</th>
             <th *ngFor="let column of visibleBondColumns">
               <button type="button" class="sort-button groupable-column-button" draggable="true" (dragstart)="startBondColumnDrag(column, $event)" (click)="sortBy(column)" [title]="'Glisser ' + bondColumnLabel(column) + ' dans Regrouper par'">{{ bondColumnLabel(column) }} {{ sortIndicator(column) }}</button>
             </th>
           </tr>
           <tr class="filter-row">
+            <td class="compare-filter-cell">
+              <button *ngIf="selectedBondIdsForCompare.size > 0" type="button" class="mini-clear-btn" (click)="clearComparedBonds()" title="Effacer la sélection">✕ ({{ selectedBondIdsForCompare.size }})</button>
+            </td>
             <td *ngFor="let column of visibleBondColumns" [ngSwitch]="column">
               <select *ngSwitchCase="'currency'" [(ngModel)]="filters.currency" (ngModelChange)="persistState()" aria-label="Filtrer les devises"><option value="">Toutes</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select>
               <input *ngSwitchCase="'issueDate'" [(ngModel)]="filters.issueDate" (ngModelChange)="persistState()" aria-label="Filtrer les émissions" placeholder="AAAA-MM-JJ" />
@@ -289,19 +310,47 @@
           </ng-template>
           <ng-container *ngIf="bondGroupColumns.length; else ungroupedBondRows">
             <ng-container *ngFor="let group of groupedPanelRows">
-              <tr class="full-option-group-row"><th [attr.colspan]="visibleBondColumnCount"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isBondGroupCollapsed(group.key)" (click)="toggleBondGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isBondGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
+              <tr class="full-option-group-row"><th [attr.colspan]="visibleBondColumnCount + 1"><button type="button" class="full-option-group-toggle" [attr.aria-expanded]="!isBondGroupCollapsed(group.key)" (click)="toggleBondGroup(group.key)"><span class="group-chevron" aria-hidden="true">{{ isBondGroupCollapsed(group.key) ? '▸' : '▾' }}</span><span>{{ group.label }}</span><span class="group-row-count">{{ group.rows.length }} lignes</span></button></th></tr>
               <tr *ngFor="let row of group.rows; let rowIndex = index" [hidden]="isBondGroupCollapsed(group.key)" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
+                <td class="compare-cell">
+                  <div class="row-compare-tools">
+                    <input type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
+                    <button type="button" class="row-yas-btn" (click)="openInBloomberg(row.securityId)" title="Ouvrir dans le terminal Bloomberg">YAS</button>
+                  </div>
+                </td>
                 <td *ngFor="let column of visibleBondColumns"><ng-container *ngTemplateOutlet="bondPanelCell; context: { $implicit: row, column: column }"></ng-container></td>
               </tr>
             </ng-container>
           </ng-container>
           <ng-template #ungroupedBondRows>
             <tr *ngFor="let row of filteredPanelRows; let rowIndex = index" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
+              <td class="compare-cell">
+                <div class="row-compare-tools">
+                  <input type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
+                  <button type="button" class="row-yas-btn" (click)="openInBloomberg(row.securityId)" title="Ouvrir dans le terminal Bloomberg">YAS</button>
+                </div>
+              </td>
               <td *ngFor="let column of visibleBondColumns"><ng-container *ngTemplateOutlet="bondPanelCell; context: { $implicit: row, column: column }"></ng-container></td>
             </tr>
           </ng-template>
         </tbody>
       </table>
+    </div>
+
+    <!-- Sticky Comparison Action Bar -->
+    <div class="sticky-compare-bar" *ngIf="selectedBondIdsForCompare.size > 0">
+      <div class="compare-bar-left">
+        <span class="compare-bar-count"><strong>{{ selectedBondIdsForCompare.size }}</strong> obligation(s) sélectionnée(s)</span>
+        <span class="compare-bar-hint">Sélectionnez jusqu'à 5 obligations pour les comparer côte-à-côte</span>
+      </div>
+      <div class="compare-bar-actions">
+        <button type="button" class="primary-button compare-open-btn" (click)="openComparator()">
+          ⚖️ Ouvrir le comparateur côte-à-côte ({{ selectedBondIdsForCompare.size }})
+        </button>
+        <button type="button" class="secondary-button" (click)="clearComparedBonds()">
+          Vider la sélection
+        </button>
+      </div>
     </div>
     <ng-template #emptyPanel><div class="empty-state"><span class="empty-mark">+</span><strong>Aucune obligation chargée</strong><span>Importez un fichier CSV ou Excel pour constituer le panel.</span></div></ng-template>
   </section>
