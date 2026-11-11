@@ -243,7 +243,7 @@
           <div class="input-group">
             <label for="rate-shock-slider">Choc de taux : <strong>{{ rateShockBps > 0 ? '+' : '' }}{{ rateShockBps }} bp</strong> ({{ (rateShockBps / 100) | number:'1.2-2' }} pt)</label>
             <div class="slider-row">
-              <input id="rate-shock-slider" type="range" min="-300" max="300" step="10" [(ngModel)]="rateShockBps" />
+              <input id="rate-shock-slider" type="range" min="-300" max="300" step="10" [(ngModel)]="rateShockBps" (ngModelChange)="onRateShockChange()" />
             </div>
             <div class="quick-presets">
               <button type="button" class="preset-btn" (click)="setQuickShock(-100)">-100 bp</button>
@@ -281,6 +281,9 @@
             <div class="bar-fill" [style.width.%]="(res.pctChange > 0 ? res.pctChange : -res.pctChange) * 4" [class.green-bar]="res.pctChange > 0" [class.red-bar]="res.pctChange < 0"></div>
           </div>
         </div>
+      </div>
+      <div class="shock-chart-area" *ngIf="selectedBonds.length">
+        <canvas #shockComparisonChart aria-label="Variation estimée du prix des obligations selon le choc de taux"></canvas>
       </div>
     </div>
 

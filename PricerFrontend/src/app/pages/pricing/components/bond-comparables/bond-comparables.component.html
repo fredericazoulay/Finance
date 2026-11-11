@@ -171,6 +171,16 @@
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="">Sélectionner</option><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option><option value="ACT_ACT_ICMA">ACT/ACT ICMA</option><option value="ACT_ACT_ISDA">ACT/ACT ISDA</option></select></label>
     </div>
+    <div class="target-comparator-action" *ngIf="targetPanelBond as referenceBond">
+      <span>Référence : <strong>{{ referenceBond.securityId }}</strong> · {{ referenceBond.name }} · {{ referenceBond.currency }} · {{ referenceBond.maturityDate }}</span>
+      <button type="button" class="secondary-button"
+        [attr.aria-pressed]="isSelectedForCompare(referenceBond.securityId)"
+        [disabled]="selectedBondIdsForCompare.size >= 5 && !isSelectedForCompare(referenceBond.securityId)"
+        (click)="toggleCompareBond(referenceBond.securityId)">
+        {{ isSelectedForCompare(referenceBond.securityId) ? 'Retirer la référence du comparateur' : 'Ajouter la référence au comparateur' }}
+      </button>
+      <small *ngIf="selectedBondIdsForCompare.size >= 5 && !isSelectedForCompare(referenceBond.securityId)">Le comparateur est limité à 5 obligations.</small>
+    </div>
   </section>
 
   <section class="panel-section">

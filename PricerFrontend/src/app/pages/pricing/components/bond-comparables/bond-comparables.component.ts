@@ -329,6 +329,10 @@ export class BondComparablesComponent {
     return this.panel.filter(b => this.selectedBondIdsForCompare.has(b.securityId));
   }
 
+  get targetPanelBond(): BondComparable | null {
+    return this.panel.find(bond => bond.securityId === this.target.securityId) ?? null;
+  }
+
   toggleCompareBond(securityId: string): void {
     if (this.selectedBondIdsForCompare.has(securityId)) {
       this.selectedBondIdsForCompare.delete(securityId);
@@ -2122,8 +2126,23 @@ export class BondComparablesComponent {
   }
 
   private compareRows(left: BondComparableRow, right: BondComparableRow, column: BondColumn): number {
-    const leftValue = column === 'eligibility' || column === 'settlementDate' ? this.columnValue(left, column) : left[column];
-    const rightValue = column === 'eligibility' || column === 'settlementDate' ? this.columnValue(right, column) : right[column];
+    if (column === 'eligibility') {
+      const statusOrder = (row: BondComparableRow): number => {
+        if (row.selected) return 0;
+        if (row.eligible === true) return 1;
+        return row.eligible === null ? 2 : 3;
+      };
+      const statusDifference = statusOrder(left) - statusOrder(right);
+      if (statusDifference !== 0) return statusDifference;
+      if (left.rank != null && right.rank != null) return left.rank - right.rank;
+      if (left.eligible === false && right.eligible === false) {
+        return (left.exclusionReason ?? '').localeCompare(right.exclusionReason ?? '', undefined, { sensitivity: 'base' });
+      }
+      return 0;
+    }
+
+    const leftValue = column === 'settlementDate' ? this.columnValue(left, column) : left[column];
+    const rightValue = column === 'settlementDate' ? this.columnValue(right, column) : right[column];
     if (typeof leftValue === 'number' && typeof rightValue === 'number') return leftValue - rightValue;
     return String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric: true, sensitivity: 'base' });
   }

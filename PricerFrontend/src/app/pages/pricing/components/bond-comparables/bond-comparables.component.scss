@@ -48,6 +48,9 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .currency-tag, .count { color: var(--green); font-size: 12px; }
 .count { background: rgba(165, 227, 141, 0.12); border-radius: 999px; padding: 3px 8px; margin-left: 6px; }
 .target-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 12px; }
+.target-comparator-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+.target-comparator-action strong { color: var(--ink); }
+.target-comparator-action small { color: var(--muted); }
 .target-extraction { display: grid; gap: 8px; margin: 0 0 16px; }
 .target-extraction > label { color: var(--muted); font-size: 13px; }
 .target-extraction .import-hint { margin: 0; }

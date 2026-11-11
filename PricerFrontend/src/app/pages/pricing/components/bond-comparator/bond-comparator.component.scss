@@ -362,6 +362,24 @@
   }
 }
 
+.shock-chart-area {
+  position: relative;
+  height: 300px;
+  margin: 0 1.5rem 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ui-border, #d6deea);
+  border-radius: 6px;
+  background: var(--ui-surface, #ffffff);
+}
+
+@media (max-width: 760px) {
+  .shock-chart-area {
+    height: 250px;
+    margin: 0 0.75rem 0.75rem;
+    padding: 0.5rem;
+  }
+}
+
 /* Simulation card */
 .simulation-inputs {
   display: flex;
