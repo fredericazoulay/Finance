@@ -1,4 +1,4 @@
-<main class="group-page">
+<main class="group-page" *ngIf="workGroupService.selectedGroup$ | async as selectedGroup">
   <header class="group-header">
     <div class="heading-copy">
       <a class="back-link" routerLink="/presentation"><span aria-hidden="true">←</span>{{ 'group_back' | translate }}</a>

@@ -128,7 +128,7 @@
     <label class="control-group">
       <span class="control-label">{{ 'group' | translate }}</span>
       <span class="control-shell group-shell">
-        <select id="group-select" class="theme-select group-select" [attr.aria-label]="'group' | translate" (change)="workGroupService.setSelectedGroup($any($event.target).value)" [value]="workGroupService.selectedGroup$ | async">
+        <select id="group-select" class="theme-select group-select" [attr.aria-label]="'group' | translate" [ngModel]="workGroupService.selectedGroup$ | async" (ngModelChange)="workGroupService.setSelectedGroup($event)">
           <option *ngFor="let workGroup of workGroupService.groups" [value]="workGroup.code">{{ workGroup.code }}</option>
         </select>
       </span>

@@ -32,8 +32,18 @@
     <!-- Comparison Matrix Table -->
     <div class="table-card">
       <div class="table-card-header">
-        <h3>1. Matrice comparative côte-à-côte</h3>
-        <span class="count-tag">{{ selectedBonds.length }} titre(s) comparé(s)</span>
+        <div class="table-header-left">
+          <h3>1. Matrice comparative côte-à-côte</h3>
+          <span class="count-tag">{{ selectedBonds.length }} titre(s) comparé(s)</span>
+        </div>
+        <div class="table-header-exports">
+          <button type="button" class="export-btn" (click)="exportComparisonCsv()" title="Télécharger la synthèse en CSV">
+            📥 Export CSV
+          </button>
+          <button type="button" class="export-btn" (click)="printTearSheet()" title="Imprimer ou enregistrer en PDF">
+            📄 Tear Sheet PDF
+          </button>
+        </div>
       </div>
 
       <div class="table-scroll-wrap">

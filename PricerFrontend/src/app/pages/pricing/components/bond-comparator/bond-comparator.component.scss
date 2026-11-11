@@ -100,6 +100,33 @@
   border-bottom: 1px solid var(--ui-border, rgba(0, 0, 0, 0.08));
   background: var(--ui-bg, #f8fafc);
 
+  .table-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .table-header-exports {
+    display: flex;
+    gap: 0.5rem;
+
+    .export-btn {
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--ui-border, #cbd5e1);
+      background: var(--ui-surface, #ffffff);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--ui-text, #334155);
+      cursor: pointer;
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+      }
+    }
+  }
+
   h3 {
     margin: 0;
     font-size: 1.1rem;

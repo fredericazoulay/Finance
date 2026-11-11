@@ -6,12 +6,13 @@
       <h1>Pricing obligataire</h1>
     </div>
     <div class="screen-context">
-      <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup }}</strong></div>
-      <span class="data-status">{{ activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+      <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup$ | async }}</strong></div>
+      <span class="data-status">{{ activeMode === 'market-hub' ? 'Flux obligataire live · FRED, BCE et Yahoo Finance connectés' : activeMode === 'comparator' ? 'Comparateur synoptique côte-à-côte · simulation de choc de taux et audit' : activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
     </div>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'market-hub'" [class.active]="activeMode === 'market-hub'" (click)="setMode('market-hub')">🌐 Marché Live (FRED / Yahoo / BCE)</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparator'" [class.active]="activeMode === 'comparator'" (click)="setMode('comparator')">⚖️ Comparateur ({{ selectedBondIdsForCompare.size }})</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'basic'" [class.active]="activeMode === 'basic'" (click)="setMode('basic')">Calcul de base</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'periodic-calculator'" [class.active]="activeMode === 'periodic-calculator'" (click)="setMode('periodic-calculator')">Coupon par période</button>
@@ -116,6 +117,13 @@
       </div>
     </div>
   </section>
+
+  <ng-container *ngIf="activeMode === 'market-hub'">
+    <app-bond-market-hub
+      (applyLiveRates)="applyLiveMarketRates()"
+      (addBenchmarkToCompare)="onAddBenchmarkToCompare($event)"
+    ></app-bond-market-hub>
+  </ng-container>
 
   <ng-container *ngIf="activeMode === 'bloomberg'">
     <app-bond-bloomberg [externalBonds]="panel" [activeSecurityId]="activeBloombergSecurityId"></app-bond-bloomberg>
@@ -314,7 +322,8 @@
               <tr *ngFor="let row of group.rows; let rowIndex = index" [hidden]="isBondGroupCollapsed(group.key)" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
                 <td class="compare-cell">
                   <div class="row-compare-tools">
-                    <input type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
+                    <label class="visually-hidden" [for]="compareCheckboxId(row.securityId)">Comparer {{ row.securityId }}</label>
+                    <input [id]="compareCheckboxId(row.securityId)" type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
                     <button type="button" class="row-yas-btn" (click)="openInBloomberg(row.securityId)" title="Ouvrir dans le terminal Bloomberg">YAS</button>
                   </div>
                 </td>
@@ -326,7 +335,8 @@
             <tr *ngFor="let row of filteredPanelRows; let rowIndex = index" [class.best-row]="row.selected" [class.excluded-row]="row.eligible === false" [class.alternate-row]="alternateBondRows && rowIndex % 2 === 1">
               <td class="compare-cell">
                 <div class="row-compare-tools">
-                  <input type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
+                  <label class="visually-hidden" [for]="compareCheckboxId(row.securityId)">Comparer {{ row.securityId }}</label>
+                  <input [id]="compareCheckboxId(row.securityId)" type="checkbox" [checked]="isSelectedForCompare(row.securityId)" (change)="toggleCompareBond(row.securityId)" [title]="'Comparer ' + row.securityId" />
                   <button type="button" class="row-yas-btn" (click)="openInBloomberg(row.securityId)" title="Ouvrir dans le terminal Bloomberg">YAS</button>
                 </div>
               </td>

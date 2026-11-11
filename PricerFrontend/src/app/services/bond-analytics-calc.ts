@@ -23,14 +23,42 @@ export interface BondComputedMetrics {
   relativeValueSpreadResidueBps: number;
 }
 
+export interface LiveBenchmarkOverride {
+  us10Y: number;
+  us2Y: number;
+  us5Y: number;
+  us30Y: number;
+  eur10Y: number;
+  eur2Y: number;
+  eur5Y: number;
+  eur30Y: number;
+}
+
+let activeLiveBenchmarks: LiveBenchmarkOverride | null = null;
+
+export function updateLiveBenchmarkYields(override: LiveBenchmarkOverride): void {
+  activeLiveBenchmarks = override;
+}
+
+export function getActiveLiveBenchmarks(): LiveBenchmarkOverride | null {
+  return activeLiveBenchmarks;
+}
+
 /**
  * Returns estimated sovereign benchmark yield for a given currency and maturity in years.
+ * Uses live FRED / ECB / Yahoo calibrated rates when available.
  */
 export function getBenchmarkYield(currency: string, maturityYears: number): { name: string; yieldPercent: number } {
   const t = Math.max(0.1, maturityYears);
   const curr = (currency || 'EUR').toUpperCase();
 
   if (curr === 'USD') {
+    if (activeLiveBenchmarks) {
+      if (t <= 2.5) return { name: 'UST 2Y', yieldPercent: activeLiveBenchmarks.us2Y };
+      if (t <= 6) return { name: 'UST 5Y', yieldPercent: activeLiveBenchmarks.us5Y };
+      if (t <= 15) return { name: 'UST 10Y', yieldPercent: activeLiveBenchmarks.us10Y };
+      return { name: 'UST 30Y', yieldPercent: activeLiveBenchmarks.us30Y };
+    }
     const yPercent = 3.85 + 0.55 * (1 - Math.exp(-t / 4.5)) + 0.015 * t;
     const name = t <= 2.5 ? 'UST 2Y' : t <= 6 ? 'UST 5Y' : t <= 15 ? 'UST 10Y' : 'UST 30Y';
     return { name, yieldPercent: Math.round(yPercent * 1000) / 1000 };
@@ -42,7 +70,13 @@ export function getBenchmarkYield(currency: string, maturityYears: number): { na
     return { name, yieldPercent: Math.round(yPercent * 1000) / 1000 };
   }
 
-  // Default: EUR (German Bund benchmark)
+  // Default: EUR (German Bund / ECB AAA benchmark)
+  if (activeLiveBenchmarks) {
+    if (t <= 2.5) return { name: 'DBR 2Y', yieldPercent: activeLiveBenchmarks.eur2Y };
+    if (t <= 6) return { name: 'DBR 5Y', yieldPercent: activeLiveBenchmarks.eur5Y };
+    if (t <= 15) return { name: 'DBR 0 02/15/31', yieldPercent: activeLiveBenchmarks.eur10Y };
+    return { name: 'DBR 30Y', yieldPercent: activeLiveBenchmarks.eur30Y };
+  }
   const yPercent = 2.05 + 0.58 * (1 - Math.exp(-t / 4.0)) + 0.012 * t;
   const name = t <= 2.5 ? 'DBR 2Y' : t <= 6 ? 'DBR 5Y' : t <= 12 ? 'DBR 0 02/15/31' : 'DBR 30Y';
   return { name, yieldPercent: Math.round(yPercent * 1000) / 1000 };

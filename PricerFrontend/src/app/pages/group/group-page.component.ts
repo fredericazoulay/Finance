@@ -23,10 +23,6 @@ export class GroupPageComponent implements OnInit {
     return this.workGroupService.groups;
   }
 
-  get selectedGroup(): string {
-    return this.workGroupService.selectedGroup;
-  }
-
   ngOnInit(): void {
     try {
       const storedFavorites = JSON.parse(localStorage.getItem('murexFavoriteGroups') ?? '[]');

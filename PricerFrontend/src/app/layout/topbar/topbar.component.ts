@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ThemeName, ThemeService } from '../../services/theme.service';
 import { PricingService } from '../../services/pricing.service';
@@ -8,7 +9,7 @@ import { WorkGroupService } from '../../services/work-group.service';
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './topbar.component.html',
   styleUrls: ['./topbar.component.scss']
 })

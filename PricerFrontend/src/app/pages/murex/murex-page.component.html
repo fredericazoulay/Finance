@@ -6,7 +6,7 @@
     </div>
     <div class="mx-session">
       <span class="session-label">{{ 'group' | translate }}</span>
-      <strong>{{ workGroupService.selectedGroup }}</strong>
+      <strong>{{ workGroupService.selectedGroup$ | async }}</strong>
       <span class="session-state"><i></i>{{ 'murex_demo_badge' | translate }}</span>
     </div>
   </header>

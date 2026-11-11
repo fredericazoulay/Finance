@@ -159,4 +159,36 @@ export class BondComparatorComponent implements OnChanges {
       item.checked = true;
     }
   }
+
+  printTearSheet(): void {
+    window.print();
+  }
+
+  exportComparisonCsv(): void {
+    if (!this.selectedBonds.length) return;
+
+    const headers = ['Critère', ...this.selectedBonds.map(b => `"${b.securityId} (${b.name})"` )];
+    const rows = [
+      ['Émetteur', ...this.selectedBonds.map(b => `"${b.issuer || '—'}"`)],
+      ['Devise', ...this.selectedBonds.map(b => b.currency)],
+      ['Notation', ...this.selectedBonds.map(b => b.rating || 'NR')],
+      ['Séniorité', ...this.selectedBonds.map(b => `"${b.seniority || 'Senior Unsecured'}"`)],
+      ['Prix Clean (%)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.cleanPrice ?? '—'))],
+      ['Prix Dirty (%)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.dirtyPrice ?? '—'))],
+      ['YTM (%)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.yieldToMaturity ?? '—'))],
+      ['G-Spread (bp)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.gSpreadBps ?? '—'))],
+      ['Duration Modifiée (ans)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.modifiedDuration ?? '—'))],
+      ['Convexité', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.convexity ?? '—'))],
+      ['DV01 (100k)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.dv01 ?? '—'))],
+      ['Ratio YTM / Dur (%/an)', ...this.selectedBonds.map(b => String(this.getMetrics(b.securityId)?.yieldToDurationRatio ?? '—'))],
+      ['Statut Relative Value', ...this.selectedBonds.map(b => this.getMetrics(b.securityId)?.relativeValueStatus ?? '—')]
+    ];
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `comparatif-obligations-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  }
 }

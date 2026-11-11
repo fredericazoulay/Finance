@@ -22,12 +22,14 @@ import { BondMarkowitzComponent } from '../bond-markowitz/bond-markowitz.compone
 import { BondPortfoliosComponent } from '../bond-portfolios/bond-portfolios.component';
 import { BondPeriodicCalculatorComponent } from '../bond-periodic-calculator/bond-periodic-calculator.component';
 import { BondAnalyticsDashboardComponent } from '../bond-analytics-dashboard/bond-analytics-dashboard.component';
-import { BondScenarioInput } from '../bond-analytics-dashboard/bond-scenario';
+import { BondScenarioInput, calculateBondScenario } from '../bond-analytics-dashboard/bond-scenario';
 import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 import { BondBloombergComponent } from '../bond-bloomberg/bond-bloomberg.component';
 import { BondAnalysisGuideComponent } from '../bond-analysis-guide/bond-analysis-guide.component';
 import { BondComparatorComponent } from '../bond-comparator/bond-comparator.component';
+import { BondMarketHubComponent } from '../bond-market-hub/bond-market-hub.component';
 import { DEFAULT_BENCHMARK_BONDS } from '../../../../services/bond-analytics-calc';
+import { MarketDataLiveService } from '../../../../services/market-data-live.service';
 import { WorkGroupService } from '../../../../services/work-group.service';
 
 interface BondComparableRow extends BondComparable {
@@ -41,7 +43,7 @@ type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
-type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis' | 'comparator';
+type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis' | 'comparator' | 'market-hub';
 type BondSolveFor = 'PRICE' | 'YTM' | 'TERM';
 type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiumPerUnit' | 'pricingStatus' | 'eligible';
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
@@ -113,7 +115,8 @@ interface PersistedBondComparablesState {
     BondFormulasComponent,
     BondBloombergComponent,
     BondAnalysisGuideComponent,
-    BondComparatorComponent
+    BondComparatorComponent,
+    BondMarketHubComponent
   ],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
@@ -271,7 +274,8 @@ export class BondComparablesComponent {
     private readonly pricingService: PricingService,
     private readonly aiAssistantService: AiAssistantService,
     private readonly cdr: ChangeDetectorRef,
-    readonly workGroupService: WorkGroupService
+    readonly workGroupService: WorkGroupService,
+    readonly marketDataService: MarketDataLiveService
   ) {
     this.apiOnline$ = this.pricingService.apiOnline$;
     this.restoreState();
@@ -281,6 +285,39 @@ export class BondComparablesComponent {
       this.selectedBondIdsForCompare.add(this.panel[0].securityId);
       this.selectedBondIdsForCompare.add(this.panel[1].securityId);
     }
+  }
+
+  applyLiveMarketRates(): void {
+    this.marketDataService.refreshLiveMarketData().subscribe(() => {
+      this.cdr.markForCheck();
+    });
+  }
+
+  onAddBenchmarkToCompare(symbol: string): void {
+    const quotes = this.marketDataService.currentSnapshot.quotes;
+    const match = quotes.find(q => q.symbol === symbol);
+    if (!match) return;
+
+    const existing = this.panel.find(b => b.securityId === match.symbol);
+    if (!existing) {
+      const benchmarkBond: BondComparable = {
+        securityId: match.symbol,
+        name: match.name,
+        issuer: match.source,
+        currency: match.currency,
+        maturityDate: '2034-08-15',
+        yieldToMaturity: match.yieldPercent / 100,
+        couponRate: match.yieldPercent,
+        couponFrequency: 1,
+        marketPrice: match.price,
+        rating: match.assetClass === 'High Yield' ? 'BB' : match.assetClass === 'Corp IG' ? 'A' : 'AAA',
+        sector: match.assetClass,
+        source: 'Yahoo Finance'
+      };
+      this.panel.unshift(benchmarkBond);
+    }
+    this.selectedBondIdsForCompare.add(match.symbol);
+    this.setMode('comparator');
   }
 
   get comparedBonds(): BondComparable[] {
@@ -302,6 +339,10 @@ export class BondComparablesComponent {
 
   isSelectedForCompare(securityId: string): boolean {
     return this.selectedBondIdsForCompare.has(securityId);
+  }
+
+  compareCheckboxId(securityId: string): string {
+    return `compare-bond-${encodeURIComponent(securityId)}`;
   }
 
   clearComparedBonds(): void {
@@ -436,12 +477,62 @@ export class BondComparablesComponent {
     const couponRate = this.basicForm.couponUnit === 'AMOUNT'
       ? Number(this.basicForm.couponValue) / Number(this.basicForm.faceValue)
       : Number(this.basicForm.couponValue) / 100;
+    if (this.basicForm.solveFor === 'PRICE') {
+      const faceValue = Number(this.basicForm.faceValue);
+      const couponRatePercent = couponRate * 100;
+      const couponFrequency = Number(this.basicForm.couponFrequency);
+      const termYears = Number(this.basicForm.termYears);
+      const ytmPercent = Number(this.basicForm.ytm);
+      this.directError = '';
+      this.directResult = null;
+
+      if (
+        !Number.isFinite(faceValue) || faceValue <= 0 ||
+        !Number.isFinite(couponRatePercent) || couponRatePercent < 0 ||
+        ![1, 2, 4, 12].includes(couponFrequency) ||
+        !Number.isFinite(termYears) || termYears <= 0 || termYears > 200 ||
+        !Number.isFinite(ytmPercent) || ytmPercent <= -couponFrequency * 100
+      ) {
+        this.directError = 'Vérifiez le nominal, le coupon, la fréquence, l’échéance (maximum 200 ans) et le rendement.';
+        return;
+      }
+
+      const result = calculateBondScenario({
+        faceValue,
+        couponRatePercent,
+        couponFrequency,
+        maturityYears: termYears,
+        yieldToMaturityPercent: ytmPercent
+      });
+      if (!result) {
+        this.directError = 'Le prix ne peut pas être calculé avec ces paramètres.';
+        return;
+      }
+
+      this.directResult = {
+        solveFor: 'PRICE',
+        faceValue,
+        price: result.price,
+        ytm: ytmPercent / 100,
+        termYears,
+        dirtyPrice: result.price,
+        accruedInterest: 0,
+        accruedDays: 0,
+        dayCount: 'N/A',
+        macaulayDuration: null,
+        modifiedDuration: null,
+        convexity: null,
+        dv01: null
+      };
+      return;
+    }
+
     const request: BondDirectPricingRequest = {
       solveFor: this.basicForm.solveFor,
       faceValue: Number(this.basicForm.faceValue),
       couponRate,
       couponFrequency: Number(this.basicForm.couponFrequency),
-      price: this.basicForm.solveFor === 'PRICE' ? null : Number(this.basicForm.price),
+      price: Number(this.basicForm.price),
       ytm: this.basicForm.solveFor === 'YTM' ? null : Number(this.basicForm.ytm) / 100,
       termYears: this.basicForm.solveFor === 'TERM' ? null : Number(this.basicForm.termYears)
     };

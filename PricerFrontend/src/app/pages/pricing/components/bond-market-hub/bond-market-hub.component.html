@@ -1,0 +1,186 @@
+<section class="market-hub-container" aria-label="Marché obligataire et données en direct">
+  <header class="market-hub-header">
+    <div>
+      <p class="eyebrow">Market data &amp; macro intelligence</p>
+      <h2>Flux obligataire en direct · FRED &amp; Yahoo Finance &amp; BCE</h2>
+      <p class="subtitle">Courbes des taux souveraines, spreads de crédit, taux monétaires et indices obligataires de référence.</p>
+    </div>
+    <div class="header-actions">
+      <span class="status-pill" [class.live]="snapshot?.isLive">
+        <span class="pulse-dot"></span>
+        {{ snapshot?.isLive ? '🟢 Connecté · Données Marché Live' : '🟡 Mode secours étalonné' }}
+        <small *ngIf="snapshot?.lastUpdated">({{ snapshot!.lastUpdated | date:'HH:mm:ss' }})</small>
+      </span>
+      <button type="button" class="secondary-button" [disabled]="isSyncing" (click)="refresh()">
+        {{ isSyncing ? 'Synchronisation…' : '🔄 Actualiser le flux' }}
+      </button>
+      <button type="button" class="primary-button apply-btn" (click)="onApplyLiveRates()" title="Calibrer le Pricer et le comparateur avec les taux réels">
+        ⚡ Appliquer au Pricer &amp; Comparateur
+      </button>
+    </div>
+  </header>
+
+  <p class="message success-banner" *ngIf="appliedSuccessMessage">{{ appliedSuccessMessage }}</p>
+
+  <!-- 1. LIVE MACRO BAROMETER -->
+  <div class="hub-card">
+    <div class="hub-card-header">
+      <div class="header-titles">
+        <h3>1. Baromètre macroéconomique &amp; Primes de risque</h3>
+        <p class="section-desc">Indicateurs clés fournis par la Réserve Fédérale de St. Louis (FRED) et la Banque Centrale Européenne (BCE).</p>
+      </div>
+      <div class="category-tabs">
+        <button type="button" [class.active]="selectedMacroCategory === 'ALL'" (click)="selectedMacroCategory = 'ALL'">Tous</button>
+        <button type="button" [class.active]="selectedMacroCategory === 'RATES'" (click)="selectedMacroCategory = 'RATES'">Taux souverains</button>
+        <button type="button" [class.active]="selectedMacroCategory === 'SPREADS'" (click)="selectedMacroCategory = 'SPREADS'">Spreads crédit</button>
+        <button type="button" [class.active]="selectedMacroCategory === 'MONEY_MARKET'" (click)="selectedMacroCategory = 'MONEY_MARKET'">Marché monétaire</button>
+        <button type="button" [class.active]="selectedMacroCategory === 'INFLATION'" (click)="selectedMacroCategory = 'INFLATION'">Inflation</button>
+      </div>
+    </div>
+
+    <div class="macro-grid">
+      <div class="macro-card" *ngFor="let ind of filteredMacroIndicators">
+        <div class="macro-top">
+          <span class="macro-source-tag" [attr.data-source]="ind.source">{{ ind.source }}</span>
+          <span class="macro-asof">{{ ind.asOf }}</span>
+        </div>
+        <strong class="macro-name">{{ ind.name }}</strong>
+        <div class="macro-val-row">
+          <span class="macro-val">{{ ind.value | number:'1.2-2' }} <small>{{ ind.unit }}</small></span>
+          <span class="macro-change" [class.up]="ind.change1D > 0" [class.down]="ind.change1D < 0" *ngIf="ind.change1D !== 0">
+            {{ ind.change1D > 0 ? '+' : '' }}{{ ind.change1D | number:'1.2-2' }}
+          </span>
+        </div>
+        <p class="macro-desc">{{ ind.description }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. YIELD CURVES COMPARISON & SLOPES -->
+  <div class="hub-card">
+    <div class="hub-card-header">
+      <div class="header-titles">
+        <h3>2. Courbes des taux souveraines en direct (Yield Curves)</h3>
+        <p class="section-desc">Structure par terme des emprunts d'État : US Treasuries (FRED DGS) vs Zone Euro AAA / Bund allemand (BCE).</p>
+      </div>
+      <div class="slope-summary" *ngIf="snapshot">
+        <div class="slope-badge" [class.inverted]="snapshot.usCurve.spread2s10sBps < 0">
+          <span>Pente US 2s10s :</span>
+          <strong>{{ snapshot.usCurve.spread2s10sBps > 0 ? '+' : '' }}{{ snapshot.usCurve.spread2s10sBps }} bp</strong>
+          <small>({{ snapshot.usCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
+        </div>
+        <div class="slope-badge" [class.inverted]="snapshot.euCurve.spread2s10sBps < 0">
+          <span>Pente Euro 2s10s :</span>
+          <strong>{{ snapshot.euCurve.spread2s10sBps > 0 ? '+' : '' }}{{ snapshot.euCurve.spread2s10sBps }} bp</strong>
+          <small>({{ snapshot.euCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container-box">
+      <canvas #yieldCurveCanvas></canvas>
+    </div>
+
+    <!-- Yield curve nodes comparison table -->
+    <div class="curve-table-wrap" *ngIf="snapshot">
+      <table class="curve-nodes-table">
+        <thead>
+          <tr>
+            <th>Maturité</th>
+            <th>3 Mois</th>
+            <th>1 An</th>
+            <th>2 Ans</th>
+            <th>5 Ans</th>
+            <th>7 Ans</th>
+            <th>10 Ans (Benchmark)</th>
+            <th>20 Ans</th>
+            <th>30 Ans</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>US Treasury (USD)</th>
+            <td>4.75 %</td>
+            <td>4.32 %</td>
+            <td><strong>{{ snapshot.usCurve.nodes[4]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td><strong>{{ snapshot.usCurve.nodes[6]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td>{{ snapshot.usCurve.nodes[7]?.ratePercent | number:'1.2-2' }} %</td>
+            <td class="key-node"><strong>{{ snapshot.usCurve.nodes[8]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td>{{ snapshot.usCurve.nodes[9]?.ratePercent | number:'1.2-2' }} %</td>
+            <td>{{ snapshot.usCurve.nodes[10]?.ratePercent | number:'1.2-2' }} %</td>
+          </tr>
+          <tr>
+            <th>Zone Euro AAA / Bund (EUR)</th>
+            <td>3.20 %</td>
+            <td>2.74 %</td>
+            <td><strong>{{ snapshot.euCurve.nodes[3]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td><strong>{{ snapshot.euCurve.nodes[5]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td>{{ snapshot.euCurve.nodes[6]?.ratePercent | number:'1.2-2' }} %</td>
+            <td class="key-node"><strong>{{ snapshot.euCurve.nodes[7]?.ratePercent | number:'1.2-2' }} %</strong></td>
+            <td>{{ snapshot.euCurve.nodes[8]?.ratePercent | number:'1.2-2' }} %</td>
+            <td>{{ snapshot.euCurve.nodes[9]?.ratePercent | number:'1.2-2' }} %</td>
+          </tr>
+          <tr class="spread-row">
+            <th>Spread Transatlantique (USD - EUR)</th>
+            <td>+155 bp</td>
+            <td>+158 bp</td>
+            <td>+188 bp</td>
+            <td>+180 bp</td>
+            <td>+185 bp</td>
+            <td class="key-node"><strong>+190 bp</strong></td>
+            <td>+192 bp</td>
+            <td>+180 bp</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. YAHOO FINANCE BENCHMARKS & BOND ETFS -->
+  <div class="hub-card">
+    <div class="hub-card-header">
+      <div class="header-titles">
+        <h3>3. Indices de taux &amp; ETF Obligataires (Yahoo Finance)</h3>
+        <p class="section-desc">Cotations de référence pour le suivi des marchés obligataires mondiaux, de l’Investment Grade au High Yield.</p>
+      </div>
+      <span class="source-tag">Source API : Yahoo Finance</span>
+    </div>
+
+    <div class="quotes-table-wrap" *ngIf="snapshot">
+      <table class="quotes-table">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Nom de l’instrument / ETF</th>
+            <th>Classe d’actif</th>
+            <th>Dernier cours</th>
+            <th>Var. 1D (%)</th>
+            <th>Rendement / YTM</th>
+            <th>Devise</th>
+            <th>Source</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let q of snapshot.quotes">
+            <td><strong class="ticker-text">{{ q.symbol }}</strong></td>
+            <td>{{ q.name }}</td>
+            <td><span class="asset-pill" [attr.data-class]="q.assetClass">{{ q.assetClass }}</span></td>
+            <td class="price-cell"><strong>{{ q.price | number:'1.2-2' }}</strong></td>
+            <td class="change-cell" [class.up]="q.changePercent > 0" [class.down]="q.changePercent < 0">
+              {{ q.changePercent > 0 ? '+' : '' }}{{ q.changePercent | number:'1.2-2' }} %
+            </td>
+            <td class="yield-cell"><strong>{{ q.yieldPercent | number:'1.2-2' }} %</strong></td>
+            <td>{{ q.currency }}</td>
+            <td><small>{{ q.source }}</small></td>
+            <td>
+              <button type="button" class="compare-add-btn" (click)="addBenchmarkToCompare.emit(q.symbol)" title="Comparer cet indice aux obligations">
+                + Comparer ⚖️
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
