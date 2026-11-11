@@ -60,7 +60,15 @@
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'bond-graphs'">
-    <app-bond-analytics-dashboard [bonds]="panel"></app-bond-analytics-dashboard>
+    <app-bond-analytics-dashboard
+      [bonds]="panel"
+      [faceValue]="basicForm.faceValue"
+      [couponRate]="basicCouponRatePercent"
+      [couponFrequency]="basicForm.couponFrequency"
+      [maturityYears]="basicForm.termYears"
+      [yieldToMaturity]="basicForm.ytm"
+      (scenarioInputChange)="updateBondScenarioInput($event)"
+    ></app-bond-analytics-dashboard>
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'formulas'">

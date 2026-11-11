@@ -1,6 +1,80 @@
 <section class="dashboard-section">
+  <section class="scenario-section" aria-labelledby="scenario-heading">
+    <header class="dashboard-heading">
+      <div><p class="eyebrow">01 / Sensibilité de l’obligation</p><h2 id="scenario-heading">Prix, duration et scénarios de taux</h2></div>
+      <span *ngIf="scenario as metrics">YTM scénario : {{ scenarioYieldPercent | number:'1.2-2' }} %</span>
+    </header>
+    <p class="data-note">
+      Repricing exact des flux fixes selon les hypothèses du calcul de base. Le choc s’applique au rendement total ;
+      il ne sépare pas taux de référence et spread de crédit.
+    </p>
+    <div class="scenario-input-grid">
+      <label>
+        Nominal
+        <strong>{{ faceValue | number:'1.0-2' }}</strong>
+        <input type="range" min="1" max="1000000" step="1" [value]="faceValue"
+          (input)="onScenarioInputChange('faceValue', $event)" aria-label="Nominal de l’obligation" />
+      </label>
+      <label>
+        Coupon annuel
+        <strong>{{ couponRate | number:'1.1-2' }} %</strong>
+        <input type="range" min="0" max="50" step="0.1" [value]="couponRate"
+          (input)="onScenarioInputChange('couponRatePercent', $event)" aria-label="Taux de coupon annuel" />
+      </label>
+      <label>
+        Fréquence
+        <strong>{{ couponFrequency }} × / an</strong>
+        <select [value]="couponFrequency" (change)="onScenarioInputChange('couponFrequency', $event)" aria-label="Fréquence des coupons">
+          <option value="1">Annuelle</option>
+          <option value="2">Semestrielle</option>
+          <option value="4">Trimestrielle</option>
+          <option value="12">Mensuelle</option>
+        </select>
+      </label>
+      <label>
+        Échéance
+        <strong>{{ maturityYears | number:'1.2-2' }} an(s)</strong>
+        <input type="range" min="0.25" max="50" step="0.25" [value]="maturityYears"
+          (input)="onScenarioInputChange('maturityYears', $event)" aria-label="Échéance en années" />
+      </label>
+      <label>
+        YTM initial
+        <strong>{{ yieldToMaturity | number:'1.2-2' }} %</strong>
+        <input type="range" min="-5" max="100" step="0.05" [value]="yieldToMaturity"
+          (input)="onScenarioInputChange('yieldToMaturityPercent', $event)" aria-label="Rendement actuariel initial" />
+      </label>
+    </div>
+    <div class="scenario-controls">
+      <label for="rate-shock">
+        Choc parallèle de rendement
+        <strong>{{ rateShockBps > 0 ? '+' : '' }}{{ rateShockBps }} pb</strong>
+      </label>
+      <input id="rate-shock" type="range" [min]="minRateShockBps" max="300" step="25"
+        [value]="rateShockBps" (input)="onRateShockChange($event)" aria-label="Choc parallèle de rendement en points de base" />
+      <button type="button" class="reset-button" *ngIf="rateShockBps !== 0" (click)="resetRateShock()">Réinitialiser</button>
+    </div>
+    <div class="metrics-grid" *ngIf="scenario as metrics; else invalidScenario">
+      <article class="metric-card"><span>Prix de référence</span><strong>{{ metrics.basePrice | number:'1.2-4' }}</strong></article>
+      <article class="metric-card"><span>Prix scénario</span><strong>{{ metrics.price | number:'1.2-4' }}</strong></article>
+      <article class="metric-card"><span>Duration modifiée</span><strong>{{ metrics.duration | number:'1.2-4' }} ans</strong></article>
+      <article class="metric-card"><span>DV01 (pour 1 pb)</span><strong>{{ metrics.dv01 | number:'1.4-4' }}</strong></article>
+      <article class="metric-card"><span>Convexité</span><strong>{{ metrics.convexity | number:'1.2-4' }}</strong></article>
+      <article class="metric-card" [class.negative]="metrics.pnl < 0" [class.positive]="metrics.pnl > 0">
+        <span>P&amp;L scénario / nominal</span><strong>{{ metrics.pnl > 0 ? '+' : '' }}{{ metrics.pnl | number:'1.2-4' }}</strong>
+      </article>
+    </div>
+    <ng-template #invalidScenario>
+      <p class="chart-note">Saisissez un nominal, un coupon, une échéance, une fréquence (1, 2, 4 ou 12) et un rendement valides.</p>
+    </ng-template>
+    <div class="chart-grid scenario-chart-grid">
+      <article class="chart-card"><div class="chart-area"><canvas #priceYieldChart aria-label="Prix exact en fonction du rendement actuariel"></canvas></div></article>
+      <article class="chart-card"><div class="chart-area"><canvas #cashFlowChart aria-label="Flux contractuels et flux actualisés du scénario"></canvas></div></article>
+    </div>
+    <p class="chart-note">Courbe pleine : repricing exact. Courbes pointillées : approximations par duration seule, puis duration et convexité. Convention indicative : coupons fixes, période finale proratisée, sans intérêts courus, option, défaut, fiscalité ni frais. Les prix et le DV01 sont dans la devise du nominal saisi.</p>
+  </section>
+
   <header class="dashboard-heading">
-    <div><p class="eyebrow">01 / Répartition du panel</p><h2>Graphiques obligataires</h2></div>
+    <div><p class="eyebrow">02 / Répartition du panel</p><h2>Graphiques obligataires</h2></div>
     <span>{{ bonds.length }} obligation(s) importée(s)</span>
   </header>
   <p class="data-note">Les graphiques utilisent uniquement les champs présents dans le panel importé. Les rendements sont comparables avec prudence entre devises et dates de valorisation différentes.</p>
@@ -23,8 +97,8 @@
       <p class="chart-note" *ngIf="!bondsWithCouponAndYieldCount">Indisponible : il faut le taux de coupon et le YTM de l’obligation.</p>
     </article>
     <article class="chart-card unavailable-card">
-      <h3>Sensibilité aux taux : duration, convexité, DV01</h3>
-      <p>Indisponible : le panel ne fournit pas ces mesures calculées. Elles nécessitent aussi les flux, conventions et hypothèses de valorisation.</p>
+      <h3>Risques calculés du panel</h3>
+      <p>Duration, convexité et DV01 sont calculées ci-dessus pour le scénario de référence ; elles ne sont pas fournies pour chaque obligation importée.</p>
     </article>
     <article class="chart-card unavailable-card">
       <h3>Spread de crédit</h3>

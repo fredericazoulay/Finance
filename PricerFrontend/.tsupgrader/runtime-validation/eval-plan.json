@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-11-11T12:40:00Z",
+  "generatedOnPlatform": "win32",
+  "projectType": "webapp",
+  "devServer": {
+    "command": "npm",
+    "args": [
+      "run",
+      "start",
+      "--",
+      "--configuration",
+      "development",
+      "--port",
+      "4201"
+    ],
+    "url": "http://localhost:4201/pricing/BOND",
+    "readyTimeoutSeconds": 120
+  },
+  "setup": [],
+  "assertions": [
+    {
+      "name": "angular-development-build",
+      "kind": "process",
+      "command": "npm",
+      "args": [
+        "run",
+        "build",
+        "--",
+        "--configuration",
+        "development"
+      ],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "tests-pass",
+      "kind": "process",
+      "command": "npm",
+      "args": [
+        "test"
+      ],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "bond-pricing-route-responds",
+      "kind": "http-probe",
+      "startCommand": "npm",
+      "startArgs": [
+        "run",
+        "start",
+        "--",
+        "--configuration",
+        "development",
+        "--port",
+        "4201"
+      ],
+      "url": "http://localhost:4201/pricing/BOND",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import { BondMarkowitzComponent } from '../bond-markowitz/bond-markowitz.compone
 import { BondPortfoliosComponent } from '../bond-portfolios/bond-portfolios.component';
 import { BondPeriodicCalculatorComponent } from '../bond-periodic-calculator/bond-periodic-calculator.component';
 import { BondAnalyticsDashboardComponent } from '../bond-analytics-dashboard/bond-analytics-dashboard.component';
+import { BondScenarioInput } from '../bond-analytics-dashboard/bond-scenario';
 import { BondFormulasComponent } from '../bond-formulas/bond-formulas.component';
 import { BondBloombergComponent } from '../bond-bloomberg/bond-bloomberg.component';
 import { BondAnalysisGuideComponent } from '../bond-analysis-guide/bond-analysis-guide.component';
@@ -151,6 +152,13 @@ export class BondComparablesComponent {
   directError = '';
   isDirectPricing = false;
   directCurrency = 'USD';
+  get basicCouponRatePercent(): number {
+    const faceValue = Number(this.basicForm.faceValue);
+    const couponValue = Number(this.basicForm.couponValue);
+    if (!Number.isFinite(faceValue) || faceValue <= 0 || !Number.isFinite(couponValue)) return Number.NaN;
+    return this.basicForm.couponUnit === 'AMOUNT' ? couponValue / faceValue * 100 : couponValue;
+  }
+
   readonly basicForm = {
     solveFor: 'PRICE' as BondSolveFor,
     faceValue: 100,
@@ -374,6 +382,27 @@ export class BondComparablesComponent {
       termYears: this.basicForm.solveFor === 'TERM' ? null : Number(this.basicForm.termYears)
     };
     this.submitDirect(request);
+  }
+
+  updateBondScenarioInput(change: { key: keyof BondScenarioInput; value: number }): void {
+    switch (change.key) {
+      case 'faceValue':
+        this.basicForm.faceValue = change.value;
+        break;
+      case 'couponRatePercent':
+        this.basicForm.couponValue = change.value;
+        this.basicForm.couponUnit = 'PERCENT';
+        break;
+      case 'couponFrequency':
+        this.basicForm.couponFrequency = change.value;
+        break;
+      case 'maturityYears':
+        this.basicForm.termYears = change.value;
+        break;
+      case 'yieldToMaturityPercent':
+        this.basicForm.ytm = change.value;
+        break;
+    }
   }
 
   calculateAdvanced(): void {

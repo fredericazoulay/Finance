@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ArcElement,
@@ -8,6 +8,8 @@ import {
   Chart,
   ChartOptions,
   Legend,
+  LineController,
+  LineElement,
   LinearScale,
   PointElement,
   PieController,
@@ -16,8 +18,14 @@ import {
   Tooltip
 } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
+import {
+  BondScenarioInput,
+  BondScenarioMetrics,
+  calculateBondScenario,
+  priceBondAtYield
+} from './bond-scenario';
 
-Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LinearScale, PieController, PointElement, ScatterController, Title, Tooltip);
+Chart.register(ArcElement, BarController, BarElement, CategoryScale, Legend, LineController, LineElement, LinearScale, PieController, PointElement, ScatterController, Title, Tooltip);
 
 const MATURITY_BUCKETS = ['0-5Y', '5-10Y', '10-20Y', '20Y+'];
 const RATINGS = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];
@@ -33,6 +41,12 @@ const BLOOMBERG_CHART_COLORS = ['#ff8c00', '#f4c542', '#54b7a5', '#56a8d8', '#e6
 })
 export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() bonds: BondComparable[] = [];
+  @Input() faceValue = 100;
+  @Input() couponRate = 5;
+  @Input() couponFrequency = 2;
+  @Input() maturityYears = 3;
+  @Input() yieldToMaturity = 6;
+  @Output() scenarioInputChange = new EventEmitter<{ key: keyof BondScenarioInput; value: number }>();
   @ViewChild('currencyChart') currencyChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('maturityChart') maturityChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('ratingChart') ratingChart!: ElementRef<HTMLCanvasElement>;
@@ -40,10 +54,27 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   @ViewChild('sectorChart') sectorChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('maturityYieldChart') maturityYieldChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('couponYieldChart') couponYieldChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('priceYieldChart') priceYieldChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('cashFlowChart') cashFlowChart!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
   private themeObserver: MutationObserver | null = null;
   private viewInitialized = false;
+  rateShockBps = 0;
+
+  get scenario(): BondScenarioMetrics | null {
+    return calculateBondScenario(this.scenarioInput, this.rateShockBps);
+  }
+
+  get scenarioYieldPercent(): number {
+    return this.yieldToMaturity + this.rateShockBps / 100;
+  }
+
+  get minRateShockBps(): number {
+    const frequency = Number(this.couponFrequency);
+    const yieldRate = Number(this.yieldToMaturity) / 100;
+    return Math.max(-300, Math.ceil((-frequency - yieldRate + 0.0001) * 10000));
+  }
 
   get bondsWithRating(): BondComparable[] {
     return this.bonds.filter(bond => Boolean(this.normalizeRating(bond.rating)));
@@ -75,7 +106,10 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['bonds'] && this.viewInitialized) this.updateCharts();
+    if (this.viewInitialized && Object.keys(changes).length) {
+      this.rateShockBps = Math.max(this.minRateShockBps, this.rateShockBps);
+      this.updateCharts();
+    }
   }
 
   ngOnDestroy(): void {
@@ -154,6 +188,164 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
       },
       options: this.chartOptions('YTM moyen par notation')
     }));
+    this.createScenarioCharts(chartColors);
+  }
+
+  onRateShockChange(event: Event): void {
+    this.rateShockBps = Number((event.target as HTMLInputElement).value);
+    this.updateCharts();
+  }
+
+  onScenarioInputChange(key: keyof BondScenarioInput, event: Event): void {
+    this.scenarioInputChange.emit({
+      key,
+      value: Number((event.target as HTMLInputElement).value)
+    });
+  }
+
+  resetRateShock(): void {
+    this.rateShockBps = 0;
+    this.updateCharts();
+  }
+
+  private createScenarioCharts(chartColors: string[]): void {
+    const scenario = calculateBondScenario(this.scenarioInput, this.rateShockBps);
+    const baseScenario = calculateBondScenario(this.scenarioInput);
+    if (!scenario || !baseScenario) return;
+
+    const input = this.scenarioInput;
+    const frequency = Number(input.couponFrequency);
+    const baseYield = Number(input.yieldToMaturityPercent) / 100;
+    const scenarioYield = baseYield + this.rateShockBps / 10000;
+    const lowestYield = Math.max(baseYield - 0.03, -frequency + 0.0001);
+    const highestYield = baseYield + 0.03;
+    const yields = [...new Set([
+      baseYield,
+      scenarioYield,
+      ...Array.from({ length: 25 }, (_, index) => baseYield + (index - 12) * 0.0025)
+        .filter(value => value >= lowestYield && value <= highestYield)
+    ])].sort((left, right) => left - right);
+    const textColor = this.chartTextColor;
+
+    this.charts.push(new Chart(this.priceYieldChart.nativeElement, {
+      type: 'line',
+      data: {
+        labels: yields.map(value => `${(value * 100).toFixed(2)} %`),
+        datasets: [
+          {
+            label: 'Prix exact',
+            data: yields.map(value => priceBondAtYield(scenario.cashFlows, frequency, value)),
+            borderColor: chartColors[0],
+            backgroundColor: `${chartColors[0]}22`,
+            fill: true,
+            tension: 0.2,
+            pointRadius: 0
+          },
+          {
+            label: 'Duration seule',
+            data: yields.map(value => baseScenario.basePrice * (1 - baseScenario.duration * (value - baseYield))),
+            borderColor: '#f0a33a',
+            borderDash: [5, 4],
+            fill: false,
+            pointRadius: 0
+          },
+          {
+            label: 'Duration + convexité',
+            data: yields.map(value => {
+              const shock = value - baseYield;
+              return baseScenario.basePrice * (
+                1 - baseScenario.duration * shock + 0.5 * baseScenario.convexity * shock * shock
+              );
+            }),
+            borderColor: '#8a6ac1',
+            borderDash: [2, 3],
+            fill: false,
+            pointRadius: 0
+          },
+          {
+            label: 'Prix de référence',
+            data: yields.map(value => value === baseYield ? scenario.basePrice : null),
+            borderColor: '#f0a33a',
+            backgroundColor: '#f0a33a',
+            pointRadius: 5,
+            showLine: false
+          },
+          {
+            label: 'Prix du scénario',
+            data: yields.map(value => value === scenarioYield ? scenario.price : null),
+            borderColor: '#d95757',
+            backgroundColor: '#d95757',
+            pointRadius: 5,
+            showLine: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Prix selon le rendement', color: this.chartTitleColor },
+          legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
+          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${Number(context.raw).toFixed(4)}` } }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Rendement actuariel', color: textColor },
+            ticks: { color: textColor, maxTicksLimit: 7 },
+            grid: { color: this.chartGridColor }
+          },
+          y: {
+            title: { display: true, text: 'Prix par nominal', color: textColor },
+            ticks: { color: textColor },
+            grid: { color: this.chartGridColor }
+          }
+        }
+      }
+    }));
+
+    this.charts.push(new Chart(this.cashFlowChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: scenario.cashFlows.map(flow => `${flow.timeYears.toFixed(2)} an(s)`),
+        datasets: [
+          {
+            label: 'Flux contractuel',
+            data: scenario.cashFlows.map(flow => flow.amount),
+            backgroundColor: `${chartColors[1]}bb`
+          },
+          {
+            label: 'Flux actualisé',
+            data: scenario.cashFlows.map(flow =>
+              flow.amount / Math.pow(1 + scenarioYield / frequency, flow.timeYears * frequency)
+            ),
+            backgroundColor: `${chartColors[2]}bb`
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Flux et valeur actualisée au rendement du scénario', color: this.chartTitleColor },
+          legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } }
+        },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: this.chartGridColor } }
+        }
+      }
+    }));
+
+  }
+
+  private get scenarioInput(): BondScenarioInput {
+    return {
+      faceValue: Number(this.faceValue),
+      couponRatePercent: Number(this.couponRate),
+      couponFrequency: Number(this.couponFrequency),
+      maturityYears: Number(this.maturityYears),
+      yieldToMaturityPercent: Number(this.yieldToMaturity)
+    };
   }
 
   private chartOptions(title: string, isPie: true): ChartOptions<'pie'>;
