@@ -313,7 +313,7 @@
               <ng-container *ngSwitchCase="'rating'">{{ row.rating || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'yieldToMaturity'"><span class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</span></ng-container>
               <ng-container *ngSwitchCase="'source'">{{ sourceLabel(row) || '—' }}<small>{{ sourceDate(row) }}</small></ng-container>
-              <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Meilleur YTM</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable</span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span></ng-container>
+              <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Retenu · rang {{ row.rank || 1 }}</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable<span *ngIf="row.rank"> · rang {{ row.rank }}</span></span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span><small *ngIf="row.rankingReasons?.length">{{ row.rankingReasons?.join(' · ') }}</small></ng-container>
             </ng-container>
           </ng-template>
           <ng-container *ngIf="bondGroupColumns.length; else ungroupedBondRows">
@@ -369,13 +369,20 @@
     <div class="result-lead">
       <p class="eyebrow">03 / Estimation</p>
       <h2>Prix estimé de la cible</h2>
-      <p>YTM du comparable au rendement maximal, même devise, échéance à ±{{ pricing.maturityToleranceMonths }} mois.</p>
+      <p>YTM du comparable retenu par le classement parmi les titres admissibles; écart d’échéance maximal : {{ pricing.maturityToleranceMonths }} mois.</p>
       <small class="calculated-at" *ngIf="lastCalculatedAt">Dernier calcul réussi : {{ lastCalculatedAt | date:'dd/MM/yyyy à HH:mm:ss' }}</small>
       <p class="message stale-result" *ngIf="(apiOnline$ | async) === false">API indisponible. Ce résultat précédent est conservé et n’a pas été recalculé.</p>
     </div>
     <div class="price-block"><span>Prix clean</span><strong>{{ pricing.valuation.cleanPrice | number:'1.2-4' }}</strong><small>{{ pricing.currency }} / {{ target.faceValue | number:'1.0-2' }} nominal</small></div>
     <div class="price-block"><span>Prix dirty</span><strong>{{ pricing.valuation.dirtyPrice | number:'1.2-4' }}</strong><small>Intérêts courus : {{ pricing.valuation.accruedInterest | number:'1.2-4' }}</small></div>
-    <div class="winner-block"><span>Meilleur rendement du panel</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
+    <div class="winner-block"><span>Comparable retenu</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
+    <details class="ranking-audit">
+      <summary>Critères et justification du classement</summary>
+      <p *ngIf="pricing.rankingCriteria?.length"><strong>Critères :</strong> {{ pricing.rankingCriteria?.join(' · ') }}</p>
+      <ng-container *ngFor="let item of pricing.panel">
+        <p *ngIf="item.selected"><strong>Comparable retenu (rang {{ item.rank || 1 }}) :</strong> {{ item.rankingReasons?.length ? item.rankingReasons?.join(' · ') : 'Aucune justification détaillée fournie par le backend.' }}</p>
+      </ng-container>
+    </details>
     <div class="analytics-grid">
       <div class="analytics-item"><span>Duration Macaulay</span><strong>{{ pricing.valuation.macaulayDuration | number:'1.2-4' }} ans</strong></div>
       <div class="analytics-item"><span>Duration modifiée</span><strong>{{ pricing.valuation.modifiedDuration | number:'1.2-4' }} ans</strong></div>

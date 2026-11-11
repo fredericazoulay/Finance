@@ -36,6 +36,8 @@ interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
   selected: boolean;
   exclusionReason: string | null;
+  rank?: number | null;
+  rankingReasons?: string[];
 }
 
 type BondColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
@@ -774,7 +776,9 @@ export class BondComparablesComponent {
         settlementDate: item.bond.settlementDate ?? importedBonds.get(item.bond.securityId)?.settlementDate,
         eligible: item.eligible,
         selected: item.selected,
-        exclusionReason: item.exclusionReason
+        exclusionReason: item.exclusionReason,
+        rank: item.rank,
+        rankingReasons: item.rankingReasons
       }));
     }
     return this.panel.map(bond => ({ ...bond, eligible: null, selected: false, exclusionReason: null }));

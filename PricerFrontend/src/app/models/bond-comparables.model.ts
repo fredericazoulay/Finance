@@ -56,9 +56,12 @@ export interface BondComparablesResponse {
     eligible: boolean;
     selected: boolean;
     exclusionReason: string | null;
+    rank?: number | null;
+    rankingReasons?: string[];
   }>;
   bestYieldSecurityId: string;
   appliedYield: number;
+  rankingCriteria?: string[];
   valuation: {
     cleanPrice: number;
     dirtyPrice: number;

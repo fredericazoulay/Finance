@@ -23,7 +23,8 @@
 .workspace-context strong { color: var(--green); font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; }
 .mode-tabs { display: flex; width: 100%; max-width: 100%; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
 .mode-tabs button { flex: 0 0 auto; min-height: 40px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); white-space: nowrap; }
-.mode-tabs button.active { border-bottom-color: var(--green); color: var(--ink); }
+.mode-tabs button:hover:not(.active) { background: var(--ui-raised, rgba(124, 181, 255, 0.08)); color: var(--ink); }
+.mode-tabs button.active { border-bottom-color: var(--green); background: var(--ui-accent-soft, rgba(58, 227, 116, 0.12)); color: var(--ink); }
 .eyebrow { margin: 0 0 5px; color: var(--green); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: 25px; font-weight: 600; }

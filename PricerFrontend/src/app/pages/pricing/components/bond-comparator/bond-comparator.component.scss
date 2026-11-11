@@ -1,4 +1,5 @@
 .comparator-container {
+  --ui-bg: var(--ui-raised, #f8fafc);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -74,7 +75,7 @@
 
   .primary-button {
     background: var(--ui-accent, #2563eb);
-    color: #ffffff;
+    color: var(--ui-action-ink, #ffffff);
     border: none;
     padding: 0.6rem 1.25rem;
     border-radius: 6px;
@@ -241,8 +242,8 @@
   }
 
   .section-divider-row td {
-    background: #0f172a;
-    color: #e2e8f0;
+    background: var(--ui-raised, #0f172a);
+    color: var(--ui-accent, #e2e8f0);
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -251,7 +252,7 @@
   }
 
   .key-metric-row td {
-    background: rgba(37, 99, 235, 0.04);
+    background: var(--ui-accent-soft, rgba(37, 99, 235, 0.04));
   }
 
   .metric-val {
@@ -300,7 +301,7 @@
     font-weight: 700;
     font-size: 0.75rem;
     background: #3b82f6;
-    color: #ffffff;
+    color: #0f172a;
     margin-right: 0.35rem;
 
     &[data-rating^='AAA'] { background: #059669; }
@@ -311,7 +312,7 @@
   }
 
   .esg-green-badge {
-    color: #059669;
+    color: #065f46;
     font-size: 0.75rem;
     font-weight: 700;
     background: #ecfdf5;
@@ -354,9 +355,9 @@
     }
 
     &.fair {
-      background: #f0fdf4;
-      color: #0284c7;
-      border: 1px solid #bae6fd;
+      background: #e0f2fe;
+      color: #075985;
+      border: 1px solid #7dd3fc;
     }
   }
 }
