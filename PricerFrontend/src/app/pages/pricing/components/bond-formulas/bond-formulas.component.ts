@@ -17,6 +17,7 @@ interface FinancialFormula {
 export class BondFormulasComponent {
   readonly formulas: FinancialFormula[] = [
     { name: 'DirtyPrice', description: 'Sum of discounted future cashflows', definition: 'PV = CF * exp(-(ZeroRate(Time) + ZSpread) * Time)' },
+    { name: 'ZSpread', description: 'Constant spread over the zero curve that matches the observed dirty price', definition: 'ZSpread = root_z { DirtyPrice - Sum_i[CF_i * exp(-(ZeroRate(t_i) + z) * t_i)] = 0 }' },
     { name: 'CleanPrice', description: 'Dirty price less accrued interest', definition: 'CleanPrice = DirtyPrice - AccruedInterest' },
     { name: 'AccruedInterest', description: 'Coupon accrued in the current coupon period', definition: 'Coupon * ActualDaysElapsed / ActualDaysInCouponPeriod' },
     { name: 'Duration', description: 'Present-value weighted time to cashflow', definition: 'Duration = Sum(Time * PV) / Sum(PV)' },

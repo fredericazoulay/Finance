@@ -337,7 +337,11 @@ export class BondComparablesComponent implements OnDestroy {
   }
 
   get comparedBonds(): BondComparable[] {
-    return this.panel.filter(b => this.selectedBondIdsForCompare.has(b.securityId));
+    const targetBond = this.targetPanelBond;
+    return [
+      ...(targetBond && this.selectedBondIdsForCompare.has(targetBond.securityId) ? [targetBond] : []),
+      ...this.panel.filter(bond => bond.securityId !== targetBond?.securityId && this.selectedBondIdsForCompare.has(bond.securityId))
+    ];
   }
 
   get targetPanelBond(): BondComparable | null {
@@ -408,6 +412,7 @@ export class BondComparablesComponent implements OnDestroy {
 
   loadDefaultBenchmarkUniverse(): void {
     this.panel = [...DEFAULT_BENCHMARK_BONDS];
+    this.syncTargetMetadataFromPanel();
     this.selectedBondIdsForCompare.clear();
     if (this.panel.length >= 3) {
       this.selectedBondIdsForCompare.add(this.panel[0].securityId);
@@ -434,6 +439,7 @@ export class BondComparablesComponent implements OnDestroy {
       .subscribe({
         next: bonds => {
           this.panel = bonds;
+          this.syncTargetMetadataFromPanel();
           this.selectedBondIdsForCompare.clear();
           this.invalidateResult();
           if (bonds.length) {
@@ -692,7 +698,7 @@ export class BondComparablesComponent implements OnDestroy {
       this.directPricingSubscription = undefined;
       this.isDirectPricing = false;
       this.cdr.detectChanges();
-    }, 16000);
+    }, 2000);
     this.directPricingSubscription = this.comparablesService.priceDirectly(request).pipe(finalize(() => {
       if (this.directPricingWatchdog !== undefined) clearTimeout(this.directPricingWatchdog);
       this.directPricingWatchdog = undefined;
@@ -724,6 +730,17 @@ export class BondComparablesComponent implements OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  cancelDirectPricing(): void {
+    if (!this.isDirectPricing) return;
+    this.directError = 'Calcul annulé.';
+    if (this.directPricingWatchdog !== undefined) clearTimeout(this.directPricingWatchdog);
+    this.directPricingWatchdog = undefined;
+    this.directPricingSubscription?.unsubscribe();
+    this.directPricingSubscription = undefined;
+    this.isDirectPricing = false;
+    this.cdr.detectChanges();
   }
 
   ngOnDestroy(): void {
@@ -876,6 +893,7 @@ export class BondComparablesComponent implements OnDestroy {
       return;
     }
     this.panel = rows.map((row, index) => this.toComparable(row, index, xlsx));
+    this.syncTargetMetadataFromPanel();
   }
 
   price(): void {
@@ -907,7 +925,11 @@ export class BondComparablesComponent implements OnDestroy {
         issueDate: this.target.issueDate || null,
         maturityDate: this.target.maturityDate,
         settlementDate: this.target.settlementDate,
-        dayCount: this.target.dayCount
+        dayCount: this.target.dayCount,
+        issuer: this.target.issuer?.trim() || null,
+        rating: this.target.rating?.trim() || null,
+        sector: this.target.sector?.trim() || null,
+        seniority: this.target.seniority?.trim() || null
       },
       panel: this.panel.map(bond => this.toPricingBond(bond)),
       maturityToleranceMonths: Number(this.maturityToleranceMonths)
@@ -1820,6 +1842,14 @@ export class BondComparablesComponent implements OnDestroy {
     const bond = this.panel.find(item => item.securityId === securityId);
     if (!bond) return;
 
+    if (!this.selectedBondIdsForCompare.has(securityId)) {
+      if (this.selectedBondIdsForCompare.size >= 5) {
+        const first = this.selectedBondIdsForCompare.values().next().value;
+        if (first) this.selectedBondIdsForCompare.delete(first);
+      }
+      this.selectedBondIdsForCompare.add(securityId);
+    }
+
     this.applyTargetBondToPricingForms(bond);
 
     this.target = {
@@ -1832,12 +1862,18 @@ export class BondComparablesComponent implements OnDestroy {
       settlementDate: bond.settlementDate ?? currentLocalDate(),
       faceValue: bond.faceValue ?? this.target.faceValue,
       couponRate: bond.couponRate == null ? this.target.couponRate : this.normalizePercent(bond.couponRate),
-      couponFrequency: bond.couponFrequency ?? this.target.couponFrequency
+      couponFrequency: bond.couponFrequency ?? this.target.couponFrequency,
+      issuer: bond.issuer ?? '',
+      rating: bond.rating ?? '',
+      sector: bond.sector ?? '',
+      seniority: bond.seniority ?? ''
     };
     this.result = null;
     this.lastCalculatedAt = null;
     this.error = '';
     this.persistState();
+    if (this.activeMode === 'basic') this.calculateBasic();
+    else if (this.activeMode === 'advanced') this.calculateAdvanced();
   }
 
   private applyTargetBondToPricingForms(bond: BondComparable): void {
@@ -1899,10 +1935,24 @@ export class BondComparablesComponent implements OnDestroy {
   private restoreTargetAndPanel(state: Partial<PersistedBondComparablesState>): void {
     if (state.target && typeof state.target === 'object') this.target = { ...this.target, ...state.target };
     if (Array.isArray(state.panel)) this.panel = state.panel;
+    this.syncTargetMetadataFromPanel();
     if (Array.isArray(state.fullOptions)) this.fullOptions = state.fullOptions;
     if (typeof state.maturityToleranceMonths === 'number' && Number.isFinite(state.maturityToleranceMonths)) {
       this.maturityToleranceMonths = state.maturityToleranceMonths;
     }
+  }
+
+  private syncTargetMetadataFromPanel(): void {
+    const bond = this.targetPanelBond;
+    if (!bond) return;
+
+    this.target = {
+      ...this.target,
+      issuer: this.target.issuer?.trim() || bond.issuer || '',
+      rating: this.target.rating?.trim() || bond.rating || '',
+      sector: this.target.sector?.trim() || bond.sector || '',
+      seniority: this.target.seniority?.trim() || bond.seniority || ''
+    };
   }
 
   formatCalendarDate(value: string | null | undefined): string {

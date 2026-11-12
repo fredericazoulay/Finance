@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { BondComparable } from '../../../../models/bond-comparables.model';
 
 interface BondMetrics {
   price: number;
@@ -31,8 +32,9 @@ interface AnalysisChecklistItem {
   templateUrl: './bond-analysis-guide.component.html',
   styleUrls: ['./bond-analysis-guide.component.scss']
 })
-export class BondAnalysisGuideComponent {
+export class BondAnalysisGuideComponent implements OnChanges {
   @Input() currency = 'EUR';
+  @Input() targetBond: BondComparable | null = null;
 
   modifiedDuration = 8.5;
   rateShockPoints = 1;
@@ -100,6 +102,38 @@ export class BondAnalysisGuideComponent {
 
   constructor() {
     this.calculateValuation();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['targetBond'] || !this.targetBond) return;
+
+    const bond = this.targetBond;
+    if (Number.isFinite(bond.faceValue) && Number(bond.faceValue) > 0) this.faceValue = Number(bond.faceValue);
+    if (Number.isFinite(bond.couponRate) && Number(bond.couponRate) >= 0) {
+      this.couponRatePercent = this.normalizePercent(Number(bond.couponRate));
+    }
+    if ([1, 2, 4, 12].includes(Number(bond.couponFrequency))) this.couponFrequency = Number(bond.couponFrequency);
+
+    const settlementTime = Date.parse(`${bond.settlementDate || new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    const maturityTime = Date.parse(`${bond.maturityDate}T00:00:00Z`);
+    if (Number.isFinite(settlementTime) && Number.isFinite(maturityTime) && maturityTime > settlementTime) {
+      this.maturityYears = (maturityTime - settlementTime) / (365.25 * 24 * 60 * 60 * 1000);
+    }
+
+    if (Number.isFinite(bond.yieldToMaturity)) {
+      this.yieldPercent = this.normalizePercent(bond.yieldToMaturity);
+      this.creditYieldPercent = this.yieldPercent;
+    }
+    const marketPrice = bond.cleanPrice ?? bond.marketPrice;
+    if (Number.isFinite(marketPrice) && Number(marketPrice) > 0) this.marketPrice = Number(marketPrice);
+
+    this.calculateValuation();
+    this.modifiedDuration = Number.isFinite(bond.modifiedDuration)
+      ? Number(bond.modifiedDuration)
+      : this.valuation?.modifiedDuration ?? this.modifiedDuration;
+    this.portfolioConvexity = Number.isFinite(bond.convexity)
+      ? Number(bond.convexity)
+      : this.valuation?.convexity ?? null;
   }
 
   scrollToSection(sectionId: string): void {
@@ -244,5 +278,9 @@ export class BondAnalysisGuideComponent {
 
   private isFiniteNumber(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value);
+  }
+
+  private normalizePercent(value: number): number {
+    return Math.abs(value) <= 1 ? value * 100 : value;
   }
 }

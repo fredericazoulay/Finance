@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BarController, BarElement, CategoryScale, Chart, LinearScale, Tooltip } from 'chart.js';
 import { HttpErrorResponse } from '@angular/common/http';
-import { finalize, TimeoutError } from 'rxjs';
-import { BondDirectPricingRequest, BondDirectPricingResponse } from '../../../../models/bond-comparables.model';
+import { finalize, Subscription, TimeoutError } from 'rxjs';
+import { BondComparable, BondDirectPricingRequest, BondDirectPricingResponse } from '../../../../models/bond-comparables.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
@@ -23,6 +23,7 @@ interface PresentValuePayment {
 })
 export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() currency = 'EUR';
+  @Input() targetBond: BondComparable | null = null;
   @ViewChild('cashFlowChart') cashFlowChart!: ElementRef<HTMLCanvasElement>;
 
   readonly form = {
@@ -38,6 +39,8 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
 
   private chart: Chart | null = null;
   private themeObserver: MutationObserver | null = null;
+  private pricingSubscription?: Subscription;
+  private isDestroyed = false;
   private viewInitialized = false;
 
   constructor(
@@ -64,9 +67,16 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currency'] && this.viewInitialized) this.updateChart();
+    const targetBondChange = changes['targetBond'];
+    if (targetBondChange && !targetBondChange.firstChange && targetBondChange.currentValue) {
+      this.applyTargetBond(targetBondChange.currentValue as BondComparable);
+    }
   }
 
   ngOnDestroy(): void {
+    this.isDestroyed = true;
+    this.pricingSubscription?.unsubscribe();
+    this.pricingSubscription = undefined;
     this.themeObserver?.disconnect();
     this.chart?.destroy();
   }
@@ -92,10 +102,11 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
     this.chart?.destroy();
     this.chart = null;
     this.isPricing = true;
-    this.comparablesService.priceDirectly(request).pipe(
+    this.pricingSubscription = this.comparablesService.priceDirectly(request).pipe(
       finalize(() => {
         this.isPricing = false;
-        this.cdr.detectChanges();
+        this.pricingSubscription = undefined;
+        if (!this.isDestroyed) this.cdr.detectChanges();
       })
     ).subscribe({
       next: result => {
@@ -116,6 +127,36 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private applyTargetBond(bond: BondComparable): void {
+    this.pricingSubscription?.unsubscribe();
+    if (bond.faceValue != null && Number.isFinite(bond.faceValue) && bond.faceValue > 0) {
+      this.form.faceValue = bond.faceValue;
+    }
+    if (bond.couponRate != null && Number.isFinite(bond.couponRate)) {
+      this.form.annualCouponRate = this.toPercent(bond.couponRate);
+    }
+    if (bond.couponFrequency != null && [1, 2, 4, 12].includes(bond.couponFrequency)) {
+      this.form.couponFrequency = bond.couponFrequency;
+    }
+    if (Number.isFinite(bond.yieldToMaturity)) {
+      this.form.ytm = this.toPercent(bond.yieldToMaturity);
+    }
+
+    const settlement = bond.settlementDate ?? new Date().toISOString().slice(0, 10);
+    const settlementTime = Date.parse(`${settlement}T00:00:00Z`);
+    const maturityTime = Date.parse(`${bond.maturityDate}T00:00:00Z`);
+    const termYears = (maturityTime - settlementTime) / (365.25 * 24 * 60 * 60 * 1000);
+    if (Number.isFinite(termYears) && termYears > 0 && termYears <= 200) {
+      this.form.termYears = termYears;
+    }
+
+    this.calculate();
+  }
+
+  private toPercent(value: number): number {
+    return Math.abs(value) <= 1 ? value * 100 : value;
   }
 
   reset(): void {

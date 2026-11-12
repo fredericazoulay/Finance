@@ -64,6 +64,10 @@ export interface BondComparablesRequest {
     maturityDate: string;
     settlementDate: string;
     dayCount: string;
+    issuer?: string | null;
+    rating?: string | null;
+    sector?: string | null;
+    seniority?: string | null;
   };
   panel: BondComparable[];
   maturityToleranceMonths: number;

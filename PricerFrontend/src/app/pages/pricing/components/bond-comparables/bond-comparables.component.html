@@ -75,6 +75,7 @@
     </div>
     <div class="calculator-actions">
       <button type="button" class="primary-button" [disabled]="isDirectPricing" (click)="calculateBasic()">{{ isDirectPricing ? 'Calcul…' : 'Calculer' }}</button>
+      <button *ngIf="isDirectPricing" type="button" class="secondary-button" (click)="cancelDirectPricing()">Annuler</button>
       <button type="button" class="secondary-button" (click)="resetBasic()">Effacer</button>
     </div>
     <p class="message error" *ngIf="directError">{{ directError }}</p>
@@ -87,7 +88,7 @@
   </section>
 
   <ng-container *ngIf="activeMode === 'periodic-calculator'">
-    <app-bond-periodic-calculator [currency]="target.currency || 'EUR'"></app-bond-periodic-calculator>
+    <app-bond-periodic-calculator [currency]="target.currency || 'EUR'" [targetBond]="targetPanelBond"></app-bond-periodic-calculator>
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'bond-graphs'">
@@ -109,7 +110,7 @@
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'bond-analysis'">
-    <app-bond-analysis-guide [currency]="target.currency || 'EUR'"></app-bond-analysis-guide>
+    <app-bond-analysis-guide [currency]="target.currency || 'EUR'" [targetBond]="targetPanelBond"></app-bond-analysis-guide>
   </ng-container>
 
   <section class="calculator-section" *ngIf="activeMode === 'advanced'">
@@ -131,6 +132,7 @@
     </div>
     <div class="calculator-actions">
       <button type="button" class="primary-button" [disabled]="isDirectPricing" (click)="calculateAdvanced()">{{ isDirectPricing ? 'Calcul…' : 'Calculer' }}</button>
+      <button *ngIf="isDirectPricing" type="button" class="secondary-button" (click)="cancelDirectPricing()">Annuler</button>
       <button type="button" class="secondary-button" (click)="resetAdvanced()">Effacer</button>
     </div>
     <p class="message error" *ngIf="directError">{{ directError }}</p>
@@ -201,6 +203,10 @@
       <label><span>Échéance</span><input type="date" [(ngModel)]="target.maturityDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Date de règlement</span><input type="date" [(ngModel)]="target.settlementDate" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Convention day count</span><select [(ngModel)]="target.dayCount" (ngModelChange)="invalidateResult()"><option value="">Sélectionner</option><option value="30/360">30E/360</option><option value="THIRTY_360_US">30/360 US</option><option value="ACT/360">ACT/360</option><option value="ACT/365F">ACT/365F</option><option value="ACT_ACT_ICMA">ACT/ACT ICMA</option><option value="ACT_ACT_ISDA">ACT/ACT ISDA</option></select></label>
+      <label><span>Émetteur</span><input [(ngModel)]="target.issuer" (ngModelChange)="invalidateResult()" /></label>
+      <label><span>Notation</span><input [(ngModel)]="target.rating" (ngModelChange)="invalidateResult()" placeholder="Ex. A / BBB+" /></label>
+      <label><span>Secteur</span><input [(ngModel)]="target.sector" (ngModelChange)="invalidateResult()" /></label>
+      <label><span>Séniorité</span><input [(ngModel)]="target.seniority" (ngModelChange)="invalidateResult()" placeholder="Ex. Senior unsecured" /></label>
     </div>
     <div class="target-comparator-action" *ngIf="targetPanelBond as referenceBond">
       <span>Référence : <strong>{{ referenceBond.securityId }}</strong> · {{ referenceBond.name }} · {{ referenceBond.currency }} · {{ referenceBond.maturityDate }}</span>
