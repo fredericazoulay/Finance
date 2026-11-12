@@ -71,6 +71,11 @@ export interface BondComparablesRequest {
   };
   panel: BondComparable[];
   maturityToleranceMonths: number;
+  zeroCurve?: {
+    dayCount: string;
+    timesYears: number[];
+    zeroRates: number[];
+  } | null;
 }
 
 export interface BondComparablesResponse {
@@ -87,6 +92,7 @@ export interface BondComparablesResponse {
   }>;
   bestYieldSecurityId: string;
   appliedYield: number;
+  zSpread: number | null;
   rankingCriteria?: string[];
   valuation: {
     cleanPrice: number;

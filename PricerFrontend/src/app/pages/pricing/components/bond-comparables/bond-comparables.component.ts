@@ -53,6 +53,11 @@ type FullOptionColumn = typeof OPTION_IMPORT_COLUMNS[number] | 'calculatedPremiu
 type FullOptionDisplayColumn = FullOptionColumn | 'graphs';
 type FullOptionValue = string | number | boolean | null | undefined;
 
+interface ZeroCurvePointInput {
+  timeYears: number | null;
+  zeroRatePercent: number | null;
+}
+
 interface FullOptionGroup {
   key: string;
   label: string;
@@ -83,6 +88,7 @@ interface PersistedBondComparablesState {
   fullOptions?: OptionImportRecord[];
   result: BondComparablesResponse | null;
   lastCalculatedAt: string | null;
+  zeroCurvePoints?: ZeroCurvePointInput[];
   maturityToleranceMonths: number;
   filters: Record<TextFilterColumn, string>;
   eligibilityFilters: EligibilityFilter[];
@@ -256,6 +262,7 @@ export class BondComparablesComponent implements OnDestroy {
   };
   result: BondComparablesResponse | null = null;
   lastCalculatedAt: Date | null = null;
+  zeroCurvePoints: ZeroCurvePointInput[] = [];
   error = '';
   importError = '';
   marketSearchError = '';
@@ -896,6 +903,47 @@ export class BondComparablesComponent implements OnDestroy {
     this.syncTargetMetadataFromPanel();
   }
 
+  addZeroCurvePoint(): void {
+    this.zeroCurvePoints = [...this.zeroCurvePoints, { timeYears: null, zeroRatePercent: null }];
+    this.invalidateResult();
+    this.persistState();
+  }
+
+  removeZeroCurvePoint(index: number): void {
+    this.zeroCurvePoints = this.zeroCurvePoints.filter((_, pointIndex) => pointIndex !== index);
+    this.invalidateResult();
+    this.persistState();
+  }
+
+  private buildZeroCurveRequest(): BondComparablesRequest['zeroCurve'] | undefined {
+    const enteredPoints = this.zeroCurvePoints.filter(point =>
+      point.timeYears != null || point.zeroRatePercent != null
+    );
+    if (!enteredPoints.length) return null;
+
+    if (enteredPoints.length < 2 || enteredPoints.some(point =>
+      point.timeYears == null || !Number.isFinite(point.timeYears) || point.timeYears <= 0 ||
+      point.zeroRatePercent == null || !Number.isFinite(point.zeroRatePercent)
+    )) {
+      this.error = 'Renseignez au moins deux points complets de courbe zéro, avec une maturité positive et un taux en pourcentage.';
+      return undefined;
+    }
+
+    const points = enteredPoints
+      .map(point => ({ timeYears: point.timeYears as number, zeroRate: (point.zeroRatePercent as number) / 100 }))
+      .sort((left, right) => left.timeYears - right.timeYears);
+    if (points.some((point, index) => index > 0 && point.timeYears === points[index - 1].timeYears)) {
+      this.error = 'Chaque maturité de la courbe zéro doit être unique.';
+      return undefined;
+    }
+
+    return {
+      dayCount: this.target.dayCount,
+      timesYears: points.map(point => point.timeYears),
+      zeroRates: points.map(point => point.zeroRate)
+    };
+  }
+
   price(): void {
     if (this.isLoading) return;
     this.error = '';
@@ -911,6 +959,8 @@ export class BondComparablesComponent implements OnDestroy {
       this.error = 'Importez un panel d’obligations avant de lancer le pricing.';
       return;
     }
+    const zeroCurve = this.buildZeroCurveRequest();
+    if (zeroCurve === undefined) return;
 
     this.isLoading = true;
     this.cdr.detectChanges();
@@ -932,7 +982,8 @@ export class BondComparablesComponent implements OnDestroy {
         seniority: this.target.seniority?.trim() || null
       },
       panel: this.panel.map(bond => this.toPricingBond(bond)),
-      maturityToleranceMonths: Number(this.maturityToleranceMonths)
+      maturityToleranceMonths: Number(this.maturityToleranceMonths),
+      zeroCurve
     }).pipe(finalize(() => {
       this.isLoading = false;
       this.cdr.detectChanges();
@@ -1935,6 +1986,7 @@ export class BondComparablesComponent implements OnDestroy {
   private restoreTargetAndPanel(state: Partial<PersistedBondComparablesState>): void {
     if (state.target && typeof state.target === 'object') this.target = { ...this.target, ...state.target };
     if (Array.isArray(state.panel)) this.panel = state.panel;
+    if (Array.isArray(state.zeroCurvePoints)) this.zeroCurvePoints = state.zeroCurvePoints;
     this.syncTargetMetadataFromPanel();
     if (Array.isArray(state.fullOptions)) this.fullOptions = state.fullOptions;
     if (typeof state.maturityToleranceMonths === 'number' && Number.isFinite(state.maturityToleranceMonths)) {
@@ -2078,6 +2130,7 @@ export class BondComparablesComponent implements OnDestroy {
       fullOptions: this.fullOptions,
       result: this.result,
       lastCalculatedAt: this.lastCalculatedAt?.toISOString() ?? null,
+      zeroCurvePoints: this.zeroCurvePoints,
       maturityToleranceMonths: this.maturityToleranceMonths,
       filters: this.filters,
       eligibilityFilters: [...this.eligibilityFilters],

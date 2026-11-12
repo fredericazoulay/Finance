@@ -5,6 +5,8 @@ import com.finance.pricer.api.dto.BondComparablesPricingResponse;
 import com.finance.pricer.core.calendar.BusinessDayConvention;
 import com.finance.pricer.core.calendar.DayCountConvention;
 import com.finance.pricer.core.calendar.FinancialCalendar;
+import com.finance.pricer.core.curves.YieldCurve;
+import com.finance.pricer.core.curves.ZeroRateCurve;
 import com.finance.pricer.fixedincome.bonds.BondAnalytics;
 import com.finance.pricer.fixedincome.bonds.FixedCouponBond;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,10 +51,11 @@ public class BondComparablesPricingService {
         BondComparablesPricingRequest.ComparableBond best = selectBestComparable(eligible);
         List<BondComparablesPricingResponse.PanelItem> rankedItems = markSelectedBond(items, eligible, best, target);
         BondComparablesPricingResponse.BondValuation valuation = calculateValuation(target, best);
+        Double zSpread = calculateZSpread(target, valuation.dirtyPrice(), request.zeroCurve());
 
         return new BondComparablesPricingResponse(
             target.securityId(), target.currency().trim().toUpperCase(), tolerance,
-            rankedItems, best.securityId(), best.yieldToMaturity(), valuation, rankingCriteria());
+            rankedItems, best.securityId(), best.yieldToMaturity(), valuation, zSpread, rankingCriteria());
         }
 
         private static int maturityTolerance(BondComparablesPricingRequest request) {
@@ -118,16 +121,7 @@ public class BondComparablesPricingService {
             private BondComparablesPricingResponse.BondValuation calculateValuation(
                 BondComparablesPricingRequest.TargetBond target,
                 BondComparablesPricingRequest.ComparableBond best) {
-                FixedCouponBond bond = new FixedCouponBond(
-                    target.securityId(),
-                    target.faceValue(),
-                    target.couponRate(),
-                    target.couponFrequency(),
-                    effectiveIssueDate(target),
-                    target.maturityDate(),
-                    parseDayCount(target.dayCount()),
-                    FinancialCalendar.weekendsOnly(),
-                    BusinessDayConvention.MODIFIED_FOLLOWING);
+                FixedCouponBond bond = targetBond(target);
                 double ytm = best.yieldToMaturity();
                 double dirtyPrice = BondAnalytics.dirtyPriceFromYtm(bond, target.settlementDate(), ytm);
                 double accruedInterest = bond.calculateAccruedInterest(target.settlementDate());
@@ -144,6 +138,56 @@ public class BondComparablesPricingService {
                     BondAnalytics.modifiedDuration(bond, target.settlementDate(), ytm),
                     BondAnalytics.convexity(bond, target.settlementDate(), ytm),
                     BondAnalytics.dv01(bond, target.settlementDate(), ytm));
+    }
+
+    private static FixedCouponBond targetBond(BondComparablesPricingRequest.TargetBond target) {
+        return new FixedCouponBond(
+                target.securityId(),
+                target.faceValue(),
+                target.couponRate(),
+                target.couponFrequency(),
+                effectiveIssueDate(target),
+                target.maturityDate(),
+                parseDayCount(target.dayCount()),
+                FinancialCalendar.weekendsOnly(),
+                BusinessDayConvention.MODIFIED_FOLLOWING);
+    }
+
+    private static Double calculateZSpread(
+            BondComparablesPricingRequest.TargetBond target,
+            double dirtyPrice,
+            BondComparablesPricingRequest.ZeroCurve curveRequest) {
+        if (curveRequest == null) return null;
+
+        List<Double> times = curveRequest.timesYears();
+        List<Double> rates = curveRequest.zeroRates();
+        if (times == null || rates == null || times.size() < 2 || times.size() != rates.size()) {
+            throw new IllegalArgumentException("zeroCurve timesYears and zeroRates must have equal lengths of at least 2");
+        }
+
+        double[] curveTimes = new double[times.size()];
+        double[] zeroRates = new double[rates.size()];
+        for (int index = 0; index < times.size(); index++) {
+            Double time = times.get(index);
+            Double rate = rates.get(index);
+            if (time == null || !Double.isFinite(time) || time <= 0.0
+                    || (index > 0 && time <= curveTimes[index - 1])) {
+                throw new IllegalArgumentException("zeroCurve timesYears must be finite, positive and strictly increasing");
+            }
+            if (rate == null || !Double.isFinite(rate)) {
+                throw new IllegalArgumentException("zeroCurve zeroRates must be finite");
+            }
+            curveTimes[index] = time;
+            zeroRates[index] = rate;
+        }
+
+        String dayCountValue = curveRequest.dayCount() == null || curveRequest.dayCount().isBlank()
+                ? target.dayCount()
+                : curveRequest.dayCount();
+        YieldCurve zeroCurve = new ZeroRateCurve(
+                target.settlementDate(), parseDayCount(dayCountValue), curveTimes, zeroRates);
+        return BondAnalytics.calculateZSpread(
+                targetBond(target), target.settlementDate(), dirtyPrice, zeroCurve);
     }
 
                 private static LocalDate previousCouponDate(FixedCouponBond bond, LocalDate settlementDate) {

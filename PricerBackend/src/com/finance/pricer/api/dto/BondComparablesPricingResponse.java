@@ -9,8 +9,9 @@ public record BondComparablesPricingResponse(
         List<PanelItem> panel,
         String bestYieldSecurityId,
         double appliedYield,
-                BondValuation valuation,
-                List<String> rankingCriteria
+        BondValuation valuation,
+        Double zSpread,
+        List<String> rankingCriteria
 ) {
     public record PanelItem(
             BondComparablesPricingRequest.ComparableBond bond,

@@ -208,6 +208,20 @@
       <label><span>Secteur</span><input [(ngModel)]="target.sector" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Séniorité</span><input [(ngModel)]="target.seniority" (ngModelChange)="invalidateResult()" placeholder="Ex. Senior unsecured" /></label>
     </div>
+    <section class="zero-curve-editor" aria-labelledby="zero-curve-heading">
+      <div class="zero-curve-heading">
+        <div><h3 id="zero-curve-heading">Courbe zéro pour le Z-spread</h3><p>Facultatif. Saisissez les taux en %; au moins deux maturités sont requises. Aucune courbe n’est inventée.</p></div>
+        <button type="button" class="secondary-button" (click)="addZeroCurvePoint()">Ajouter un point</button>
+      </div>
+      <div class="zero-curve-points" *ngIf="zeroCurvePoints.length">
+        <div class="zero-curve-point zero-curve-labels"><span>Maturité (années)</span><span>Taux zéro (%)</span><span></span></div>
+        <div class="zero-curve-point" *ngFor="let point of zeroCurvePoints; let index = index">
+          <label><span class="visually-hidden">Maturité du point {{ index + 1 }} (années)</span><input type="number" min="0.01" step="0.25" [(ngModel)]="point.timeYears" [ngModelOptions]="{standalone: true}" (ngModelChange)="invalidateResult(); persistState()" /></label>
+          <label><span class="visually-hidden">Taux zéro du point {{ index + 1 }} (%)</span><input type="number" step="0.01" [(ngModel)]="point.zeroRatePercent" [ngModelOptions]="{standalone: true}" (ngModelChange)="invalidateResult(); persistState()" /></label>
+          <button type="button" class="secondary-button" (click)="removeZeroCurvePoint(index)" aria-label="Retirer ce point de courbe">Retirer</button>
+        </div>
+      </div>
+    </section>
     <div class="target-comparator-action" *ngIf="targetPanelBond as referenceBond">
       <span>Référence : <strong>{{ referenceBond.securityId }}</strong> · {{ referenceBond.name }} · {{ referenceBond.currency }} · {{ referenceBond.maturityDate }}</span>
       <button type="button" class="secondary-button"
@@ -454,6 +468,7 @@
       <div class="analytics-item"><span>Convexité</span><strong>{{ pricing.valuation.convexity | number:'1.2-4' }}</strong></div>
       <div class="analytics-item"><span>DV01</span><strong>{{ pricing.valuation.dv01 | number:'1.2-4' }} {{ pricing.currency }}</strong></div>
       <div class="analytics-item"><span>YTM de valorisation</span><strong>{{ pricing.valuation.ytm | percent:'1.2-3' }}</strong></div>
+      <div class="analytics-item"><span>Z-spread implicite du prix estimé</span><strong *ngIf="pricing.zSpread != null">{{ pricing.zSpread | percent:'1.2-4' }} · {{ pricing.zSpread * 10000 | number:'1.1-2' }} pb</strong><small *ngIf="pricing.zSpread == null">Non calculé : courbe zéro non fournie</small></div>
     </div>
     <p class="risk-note">Le rendement maximal ne signifie pas nécessairement une meilleure qualité de crédit ni un meilleur profil risque/rendement. Les résultats dépendent de la qualité et de la fraîcheur des données importées.</p>
   </section>

@@ -59,6 +59,15 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .target-comparator-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; }
 .target-comparator-action strong { color: var(--ink); }
 .target-comparator-action small { color: var(--muted); }
+.zero-curve-editor { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.zero-curve-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zero-curve-heading h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.zero-curve-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.zero-curve-points { display: grid; width: min(100%, 560px); gap: 6px; margin-top: 10px; }
+.zero-curve-point { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto; align-items: end; gap: 8px; }
+.zero-curve-point input { width: 100%; }
+.zero-curve-labels { color: var(--muted); font-size: 11px; }
+.zero-curve-point > button { min-height: 36px; }
 .target-extraction { display: grid; gap: 8px; margin: 0 0 16px; }
 .target-extraction > label { color: var(--muted); font-size: 13px; }
 .target-extraction .import-hint { margin: 0; }

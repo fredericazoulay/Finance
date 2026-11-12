@@ -6,8 +6,22 @@ import java.util.List;
 public record BondComparablesPricingRequest(
         TargetBond target,
         List<ComparableBond> panel,
-        Integer maturityToleranceMonths
+        Integer maturityToleranceMonths,
+        ZeroCurve zeroCurve
 ) {
+    public BondComparablesPricingRequest(
+            TargetBond target,
+            List<ComparableBond> panel,
+            Integer maturityToleranceMonths) {
+        this(target, panel, maturityToleranceMonths, null);
+    }
+
+    public record ZeroCurve(
+            String dayCount,
+            List<Double> timesYears,
+            List<Double> zeroRates
+    ) {}
+
     public record TargetBond(
             String securityId,
             String name,
