@@ -206,7 +206,7 @@
       <label><span>Émetteur</span><input [(ngModel)]="target.issuer" (ngModelChange)="invalidateResult()" /></label>
       <label><span>Notation</span><input [(ngModel)]="target.rating" (ngModelChange)="invalidateResult()" placeholder="Ex. A / BBB+" /></label>
       <label><span>Secteur</span><input [(ngModel)]="target.sector" (ngModelChange)="invalidateResult()" /></label>
-      <label><span>Séniorité</span><input [(ngModel)]="target.seniority" (ngModelChange)="invalidateResult()" placeholder="Ex. Senior unsecured" /></label>
+      <label><span>Séniorité</span><input [(ngModel)]="target.seniority" (ngModelChange)="invalidateResult()" placeholder="Non renseignée dans le CSV" /></label>
     </div>
     <section class="zero-curve-editor" aria-labelledby="zero-curve-heading">
       <div class="zero-curve-heading">
@@ -221,6 +221,10 @@
           <button type="button" class="secondary-button" (click)="removeZeroCurvePoint(index)" aria-label="Retirer ce point de courbe">Retirer</button>
         </div>
       </div>
+      <details class="zero-curve-example">
+        <summary>Exemple chiffré (pédagogique, non marché)</summary>
+        <p>Pour un nominal de 100, un coupon annuel de 5 %, une échéance de 3 ans et un prix dirty de 104, avec des taux zéro continus de 2 %, 2,5 % et 3 % aux années 1, 2 et 3, le Z-spread implicite est d’environ 54 pb.</p>
+      </details>
     </section>
     <div class="target-comparator-action" *ngIf="targetPanelBond as referenceBond">
       <span>Référence : <strong>{{ referenceBond.securityId }}</strong> · {{ referenceBond.name }} · {{ referenceBond.currency }} · {{ referenceBond.maturityDate }}</span>
@@ -272,8 +276,7 @@
         </div>
       </div>
     </div>
-    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity, emissionDate, issuer, rating, source et settlementDate.
-      Pour les graphiques, ajoutez couponRate, couponFrequency, marketPrice, sector et spreadBps (ou leurs équivalents français : coupon annuel, coupons par an, prix de marché, secteur, spread en pb). Les taux peuvent être saisis en décimal ou avec « % ». Les classeurs avec une feuille Bonds_Master fusionnent automatiquement Pricing_Engine, Liquidity, FRTB_SA, ESG et NGFS par BondId.</p>
+    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity, emissionDate, issuer, rating, source et settlementDate. Les spreads importables comprennent spreadBps, assetSwapSpreadBps, cdsSpreadBps, gSpreadBps, iSpreadBps, nominalSpreadBps, oasBps, tedSpreadBps et zSpreadBps; ajoutez le champ DataStatus correspondant pour indiquer leur provenance. Le Z-spread importé reste distinct du Z-spread calculé avec une courbe zéro. Les taux peuvent être saisis en décimal ou avec « % ».</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" role="alert" *ngIf="marketSearchError">{{ marketSearchError }}</p>
     <output class="message success" *ngIf="marketSearchMessage">{{ marketSearchMessage }}</output>
@@ -358,6 +361,27 @@
               <input *ngSwitchCase="'cleanPriceDataStatus'" [(ngModel)]="filters.cleanPriceDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut du prix clean" placeholder="Filtrer" />
               <input *ngSwitchCase="'liquidityScore'" [(ngModel)]="filters.liquidityScore" (ngModelChange)="persistState()" aria-label="Filtrer le score de liquidité" placeholder="Filtrer" />
               <input *ngSwitchCase="'liquidityDataStatus'" [(ngModel)]="filters.liquidityDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut de liquidité" placeholder="Filtrer" />
+              <input *ngSwitchCase="'sector'" [(ngModel)]="filters.sector" (ngModelChange)="persistState()" aria-label="Filtrer les secteurs" placeholder="Filtrer" />
+              <input *ngSwitchCase="'seniority'" [(ngModel)]="filters.seniority" (ngModelChange)="persistState()" aria-label="Filtrer les séniorités" placeholder="Filtrer" />
+              <input *ngSwitchCase="'seniorityDataStatus'" [(ngModel)]="filters.seniorityDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut de séniorité" placeholder="Filtrer" />
+              <input *ngSwitchCase="'spreadBps'" [(ngModel)]="filters.spreadBps" (ngModelChange)="persistState()" aria-label="Filtrer le spread générique" placeholder="Filtrer" />
+              <input *ngSwitchCase="'spreadDataStatus'" [(ngModel)]="filters.spreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut du spread générique" placeholder="Filtrer" />
+              <input *ngSwitchCase="'assetSwapSpreadBps'" [(ngModel)]="filters.assetSwapSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer l’asset swap spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'assetSwapSpreadDataStatus'" [(ngModel)]="filters.assetSwapSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut ASW" placeholder="Filtrer" />
+              <input *ngSwitchCase="'cdsSpreadBps'" [(ngModel)]="filters.cdsSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer le CDS spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'cdsSpreadDataStatus'" [(ngModel)]="filters.cdsSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut CDS" placeholder="Filtrer" />
+              <input *ngSwitchCase="'gSpreadBps'" [(ngModel)]="filters.gSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer le G-spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'gSpreadDataStatus'" [(ngModel)]="filters.gSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut G-spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'iSpreadBps'" [(ngModel)]="filters.iSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer l’I-spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'iSpreadDataStatus'" [(ngModel)]="filters.iSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut I-spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'nominalSpreadBps'" [(ngModel)]="filters.nominalSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer le nominal spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'nominalSpreadDataStatus'" [(ngModel)]="filters.nominalSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut nominal spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'oasBps'" [(ngModel)]="filters.oasBps" (ngModelChange)="persistState()" aria-label="Filtrer l’OAS" placeholder="Filtrer" />
+              <input *ngSwitchCase="'oasDataStatus'" [(ngModel)]="filters.oasDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut OAS" placeholder="Filtrer" />
+              <input *ngSwitchCase="'tedSpreadBps'" [(ngModel)]="filters.tedSpreadBps" (ngModelChange)="persistState()" aria-label="Filtrer le TED spread" placeholder="Filtrer" />
+              <input *ngSwitchCase="'tedSpreadDataStatus'" [(ngModel)]="filters.tedSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut TED" placeholder="Filtrer" />
+              <input *ngSwitchCase="'zSpread'" [(ngModel)]="filters.zSpread" (ngModelChange)="persistState()" aria-label="Filtrer le Z-spread importé" placeholder="Filtrer" />
+              <input *ngSwitchCase="'zSpreadDataStatus'" [(ngModel)]="filters.zSpreadDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut du Z-spread importé" placeholder="Filtrer" />
               <details *ngSwitchCase="'eligibility'" class="eligibility-filter">
                 <summary aria-label="Filtrer les statuts d’éligibilité">{{ eligibilityFilterLabel }}</summary>
                 <div class="eligibility-options">
@@ -391,6 +415,27 @@
               <ng-container *ngSwitchCase="'cleanPriceDataStatus'">{{ row.cleanPriceDataStatus || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'liquidityScore'"><span [title]="row.liquidityDataStatus || ''">{{ row.liquidityScore == null ? '—' : (row.liquidityScore | number:'1.0-0') }}</span></ng-container>
               <ng-container *ngSwitchCase="'liquidityDataStatus'">{{ row.liquidityDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'sector'">{{ row.sector || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'seniority'">{{ row.seniority || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'seniorityDataStatus'">{{ row.seniorityDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'spreadBps'"><span [title]="row.spreadDataStatus || ''">{{ row.spreadBps == null ? '—' : (row.spreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'spreadDataStatus'">{{ row.spreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'assetSwapSpreadBps'"><span [title]="row.assetSwapSpreadDataStatus || ''">{{ row.assetSwapSpreadBps == null ? '—' : (row.assetSwapSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'assetSwapSpreadDataStatus'">{{ row.assetSwapSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'cdsSpreadBps'"><span [title]="row.cdsSpreadDataStatus || ''">{{ row.cdsSpreadBps == null ? '—' : (row.cdsSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'cdsSpreadDataStatus'">{{ row.cdsSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'gSpreadBps'"><span [title]="row.gSpreadDataStatus || ''">{{ row.gSpreadBps == null ? '—' : (row.gSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'gSpreadDataStatus'">{{ row.gSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'iSpreadBps'"><span [title]="row.iSpreadDataStatus || ''">{{ row.iSpreadBps == null ? '—' : (row.iSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'iSpreadDataStatus'">{{ row.iSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'nominalSpreadBps'"><span [title]="row.nominalSpreadDataStatus || ''">{{ row.nominalSpreadBps == null ? '—' : (row.nominalSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'nominalSpreadDataStatus'">{{ row.nominalSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'oasBps'"><span [title]="row.oasDataStatus || ''">{{ row.oasBps == null ? '—' : (row.oasBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'oasDataStatus'">{{ row.oasDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'tedSpreadBps'"><span [title]="row.tedSpreadDataStatus || ''">{{ row.tedSpreadBps == null ? '—' : (row.tedSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'tedSpreadDataStatus'">{{ row.tedSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'zSpread'"><span [title]="row.zSpreadDataStatus || ''">{{ row.zSpread == null ? '—' : (row.zSpread | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'zSpreadDataStatus'">{{ row.zSpreadDataStatus || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'source'">{{ sourceLabel(row) || '—' }}<small>{{ sourceDate(row) }}</small></ng-container>
               <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Retenu · rang {{ row.rank || 1 }}</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable<span *ngIf="row.rank"> · rang {{ row.rank }}</span></span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span><small *ngIf="row.rankingReasons?.length">{{ row.rankingReasons?.join(' · ') }}</small></ng-container>
             </ng-container>

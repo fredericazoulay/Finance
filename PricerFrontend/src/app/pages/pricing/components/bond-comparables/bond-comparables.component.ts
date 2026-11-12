@@ -41,7 +41,7 @@ interface BondComparableRow extends BondComparable {
 }
 
 type BondBaseColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source';
-type BondDataColumn = 'couponRate' | 'couponFrequency' | 'couponDataStatus' | 'cleanPrice' | 'cleanPriceDataStatus' | 'liquidityScore' | 'liquidityDataStatus';
+type BondDataColumn = 'sector' | 'seniority' | 'seniorityDataStatus' | 'spreadBps' | 'spreadDataStatus' | 'assetSwapSpreadBps' | 'assetSwapSpreadDataStatus' | 'cdsSpreadBps' | 'cdsSpreadDataStatus' | 'gSpreadBps' | 'gSpreadDataStatus' | 'iSpreadBps' | 'iSpreadDataStatus' | 'nominalSpreadBps' | 'nominalSpreadDataStatus' | 'oasBps' | 'oasDataStatus' | 'tedSpreadBps' | 'tedSpreadDataStatus' | 'zSpread' | 'zSpreadDataStatus' | 'couponRate' | 'couponFrequency' | 'couponDataStatus' | 'cleanPrice' | 'cleanPriceDataStatus' | 'liquidityScore' | 'liquidityDataStatus';
 type BondColumn = BondBaseColumn | BondDataColumn | 'eligibility';
 type TextFilterColumn = BondBaseColumn | BondDataColumn;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
@@ -147,13 +147,22 @@ export class BondComparablesComponent implements OnDestroy {
   ] as const;
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus', 'eligible'];
   readonly defaultBondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
-  readonly bondColumns: BondColumn[] = [...this.defaultBondColumns, 'couponRate', 'couponFrequency', 'couponDataStatus', 'cleanPrice', 'cleanPriceDataStatus', 'liquidityScore', 'liquidityDataStatus'];
+  readonly bondColumns: BondColumn[] = [...this.defaultBondColumns, 'sector', 'seniority', 'seniorityDataStatus', 'spreadBps', 'spreadDataStatus', 'assetSwapSpreadBps', 'assetSwapSpreadDataStatus', 'cdsSpreadBps', 'cdsSpreadDataStatus', 'gSpreadBps', 'gSpreadDataStatus', 'iSpreadBps', 'iSpreadDataStatus', 'nominalSpreadBps', 'nominalSpreadDataStatus', 'oasBps', 'oasDataStatus', 'tedSpreadBps', 'tedSpreadDataStatus', 'zSpread', 'zSpreadDataStatus', 'couponRate', 'couponFrequency', 'couponDataStatus', 'cleanPrice', 'cleanPriceDataStatus', 'liquidityScore', 'liquidityDataStatus'];
   readonly bondColumnLabels: Record<BondColumn, string> = {
     securityId: 'Obligation', issuer: 'Émetteur', currency: 'Devise', issueDate: 'Émission', settlementDate: 'Règlement',
     maturityDate: 'Échéance', rating: 'Notation', yieldToMaturity: 'YTM', source: 'Source / date', eligibility: 'Éligibilité',
     couponRate: 'Coupon annuel', couponFrequency: 'Coupons / an', couponDataStatus: 'Statut coupon',
     cleanPrice: 'Prix clean', cleanPriceDataStatus: 'Statut prix clean', liquidityScore: 'Score liquidité',
-    liquidityDataStatus: 'Statut liquidité'
+    liquidityDataStatus: 'Statut liquidité', sector: 'Secteur', seniority: 'Séniorité', seniorityDataStatus: 'Statut séniorité',
+    spreadBps: 'Spread générique (pb)', spreadDataStatus: 'Statut spread générique',
+    assetSwapSpreadBps: 'Asset swap spread (pb)', assetSwapSpreadDataStatus: 'Statut ASW',
+    cdsSpreadBps: 'CDS spread (pb)', cdsSpreadDataStatus: 'Statut CDS',
+    gSpreadBps: 'G-spread (pb)', gSpreadDataStatus: 'Statut G-spread',
+    iSpreadBps: 'I-spread (pb)', iSpreadDataStatus: 'Statut I-spread',
+    nominalSpreadBps: 'Nominal spread (pb)', nominalSpreadDataStatus: 'Statut nominal spread',
+    oasBps: 'OAS (pb)', oasDataStatus: 'Statut OAS',
+    tedSpreadBps: 'TED spread (pb)', tedSpreadDataStatus: 'Statut TED',
+    zSpread: 'Z-spread importé (pb)', zSpreadDataStatus: 'Statut Z-spread importé'
   };
   bondColumnOrder: BondColumn[] = [...this.bondColumns];
   bondVisibleColumns = new Set<BondColumn>(this.defaultBondColumns);
@@ -281,7 +290,12 @@ export class BondComparablesComponent implements OnDestroy {
   fullOptionPricingSummary = '';
   filters: Record<TextFilterColumn, string> = {
     securityId: '', issuer: '', currency: '', issueDate: '', settlementDate: '', maturityDate: '', rating: '', yieldToMaturity: '', source: '',
-    couponRate: '', couponFrequency: '', couponDataStatus: '', cleanPrice: '', cleanPriceDataStatus: '', liquidityScore: '', liquidityDataStatus: ''
+    couponRate: '', couponFrequency: '', couponDataStatus: '', cleanPrice: '', cleanPriceDataStatus: '', liquidityScore: '', liquidityDataStatus: '',
+    sector: '', seniority: '', seniorityDataStatus: '', spreadBps: '', spreadDataStatus: '',
+    assetSwapSpreadBps: '', assetSwapSpreadDataStatus: '', cdsSpreadBps: '', cdsSpreadDataStatus: '',
+    gSpreadBps: '', gSpreadDataStatus: '', iSpreadBps: '', iSpreadDataStatus: '',
+    nominalSpreadBps: '', nominalSpreadDataStatus: '', oasBps: '', oasDataStatus: '',
+    tedSpreadBps: '', tedSpreadDataStatus: '', zSpread: '', zSpreadDataStatus: ''
   };
   eligibilityFilters = new Set<EligibilityFilter>();
   yieldMinimum = '';
@@ -2257,7 +2271,7 @@ export class BondComparablesComponent implements OnDestroy {
     let rawZSpreadBps: number | undefined;
     if (rawZSpread != null) rawZSpreadBps = Math.abs(rawZSpread) <= 1 ? rawZSpread * 10000 : rawZSpread;
     const zSpread = optionalNumber('zSpreadBps', 'z-spread (bp)', 'z-spread en pb') ?? rawZSpreadBps;
-    const spreadBps = optionalNumber('spreadBps', 'gSpreadBps', 'gSpread', 'spread (bp)', 'spread en pb') ?? zSpread;
+    const spreadBps = optionalNumber('spreadBps', 'spread (bp)', 'spread en pb');
     const esgAgencyScores = ['MSCI', 'Sustainalytics', 'ISS', 'SP_ESG', 'Moodys_ESG']
       .map(provider => optionalNumber(provider))
       .filter((score): score is number => score != null);
@@ -2315,8 +2329,25 @@ export class BondComparablesComponent implements OnDestroy {
       spreadBps,
       zSpread,
       spreadDataStatus: text('spreadDataStatus', 'spreadStatus') || undefined,
+      assetSwapSpreadBps: optionalNumber('assetSwapSpreadBps', 'assetSwapSpread', 'aswBps'),
+      assetSwapSpreadDataStatus: text('assetSwapSpreadDataStatus', 'aswDataStatus') || undefined,
+      cdsSpreadBps: optionalNumber('cdsSpreadBps', 'cdsSpread'),
+      cdsSpreadDataStatus: text('cdsSpreadDataStatus') || undefined,
+      gSpreadBps: optionalNumber('gSpreadBps', 'gSpread'),
+      gSpreadDataStatus: text('gSpreadDataStatus') || undefined,
+      iSpreadBps: optionalNumber('iSpreadBps', 'iSpread'),
+      iSpreadDataStatus: text('iSpreadDataStatus') || undefined,
+      nominalSpreadBps: optionalNumber('nominalSpreadBps', 'nominalSpread'),
+      nominalSpreadDataStatus: text('nominalSpreadDataStatus') || undefined,
+      oasBps: optionalNumber('oasBps', 'optionAdjustedSpreadBps', 'optionAdjustedSpread'),
+      oasDataStatus: text('oasDataStatus', 'optionAdjustedSpreadDataStatus') || undefined,
+      tedSpreadBps: optionalNumber('tedSpreadBps', 'tedSpread'),
+      tedSpreadDataStatus: text('tedSpreadDataStatus') || undefined,
+      zSpreadDataStatus: text('zSpreadDataStatus') || undefined,
       rating: text('rating') || undefined,
       sector: text('sector', 'secteur', 'secteur d’activité', 'industry', 'industry sector', 'issuerType') || undefined,
+      seniority: text('seniority', 'debtSeniority', 'seniorityRank', 'seniorityLevel', 'rang de séniorité', 'rang de subordination', 'subordination') || undefined,
+      seniorityDataStatus: text('seniorityDataStatus') || undefined,
       liquidity,
       bid: optionalNumber('bid'),
       ask: optionalNumber('ask'),
@@ -2475,28 +2506,18 @@ export class BondComparablesComponent implements OnDestroy {
   }
 
   private columnValue(row: BondComparableRow, column: BondColumn): string {
-    switch (column) {
-      case 'securityId': return `${row.securityId} ${row.name}`;
-      case 'issuer': return row.issuer ?? '';
-      case 'currency': return row.currency;
-      case 'issueDate': return row.issueDate ?? '';
-      case 'settlementDate': return row.settlementDate ?? this.target.settlementDate;
-      case 'maturityDate': return row.maturityDate;
-      case 'rating': return row.rating ?? '';
-      case 'yieldToMaturity': return `${row.yieldToMaturity} ${row.yieldToMaturity * 100}`;
-      case 'source': return `${row.source ?? ''} ${row.asOf ?? ''}`;
-      case 'couponRate': return row.couponRate == null ? '' : `${row.couponRate} ${row.couponRate * 100}`;
-      case 'couponFrequency': return row.couponFrequency == null ? '' : String(row.couponFrequency);
-      case 'couponDataStatus': return row.couponDataStatus ?? '';
-      case 'cleanPrice': return row.cleanPrice == null ? '' : String(row.cleanPrice);
-      case 'cleanPriceDataStatus': return row.cleanPriceDataStatus ?? '';
-      case 'liquidityScore': return row.liquidityScore == null ? '' : String(row.liquidityScore);
-      case 'liquidityDataStatus': return row.liquidityDataStatus ?? '';
-      case 'eligibility':
-        if (row.selected) return 'meilleur ytm';
-        if (row.eligible === false) return row.exclusionReason ?? 'exclu';
-        return row.eligible ? 'comparable' : 'a analyser';
+    if (column === 'securityId') return `${row.securityId} ${row.name}`;
+    if (column === 'settlementDate') return row.settlementDate ?? this.target.settlementDate;
+    if (column === 'yieldToMaturity') return `${row.yieldToMaturity} ${row.yieldToMaturity * 100}`;
+    if (column === 'couponRate') return row.couponRate == null ? '' : `${row.couponRate} ${row.couponRate * 100}`;
+    if (column === 'source') return `${row.source ?? ''} ${row.asOf ?? ''}`;
+    if (column === 'eligibility') {
+      if (row.selected) return 'meilleur ytm';
+      if (row.eligible === false) return row.exclusionReason ?? 'exclu';
+      return row.eligible ? 'comparable' : 'a analyser';
     }
+    const value = row[column];
+    return value == null ? '' : String(value);
   }
 
   private matchesEligibilityFilter(row: BondComparableRow, filter: EligibilityFilter): boolean {

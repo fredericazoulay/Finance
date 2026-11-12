@@ -68,6 +68,9 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .zero-curve-point input { width: 100%; }
 .zero-curve-labels { color: var(--muted); font-size: 11px; }
 .zero-curve-point > button { min-height: 36px; }
+.zero-curve-example { margin-top: 10px; color: var(--muted); font-size: 11px; }
+.zero-curve-example summary { width: fit-content; cursor: pointer; color: var(--ink); }
+.zero-curve-example p { max-width: 760px; margin: 8px 0 0; line-height: 1.5; }
 .target-extraction { display: grid; gap: 8px; margin: 0 0 16px; }
 .target-extraction > label { color: var(--muted); font-size: 13px; }
 .target-extraction .import-hint { margin: 0; }
