@@ -116,6 +116,16 @@ button:disabled { opacity: 0.55; cursor: wait; }
 .full-option-group-toggle { display: flex; width: 100%; align-items: center; gap: 8px; padding: 9px 10px; border: 0; border-radius: 0; background: transparent; color: var(--ink); text-align: left; }
 .group-row-count { margin-left: 4px; padding: 2px 6px; border-radius: 3px; background: rgba(58, 227, 116, 0.12); color: var(--green); font-size: 10px; font-weight: 700; text-transform: none; }
 .table-wrap { max-width: 100%; overflow-x: auto; }
+.bond-comparable-table {
+  overflow-x: scroll;
+  scrollbar-color: var(--green) var(--ui-raised, rgba(124, 181, 255, 0.12));
+  scrollbar-width: auto;
+}
+.bond-comparable-table table { width: max-content; min-width: 100%; }
+.bond-comparable-table.with-optional-columns table { min-width: calc(100% + 320px); }
+.bond-comparable-table::-webkit-scrollbar { height: 12px; }
+.bond-comparable-table::-webkit-scrollbar-track { background: var(--ui-raised, rgba(124, 181, 255, 0.12)); }
+.bond-comparable-table::-webkit-scrollbar-thumb { border: 2px solid var(--surface); border-radius: 6px; background: var(--green); }
 .full-option-table { max-height: 60vh; overflow: auto; }
 .full-option-table .alternate-row { background: #d9efff; }
 .bond-comparable-table .alternate-row { background: #d9efff; }

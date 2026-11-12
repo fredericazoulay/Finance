@@ -311,7 +311,7 @@
       </ng-container>
       <ng-template #bondGroupingPlaceholder><span class="grouping-placeholder">Glissez ici une ou plusieurs colonnes du tableau</span></ng-template>
     </div>
-    <div class="table-wrap bond-comparable-table" *ngIf="panelRows.length; else emptyPanel">
+    <div class="table-wrap bond-comparable-table" [class.with-optional-columns]="visibleBondColumns.length > defaultBondColumns.length" *ngIf="panelRows.length; else emptyPanel">
       <table>
         <thead>
           <tr class="header-row">
@@ -331,6 +331,13 @@
               <input *ngSwitchCase="'maturityDate'" [(ngModel)]="filters.maturityDate" (ngModelChange)="persistState()" aria-label="Filtrer les échéances" placeholder="AAAA-MM-JJ" />
               <input *ngSwitchCase="'rating'" [(ngModel)]="filters.rating" (ngModelChange)="persistState()" aria-label="Filtrer les notations" placeholder="Filtrer" />
               <div *ngSwitchCase="'yieldToMaturity'" class="yield-filter"><input type="number" step="0.01" [(ngModel)]="yieldMinimum" (ngModelChange)="persistState()" aria-label="YTM minimum en pourcentage" placeholder="Min %" /><input type="number" step="0.01" [(ngModel)]="yieldMaximum" (ngModelChange)="persistState()" aria-label="YTM maximum en pourcentage" placeholder="Max %" /></div>
+              <input *ngSwitchCase="'couponRate'" [(ngModel)]="filters.couponRate" (ngModelChange)="persistState()" aria-label="Filtrer le coupon annuel" placeholder="Filtrer" />
+              <input *ngSwitchCase="'couponFrequency'" [(ngModel)]="filters.couponFrequency" (ngModelChange)="persistState()" aria-label="Filtrer la fréquence du coupon" placeholder="Filtrer" />
+              <input *ngSwitchCase="'couponDataStatus'" [(ngModel)]="filters.couponDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut du coupon" placeholder="Filtrer" />
+              <input *ngSwitchCase="'cleanPrice'" [(ngModel)]="filters.cleanPrice" (ngModelChange)="persistState()" aria-label="Filtrer le prix clean" placeholder="Filtrer" />
+              <input *ngSwitchCase="'cleanPriceDataStatus'" [(ngModel)]="filters.cleanPriceDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut du prix clean" placeholder="Filtrer" />
+              <input *ngSwitchCase="'liquidityScore'" [(ngModel)]="filters.liquidityScore" (ngModelChange)="persistState()" aria-label="Filtrer le score de liquidité" placeholder="Filtrer" />
+              <input *ngSwitchCase="'liquidityDataStatus'" [(ngModel)]="filters.liquidityDataStatus" (ngModelChange)="persistState()" aria-label="Filtrer le statut de liquidité" placeholder="Filtrer" />
               <details *ngSwitchCase="'eligibility'" class="eligibility-filter">
                 <summary aria-label="Filtrer les statuts d’éligibilité">{{ eligibilityFilterLabel }}</summary>
                 <div class="eligibility-options">
@@ -357,6 +364,13 @@
               <ng-container *ngSwitchCase="'maturityDate'">{{ row.maturityDate }}</ng-container>
               <ng-container *ngSwitchCase="'rating'">{{ row.rating || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'yieldToMaturity'"><span class="yield-cell">{{ row.yieldToMaturity | percent:'1.2-3' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'couponRate'"><span [title]="row.couponDataStatus || ''">{{ row.couponRate == null ? '—' : (row.couponRate | percent:'1.2-3') }}</span></ng-container>
+              <ng-container *ngSwitchCase="'couponFrequency'">{{ row.couponFrequency == null ? '—' : row.couponFrequency + ' / an' }}</ng-container>
+              <ng-container *ngSwitchCase="'couponDataStatus'">{{ row.couponDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'cleanPrice'"><span [title]="row.cleanPriceDataStatus || ''">{{ row.cleanPrice == null ? '—' : (row.cleanPrice | number:'1.2-4') }}</span></ng-container>
+              <ng-container *ngSwitchCase="'cleanPriceDataStatus'">{{ row.cleanPriceDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'liquidityScore'"><span [title]="row.liquidityDataStatus || ''">{{ row.liquidityScore == null ? '—' : (row.liquidityScore | number:'1.0-0') }}</span></ng-container>
+              <ng-container *ngSwitchCase="'liquidityDataStatus'">{{ row.liquidityDataStatus || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'source'">{{ sourceLabel(row) || '—' }}<small>{{ sourceDate(row) }}</small></ng-container>
               <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Retenu · rang {{ row.rank || 1 }}</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable<span *ngIf="row.rank"> · rang {{ row.rank }}</span></span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span><small *ngIf="row.rankingReasons?.length">{{ row.rankingReasons?.join(' · ') }}</small></ng-container>
             </ng-container>

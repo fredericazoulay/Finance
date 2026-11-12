@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, toArray } from 'rxjs';
+import { Observable, Subscription, TimeoutError, catchError, finalize, from, map, mergeMap, of, tap, toArray } from 'rxjs';
 import {
   BondComparable,
   BondComparablesRequest,
@@ -40,8 +40,10 @@ interface BondComparableRow extends BondComparable {
   rankingReasons?: string[];
 }
 
-type BondColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source' | 'eligibility';
-type TextFilterColumn = Exclude<BondColumn, 'eligibility'>;
+type BondBaseColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source';
+type BondDataColumn = 'couponRate' | 'couponFrequency' | 'couponDataStatus' | 'cleanPrice' | 'cleanPriceDataStatus' | 'liquidityScore' | 'liquidityDataStatus';
+type BondColumn = BondBaseColumn | BondDataColumn | 'eligibility';
+type TextFilterColumn = BondBaseColumn | BondDataColumn;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
@@ -123,11 +125,14 @@ interface PersistedBondComparablesState {
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
 })
-export class BondComparablesComponent {
+export class BondComparablesComponent implements OnDestroy {
   private readonly storageKey = 'finance-pricer.bond-comparables.v1';
   readonly apiOnline$: Observable<boolean>;
   private readonly commonCurrencies = ['AUD', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'JPY', 'USD'];
   private importGeneration = 0;
+  private directPricingSubscription?: Subscription;
+  private directPricingWatchdog?: ReturnType<typeof setTimeout>;
+  private isDestroyed = false;
   readonly eligibilityOptions = [
     { value: 'best', label: 'Retenu par le classement' },
     { value: 'eligible', label: 'Comparable' },
@@ -135,13 +140,17 @@ export class BondComparablesComponent {
     { value: 'pending', label: 'À analyser' }
   ] as const;
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus', 'eligible'];
-  readonly bondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
+  readonly defaultBondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
+  readonly bondColumns: BondColumn[] = [...this.defaultBondColumns, 'couponRate', 'couponFrequency', 'couponDataStatus', 'cleanPrice', 'cleanPriceDataStatus', 'liquidityScore', 'liquidityDataStatus'];
   readonly bondColumnLabels: Record<BondColumn, string> = {
     securityId: 'Obligation', issuer: 'Émetteur', currency: 'Devise', issueDate: 'Émission', settlementDate: 'Règlement',
-    maturityDate: 'Échéance', rating: 'Notation', yieldToMaturity: 'YTM', source: 'Source / date', eligibility: 'Éligibilité'
+    maturityDate: 'Échéance', rating: 'Notation', yieldToMaturity: 'YTM', source: 'Source / date', eligibility: 'Éligibilité',
+    couponRate: 'Coupon annuel', couponFrequency: 'Coupons / an', couponDataStatus: 'Statut coupon',
+    cleanPrice: 'Prix clean', cleanPriceDataStatus: 'Statut prix clean', liquidityScore: 'Score liquidité',
+    liquidityDataStatus: 'Statut liquidité'
   };
   bondColumnOrder: BondColumn[] = [...this.bondColumns];
-  bondVisibleColumns = new Set<BondColumn>(this.bondColumnOrder);
+  bondVisibleColumns = new Set<BondColumn>(this.defaultBondColumns);
   alternateBondRows = false;
   bondGroupColumns: BondColumn[] = [];
   collapsedBondGroups = new Set<string>();
@@ -264,7 +273,8 @@ export class BondComparablesComponent {
   fullOptionPricingProgress = 0;
   fullOptionPricingSummary = '';
   filters: Record<TextFilterColumn, string> = {
-    securityId: '', issuer: '', currency: '', issueDate: '', settlementDate: '', maturityDate: '', rating: '', yieldToMaturity: '', source: ''
+    securityId: '', issuer: '', currency: '', issueDate: '', settlementDate: '', maturityDate: '', rating: '', yieldToMaturity: '', source: '',
+    couponRate: '', couponFrequency: '', couponDataStatus: '', cleanPrice: '', cleanPriceDataStatus: '', liquidityScore: '', liquidityDataStatus: ''
   };
   eligibilityFilters = new Set<EligibilityFilter>();
   yieldMinimum = '';
@@ -673,9 +683,22 @@ export class BondComparablesComponent {
     this.directError = '';
     this.directResult = null;
     this.isDirectPricing = true;
-    this.comparablesService.priceDirectly(request).pipe(finalize(() => {
+    this.directPricingWatchdog = setTimeout(() => {
+      this.directPricingWatchdog = undefined;
+      if (!this.isDirectPricing) return;
+      this.directError = 'Le calcul dépasse le délai prévu. Le bouton a été réactivé; vérifiez le backend puis réessayez.';
+      this.pricingService.setApiOnline(false);
+      this.directPricingSubscription?.unsubscribe();
+      this.directPricingSubscription = undefined;
       this.isDirectPricing = false;
       this.cdr.detectChanges();
+    }, 16000);
+    this.directPricingSubscription = this.comparablesService.priceDirectly(request).pipe(finalize(() => {
+      if (this.directPricingWatchdog !== undefined) clearTimeout(this.directPricingWatchdog);
+      this.directPricingWatchdog = undefined;
+      this.directPricingSubscription = undefined;
+      this.isDirectPricing = false;
+      if (!this.isDestroyed) this.cdr.detectChanges();
     })).subscribe({
       next: result => {
         this.directResult = result;
@@ -701,6 +724,14 @@ export class BondComparablesComponent {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.isDestroyed = true;
+    if (this.directPricingWatchdog !== undefined) clearTimeout(this.directPricingWatchdog);
+    this.directPricingWatchdog = undefined;
+    this.directPricingSubscription?.unsubscribe();
+    this.directPricingSubscription = undefined;
   }
 
   async onFileSelected(event: Event, mode: 'light' | 'full'): Promise<void> {
@@ -940,16 +971,26 @@ export class BondComparablesComponent {
   get panelRows(): BondComparableRow[] {
     if (this.result) {
       const importedBonds = new Map(this.panel.map(bond => [bond.securityId, bond]));
-      return this.result.panel.map(item => ({
-        ...item.bond,
-        issueDate: item.bond.issueDate ?? importedBonds.get(item.bond.securityId)?.issueDate,
-        settlementDate: item.bond.settlementDate ?? importedBonds.get(item.bond.securityId)?.settlementDate,
-        eligible: item.eligible,
-        selected: item.selected,
-        exclusionReason: item.exclusionReason,
-        rank: item.rank,
-        rankingReasons: item.rankingReasons
-      }));
+      return this.result.panel.map(item => {
+        const importedBond = importedBonds.get(item.bond.securityId);
+        return {
+          ...item.bond,
+          issueDate: item.bond.issueDate ?? importedBond?.issueDate,
+          settlementDate: item.bond.settlementDate ?? importedBond?.settlementDate,
+          couponRate: item.bond.couponRate ?? importedBond?.couponRate,
+          couponFrequency: item.bond.couponFrequency ?? importedBond?.couponFrequency,
+          couponDataStatus: item.bond.couponDataStatus ?? importedBond?.couponDataStatus,
+          cleanPrice: item.bond.cleanPrice ?? importedBond?.cleanPrice,
+          cleanPriceDataStatus: item.bond.cleanPriceDataStatus ?? importedBond?.cleanPriceDataStatus,
+          liquidityScore: item.bond.liquidityScore ?? importedBond?.liquidityScore,
+          liquidityDataStatus: item.bond.liquidityDataStatus ?? importedBond?.liquidityDataStatus,
+          eligible: item.eligible,
+          selected: item.selected,
+          exclusionReason: item.exclusionReason,
+          rank: item.rank,
+          rankingReasons: item.rankingReasons
+        };
+      });
     }
     return this.panel.map(bond => ({ ...bond, eligible: null, selected: false, exclusionReason: null }));
   }
@@ -1038,7 +1079,7 @@ export class BondComparablesComponent {
 
   applyDefaultBondColumns(): void {
     this.bondColumnOrder = [...this.bondColumns];
-    this.bondVisibleColumns = new Set(this.bondColumnOrder);
+    this.bondVisibleColumns = new Set(this.defaultBondColumns);
     this.persistState();
   }
 
@@ -2341,6 +2382,13 @@ export class BondComparablesComponent {
       case 'rating': return row.rating ?? '';
       case 'yieldToMaturity': return `${row.yieldToMaturity} ${row.yieldToMaturity * 100}`;
       case 'source': return `${row.source ?? ''} ${row.asOf ?? ''}`;
+      case 'couponRate': return row.couponRate == null ? '' : `${row.couponRate} ${row.couponRate * 100}`;
+      case 'couponFrequency': return row.couponFrequency == null ? '' : String(row.couponFrequency);
+      case 'couponDataStatus': return row.couponDataStatus ?? '';
+      case 'cleanPrice': return row.cleanPrice == null ? '' : String(row.cleanPrice);
+      case 'cleanPriceDataStatus': return row.cleanPriceDataStatus ?? '';
+      case 'liquidityScore': return row.liquidityScore == null ? '' : String(row.liquidityScore);
+      case 'liquidityDataStatus': return row.liquidityDataStatus ?? '';
       case 'eligibility':
         if (row.selected) return 'meilleur ytm';
         if (row.eligible === false) return row.exclusionReason ?? 'exclu';
