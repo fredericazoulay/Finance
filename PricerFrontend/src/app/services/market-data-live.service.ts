@@ -3,10 +3,34 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { updateLiveBenchmarkYields } from './bond-analytics-calc';
 
+export type MarketDataFreshness = 'live' | 'stale' | 'indicative' | 'imported';
+type SnapshotDataStatus = 'live' | 'partial' | 'stale' | 'indicative';
+
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+const FRED_STALE_AFTER_DAYS = 5;
+const FRED_CURVE_SERIES = [
+  { seriesId: 'DGS2', tenor: '2Y' },
+  { seriesId: 'DGS5', tenor: '5Y' },
+  { seriesId: 'DGS10', tenor: '10Y' },
+  { seriesId: 'DGS30', tenor: '30Y' }
+] as const;
+
+interface FredObservation {
+  seriesId: typeof FRED_CURVE_SERIES[number]['seriesId'];
+  asOf: string;
+  ratePercent: number;
+  dataStatus: 'live' | 'stale';
+  ageDays: number;
+}
+
 export interface YieldCurveNode {
   tenor: string;
   years: number;
   ratePercent: number;
+  source: string;
+  asOf: string;
+  dataStatus: MarketDataFreshness;
+  ageDays?: number;
 }
 
 export interface SovereignYieldCurve {
@@ -15,9 +39,11 @@ export interface SovereignYieldCurve {
   name: string;
   source: string;
   asOf: string;
+  dataStatus: MarketDataFreshness | 'partial';
+  ageDays?: number;
   nodes: YieldCurveNode[];
-  spread2s10sBps: number;
-  spread10s30sBps: number;
+  spread2s10sBps: number | null;
+  spread10s30sBps: number | null;
 }
 
 export interface MacroIndicator {
@@ -28,7 +54,9 @@ export interface MacroIndicator {
   unit: string;
   change1D: number;
   asOf: string;
-  source: 'FRED' | 'ECB' | 'Yahoo Finance';
+  source: 'FRED' | 'ECB' | 'Yahoo Finance' | 'Données indicatives';
+  dataStatus: MarketDataFreshness;
+  ageDays?: number;
   description: string;
 }
 
@@ -42,6 +70,8 @@ export interface BondMarketQuote {
   currency: string;
   source: string;
   asOf: string;
+  dataStatus: MarketDataFreshness;
+  ageDays?: number;
 }
 
 export interface LiveMarketSnapshot {
@@ -50,6 +80,7 @@ export interface LiveMarketSnapshot {
   macroIndicators: MacroIndicator[];
   quotes: BondMarketQuote[];
   lastUpdated: Date;
+  dataStatus: SnapshotDataStatus;
   isLive: boolean;
 }
 
@@ -72,26 +103,22 @@ export class MarketDataLiveService {
     return this.snapshotSubject.value;
   }
 
-  /**
-   * Refreshes market data from FRED, ECB, and Yahoo Finance APIs (with robust fallbacks).
-   */
+  /** Refreshes the market data that is currently parsed and validated. */
   refreshLiveMarketData(): Observable<LiveMarketSnapshot> {
     this.isSyncingSubject.next(true);
 
     const fred$ = this.fetchFredData().pipe(catchError(() => of(null)));
-    const ecb$ = this.fetchEcbYieldCurve().pipe(catchError(() => of(null)));
-    const yahoo$ = this.fetchYahooQuotes().pipe(catchError(() => of(null)));
 
-    return forkJoin({ fred: fred$, ecb: ecb$, yahoo: yahoo$ }).pipe(
-      map(({ fred, ecb, yahoo }) => {
+    return fred$.pipe(
+      map(fred => {
         const fallback = this.getDefaultMarketSnapshot();
 
         const usCurve = fred?.usCurve ?? fallback.usCurve;
-        const euCurve = ecb?.euCurve ?? fallback.euCurve;
+        const euCurve = fallback.euCurve;
         const macroIndicators = fred?.indicators ?? fallback.macroIndicators;
-        const quotes = yahoo?.quotes ?? fallback.quotes;
+        const quotes = fallback.quotes;
 
-        const isLive = Boolean(fred || ecb || yahoo);
+        const dataStatus = fred?.dataStatus ?? 'indicative';
 
         const snapshot: LiveMarketSnapshot = {
           usCurve,
@@ -99,7 +126,8 @@ export class MarketDataLiveService {
           macroIndicators,
           quotes,
           lastUpdated: new Date(),
-          isLive
+          dataStatus,
+          isLive: false
         };
 
         // Update the global benchmark reference yields in the bond calculation engine
@@ -127,92 +155,129 @@ export class MarketDataLiveService {
   /**
    * Fetches Treasury Yield Curve and Macro spreads from Federal Reserve Economic Data (FRED).
    */
-  private fetchFredData(): Observable<{ usCurve: SovereignYieldCurve; indicators: MacroIndicator[] } | null> {
-    // Attempt fetching FRED series via proxy
-    const tenors = [
-      { id: 'DGS1MO', tenor: '1M', years: 0.083 },
-      { id: 'DGS3MO', tenor: '3M', years: 0.25 },
-      { id: 'DGS6MO', tenor: '6M', years: 0.5 },
-      { id: 'DGS1', tenor: '1Y', years: 1 },
-      { id: 'DGS2', tenor: '2Y', years: 2 },
-      { id: 'DGS5', tenor: '5Y', years: 5 },
-      { id: 'DGS7', tenor: '7Y', years: 7 },
-      { id: 'DGS10', tenor: '10Y', years: 10 },
-      { id: 'DGS20', tenor: '20Y', years: 20 },
-      { id: 'DGS30', tenor: '30Y', years: 30 }
-    ];
+  private fetchFredData(): Observable<{
+    usCurve: SovereignYieldCurve;
+    indicators: MacroIndicator[];
+    dataStatus: 'partial' | 'stale';
+  } | null> {
+    const seriesRequests = FRED_CURVE_SERIES.map(({ seriesId }) =>
+      this.fetchFredSeries(seriesId).pipe(catchError(() => of(null)))
+    );
 
-    // Try fetching the 10Y CSV or return null if unreached
-    return this.http.get('/external/fred/graph/fredgraph.csv?id=DGS10', { responseType: 'text' }).pipe(
-      map(csv => {
-        const lines = csv.trim().split('\n');
-        const lastLine = lines[lines.length - 1];
-        const [dateStr, valStr] = lastLine.split(',');
-        const rate10Y = Number(valStr);
-
-        if (!Number.isFinite(rate10Y) || rate10Y <= 0) return null;
+    return forkJoin(seriesRequests).pipe(
+      map(observations => {
+        const availableObservations = observations.filter((item): item is FredObservation => item !== null);
+        if (!availableObservations.length) return null;
 
         const defaultSnap = this.getDefaultMarketSnapshot();
+        const observationsByTenor = new Map<string, FredObservation>(availableObservations.map(item => [
+          FRED_CURVE_SERIES.find(series => series.seriesId === item.seriesId)!.tenor,
+          item
+        ]));
         const adjustedNodes = defaultSnap.usCurve.nodes.map(node => {
-          if (node.tenor === '10Y') return { ...node, ratePercent: Math.round(rate10Y * 1000) / 1000 };
-          return node;
+          const observation = observationsByTenor.get(node.tenor);
+          if (!observation) return node;
+          return {
+            ...node,
+            ratePercent: observation.ratePercent,
+            source: `FRED ${observation.seriesId}`,
+            asOf: observation.asOf,
+            dataStatus: observation.dataStatus,
+            ageDays: observation.ageDays
+          };
         });
 
-        const rate2Y = adjustedNodes.find(n => n.tenor === '2Y')?.ratePercent ?? 4.10;
-        const rate30Y = adjustedNodes.find(n => n.tenor === '30Y')?.ratePercent ?? 4.45;
+        const node2Y = adjustedNodes.find(node => node.tenor === '2Y');
+        const node10Y = adjustedNodes.find(node => node.tenor === '10Y');
+        const node30Y = adjustedNodes.find(node => node.tenor === '30Y');
+        const spread2s10sBps = node2Y && node10Y && node2Y.dataStatus !== 'indicative' && node10Y.dataStatus !== 'indicative'
+          ? Math.round((node10Y.ratePercent - node2Y.ratePercent) * 100)
+          : null;
+        const spread10s30sBps = node10Y && node30Y && node10Y.dataStatus !== 'indicative' && node30Y.dataStatus !== 'indicative'
+          ? Math.round((node30Y.ratePercent - node10Y.ratePercent) * 100)
+          : null;
+        const observation10Y = observationsByTenor.get('10Y');
+        const curveDataStatus: SovereignYieldCurve['dataStatus'] = availableObservations.some(item => item.dataStatus === 'stale')
+          ? 'stale'
+          : 'partial';
+
+        const indicators: MacroIndicator[] = defaultSnap.macroIndicators.map(indicator => indicator.id === 'US10Y'
+          && observation10Y
+          ? { ...indicator, value: observation10Y.ratePercent, asOf: observation10Y.asOf, source: 'FRED', dataStatus: observation10Y.dataStatus, ageDays: observation10Y.ageDays }
+          : indicator);
+        const snapshotDataStatus: 'partial' | 'stale' = curveDataStatus === 'stale' ? 'stale' : 'partial';
 
         return {
           usCurve: {
             ...defaultSnap.usCurve,
-            asOf: dateStr || defaultSnap.usCurve.asOf,
+            source: 'FRED DGS + maturités indicatives',
+            asOf: observation10Y?.asOf ?? '',
+            dataStatus: curveDataStatus,
+            ageDays: observation10Y?.ageDays,
             nodes: adjustedNodes,
-            spread2s10sBps: Math.round((rate10Y - rate2Y) * 100),
-            spread10s30sBps: Math.round((rate30Y - rate10Y) * 100)
+            spread2s10sBps,
+            spread10s30sBps
           },
-          indicators: defaultSnap.macroIndicators
+          indicators,
+          dataStatus: snapshotDataStatus
         };
-      }),
-      catchError(() => of(null))
+      })
     );
   }
 
-  /**
-   * Fetches Euro Area Benchmark Government Yield Curve from the European Central Bank (ECB) SDMX API.
-   */
-  private fetchEcbYieldCurve(): Observable<{ euCurve: SovereignYieldCurve } | null> {
-    const url = '/external/ecb/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_1Y+SR_2Y+SR_5Y+SR_10Y+SR_30Y?lastNObservations=1&format=jsondata';
-    return this.http.get<any>(url).pipe(
-      map(res => {
-        if (!res) return null;
-        const defaultSnap = this.getDefaultMarketSnapshot();
-        return { euCurve: defaultSnap.euCurve };
-      }),
-      catchError(() => of(null))
+  private fetchFredSeries(seriesId: FredObservation['seriesId']): Observable<FredObservation | null> {
+    return this.http.get(`/external/fred/graph/fredgraph.csv?id=${seriesId}`, { responseType: 'text' }).pipe(
+      map(csv => {
+        const lines = csv.trim().split('\n');
+        const [rawDate, valueText] = (lines.at(-1) ?? '').split(',');
+        const asOf = rawDate?.trim() ?? '';
+        const ratePercent = Number(valueText);
+        const freshness = this.getObservationFreshness(asOf);
+        if (!Number.isFinite(ratePercent) || ratePercent <= 0 || !freshness) return null;
+        return { seriesId, asOf, ratePercent, ...freshness };
+      })
     );
   }
 
-  /**
-   * Fetches real-time ETF / Index quotes from Yahoo Finance API.
-   */
-  private fetchYahooQuotes(): Observable<{ quotes: BondMarketQuote[] } | null> {
-    return this.http.get<any>('/external/yahoo/v8/finance/chart/%5ETNX?interval=1d&range=1d').pipe(
-      map(data => {
-        const meta = data?.chart?.result?.[0]?.meta;
-        if (!meta) return null;
-        const defaultSnap = this.getDefaultMarketSnapshot();
-        return { quotes: defaultSnap.quotes };
-      }),
-      catchError(() => of(null))
-    );
+  private getObservationFreshness(asOf: string): { dataStatus: 'live' | 'stale'; ageDays: number } | null {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return null;
+
+    const observationDate = new Date(`${asOf}T00:00:00.000Z`);
+    if (Number.isNaN(observationDate.getTime()) || observationDate.toISOString().slice(0, 10) !== asOf) return null;
+
+    const now = new Date();
+    const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const ageDays = Math.floor((todayUtc - observationDate.getTime()) / DAY_IN_MILLISECONDS);
+    if (ageDays < 0) return null;
+
+    return {
+      dataStatus: ageDays > FRED_STALE_AFTER_DAYS ? 'stale' : 'live',
+      ageDays
+    };
+  }
+
+  private createIndicativeNodes(
+    nodes: Omit<YieldCurveNode, 'source' | 'asOf' | 'dataStatus' | 'ageDays'>[]
+  ): YieldCurveNode[] {
+    return nodes.map(node => ({
+      ...node,
+      source: 'Données indicatives',
+      asOf: '',
+      dataStatus: 'indicative'
+    }));
+  }
+
+  private markIndicative<T extends { source: string; asOf: string }>(
+    observations: T[]
+  ): Array<T & { dataStatus: 'indicative' }> {
+    return observations.map(observation => ({ ...observation, dataStatus: 'indicative' }));
   }
 
   /**
-   * High-fidelity, real-world calibrated baseline snapshot.
+  * Indicative baseline values used when no corresponding market observation is parsed.
    */
   private getDefaultMarketSnapshot(): LiveMarketSnapshot {
-    const today = new Date().toISOString().split('T')[0];
-
-    const usNodes: YieldCurveNode[] = [
+    const usNodes = this.createIndicativeNodes([
       { tenor: '1M', years: 0.083, ratePercent: 4.82 },
       { tenor: '3M', years: 0.25, ratePercent: 4.75 },
       { tenor: '6M', years: 0.5, ratePercent: 4.58 },
@@ -224,9 +289,9 @@ export class MarketDataLiveService {
       { tenor: '10Y', years: 10.0, ratePercent: 4.28 },
       { tenor: '20Y', years: 20.0, ratePercent: 4.54 },
       { tenor: '30Y', years: 30.0, ratePercent: 4.48 }
-    ];
+    ]);
 
-    const euNodes: YieldCurveNode[] = [
+    const euNodes = this.createIndicativeNodes([
       { tenor: '3M', years: 0.25, ratePercent: 3.20 },
       { tenor: '6M', years: 0.5, ratePercent: 3.02 },
       { tenor: '1Y', years: 1.0, ratePercent: 2.74 },
@@ -237,7 +302,7 @@ export class MarketDataLiveService {
       { tenor: '10Y', years: 10.0, ratePercent: 2.38 },
       { tenor: '20Y', years: 20.0, ratePercent: 2.62 },
       { tenor: '30Y', years: 30.0, ratePercent: 2.68 }
-    ];
+    ]);
 
     const us2Y = usNodes.find(n => n.tenor === '2Y')!.ratePercent;
     const us10Y = usNodes.find(n => n.tenor === '10Y')!.ratePercent;
@@ -251,8 +316,9 @@ export class MarketDataLiveService {
       currency: 'USD',
       country: 'États-Unis',
       name: 'US Treasury Benchmark Yield Curve',
-      source: 'FRED St. Louis (DGS)',
-      asOf: today,
+      source: 'Données indicatives',
+      asOf: '',
+      dataStatus: 'indicative',
       nodes: usNodes,
       spread2s10sBps: Math.round((us10Y - us2Y) * 100),
       spread10s30sBps: Math.round((us30Y - us10Y) * 100)
@@ -262,14 +328,15 @@ export class MarketDataLiveService {
       currency: 'EUR',
       country: 'Zone Euro (AAA / Bund)',
       name: 'Euro Area AAA Benchmark Curve',
-      source: 'BCE / Deutsche Bundesbank',
-      asOf: today,
+      source: 'Données indicatives',
+      asOf: '',
+      dataStatus: 'indicative',
       nodes: euNodes,
       spread2s10sBps: Math.round((eu10Y - eu2Y) * 100),
       spread10s30sBps: Math.round((eu30Y - eu10Y) * 100)
     };
 
-    const macroIndicators: MacroIndicator[] = [
+    const macroIndicators: MacroIndicator[] = this.markIndicative<Omit<MacroIndicator, 'dataStatus' | 'ageDays'>>([
       {
         id: 'US10Y',
         name: 'US 10-Year Treasury',
@@ -277,8 +344,8 @@ export class MarketDataLiveService {
         value: us10Y,
         unit: '%',
         change1D: -0.03,
-        asOf: today,
-        source: 'FRED',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Taux de référence souverain américain à 10 ans (série FRED DGS10)'
       },
       {
@@ -288,8 +355,8 @@ export class MarketDataLiveService {
         value: eu10Y,
         unit: '%',
         change1D: -0.02,
-        asOf: today,
-        source: 'ECB',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Emprunt d’État fédéral allemand à 10 ans, taux sans risque de la zone euro'
       },
       {
@@ -299,8 +366,8 @@ export class MarketDataLiveService {
         value: 3.16,
         unit: '%',
         change1D: +0.01,
-        asOf: today,
-        source: 'ECB',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Obligation Assimilable du Trésor français à 10 ans (Spread OAT-Bund : +78 bp)'
       },
       {
@@ -310,8 +377,8 @@ export class MarketDataLiveService {
         value: 318,
         unit: 'bp',
         change1D: -4,
-        asOf: today,
-        source: 'FRED',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Prime de risque Option-Adjusted Spread ICE BofA High Yield (BAMLH0A0HYM2)'
       },
       {
@@ -321,8 +388,8 @@ export class MarketDataLiveService {
         value: 98,
         unit: 'bp',
         change1D: -1,
-        asOf: today,
-        source: 'FRED',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Prime de risque des obligations d’entreprises Investment Grade (BAMLC0A0CM)'
       },
       {
@@ -332,8 +399,8 @@ export class MarketDataLiveService {
         value: 4.82,
         unit: '%',
         change1D: 0.00,
-        asOf: today,
-        source: 'FRED',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Secured Overnight Financing Rate (taux garanti à 1 jour du marché monétaire US)'
       },
       {
@@ -343,8 +410,8 @@ export class MarketDataLiveService {
         value: 3.66,
         unit: '%',
         change1D: 0.00,
-        asOf: today,
-        source: 'ECB',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Taux au jour le jour sans risque de la zone euro publié par la BCE'
       },
       {
@@ -354,13 +421,13 @@ export class MarketDataLiveService {
         value: 2.34,
         unit: '%',
         change1D: +0.02,
-        asOf: today,
-        source: 'FRED',
+        asOf: '',
+        source: 'Données indicatives',
         description: 'Anticipation d’inflation à 10 ans déduite des TIPS et obligations nominales (T10YIE)'
       }
-    ];
+    ]);
 
-    const quotes: BondMarketQuote[] = [
+    const quotes: BondMarketQuote[] = this.markIndicative<Omit<BondMarketQuote, 'dataStatus' | 'ageDays'>>([
       {
         symbol: '^TNX',
         name: 'CBOE 10-Yr Treasury Note Yield',
@@ -369,8 +436,8 @@ export class MarketDataLiveService {
         changePercent: -0.65,
         yieldPercent: 4.28,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: '^TYX',
@@ -380,8 +447,8 @@ export class MarketDataLiveService {
         changePercent: -0.32,
         yieldPercent: 4.48,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: 'BND',
@@ -391,8 +458,8 @@ export class MarketDataLiveService {
         changePercent: +0.28,
         yieldPercent: 4.35,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: 'TLT',
@@ -402,8 +469,8 @@ export class MarketDataLiveService {
         changePercent: +0.55,
         yieldPercent: 4.52,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: 'LQD',
@@ -413,8 +480,8 @@ export class MarketDataLiveService {
         changePercent: +0.35,
         yieldPercent: 5.15,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: 'HYG',
@@ -424,8 +491,8 @@ export class MarketDataLiveService {
         changePercent: +0.18,
         yieldPercent: 7.20,
         currency: 'USD',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       },
       {
         symbol: 'IEAC.AS',
@@ -435,10 +502,10 @@ export class MarketDataLiveService {
         changePercent: +0.12,
         yieldPercent: 3.65,
         currency: 'EUR',
-        source: 'Yahoo Finance',
-        asOf: today
+        source: 'Données indicatives',
+        asOf: ''
       }
-    ];
+    ]);
 
     return {
       usCurve,
@@ -446,7 +513,8 @@ export class MarketDataLiveService {
       macroIndicators,
       quotes,
       lastUpdated: new Date(),
-      isLive: true
+      dataStatus: 'indicative',
+      isLive: false
     };
   }
 }

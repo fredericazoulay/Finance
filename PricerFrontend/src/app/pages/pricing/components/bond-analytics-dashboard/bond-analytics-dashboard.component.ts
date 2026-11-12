@@ -56,6 +56,8 @@ interface ScenarioCurveMetricOption {
 })
 export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() bonds: BondComparable[] = [];
+  @Input() targetSecurityId = '';
+  @Input() targetName = '';
   @Input() faceValue = 100;
   @Input() couponRate = 5;
   @Input() couponFrequency = 2;
@@ -75,6 +77,11 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   @ViewChild('panelRiskChart') panelRiskChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('panelShockChart') panelShockChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('marketModelPriceChart') marketModelPriceChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('creditSpreadChart') creditSpreadChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('liquidityChart') liquidityChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('esgChart') esgChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('frtbCapitalChart') frtbCapitalChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('ngfsImpactChart') ngfsImpactChart!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
   private themeObserver: MutationObserver | null = null;
@@ -130,7 +137,34 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
   }
 
   get panelMarketPriceCount(): number {
-    return this.panelRiskRows().filter(row => Number.isFinite(row.bond.marketPrice) && Number(row.bond.marketPrice) > 0).length;
+    return this.panelRiskRows().filter(row => {
+      const price = row.bond.marketPrice ?? row.bond.cleanPrice;
+      return Number.isFinite(price) && Number(price) > 0;
+    }).length;
+  }
+
+  get creditSpreadCount(): number {
+    return this.bonds.filter(bond => Number.isFinite(bond.zSpread ?? bond.spreadBps)).length;
+  }
+
+  get liquidityCount(): number {
+    return this.bonds.filter(bond => Boolean(bond.liquidity) || [
+      bond.liquidityScore, bond.bidAskSpread, bond.volume, bond.traceVolume
+    ].some(Number.isFinite)).length;
+  }
+
+  get esgSectorCount(): number {
+    return this.bonds.filter(bond => Boolean(bond.sector?.trim()) && Number.isFinite(bond.esgScore)).length;
+  }
+
+  get frtbCapitalCount(): number {
+    return this.bonds.filter(bond => Number.isFinite(bond.frtbCapital)).length;
+  }
+
+  get ngfsImpactCount(): number {
+    return this.bonds.reduce((count, bond) => count + (bond.ngfsScenarioImpacts?.filter(
+      impact => Number.isFinite(impact.impactPercent ?? impact.impact)
+    ).length ?? 0), 0);
   }
 
   ngAfterViewInit(): void {
@@ -182,7 +216,6 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         options: this.chartOptions('Obligations par devise', true)
       }),
       new Chart(this.maturityChart.nativeElement, {
-      ...this.createMaturityScenarioChart(chartColors),
         type: 'bar',
         data: {
           labels: MATURITY_BUCKETS,
@@ -225,6 +258,7 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
         options: this.chartOptions('YTM moyen par notation')
       }),
       ...this.createScenarioCharts(chartColors),
+      ...this.createMaturityScenarioChart(chartColors),
       ...this.createPanelCharts(chartColors)
     ];
   }
@@ -451,13 +485,20 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
     const rows = this.panelRiskRows();
     const textColor = this.chartTextColor;
     const labels = rows.map(row => row.bond.securityId || row.bond.name);
-    const marketRows = rows.filter(row => Number.isFinite(row.bond.marketPrice) && Number(row.bond.marketPrice) > 0);
-    const pricePoints = marketRows.map(row => ({ x: Number(row.bond.marketPrice), y: row.metrics.basePrice }));
+    const priceRows = rows.filter(row => {
+      const price = row.bond.marketPrice ?? row.bond.cleanPrice;
+      return Number.isFinite(price) && Number(price) > 0;
+    });
+    const hasMarketPrices = priceRows.some(row => Number.isFinite(row.bond.marketPrice));
+    const pricePoints = priceRows.map(row => ({
+      x: Number(row.bond.marketPrice ?? row.bond.cleanPrice),
+      y: row.metrics.basePrice
+    }));
     const priceExtent = pricePoints.flatMap(point => [point.x, point.y]);
     const minPrice = Math.min(...priceExtent, 0);
     const maxPrice = Math.max(...priceExtent, 100);
 
-    return [
+    const charts: Chart[] = [
       new Chart(this.panelRiskChart.nativeElement, {
       type: 'bar',
       data: {
@@ -466,13 +507,13 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
           {
             label: 'Duration modifiée (ans)',
             data: rows.map(row => row.metrics.duration),
-            backgroundColor: `${chartColors[0]}bb`,
+            backgroundColor: rows.map(row => row.bond.securityId === this.targetSecurityId ? '#d95757' : `${chartColors[0]}bb`),
             xAxisID: 'x'
           },
           {
             label: 'DV01 par 100 de nominal',
             data: rows.map(row => row.metrics.dv01),
-            backgroundColor: `${chartColors[2]}bb`,
+            backgroundColor: rows.map(row => row.bond.securityId === this.targetSecurityId ? '#d95757' : `${chartColors[2]}bb`),
             xAxisID: 'x1'
           }
         ]
@@ -515,7 +556,9 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
             const shocked = calculateBondScenario(row.input, shockBps);
             return shocked ? shocked.pnl / shocked.basePrice * 100 : null;
           }),
-          backgroundColor: `${chartColors[index % chartColors.length]}bb`
+          backgroundColor: rows.map(row => row.bond.securityId === this.targetSecurityId
+            ? '#d95757'
+            : `${chartColors[index % chartColors.length]}bb`)
         }))
       },
       options: {
@@ -549,32 +592,205 @@ export class BondAnalyticsDashboardComponent implements AfterViewInit, OnChanges
             borderDash: [5, 4]
           },
           {
-            label: 'Obligations du panel',
+            label: hasMarketPrices ? 'Prix de marché fournis' : 'Prix clean synthétiques du classeur',
             data: pricePoints,
-            backgroundColor: chartColors[0],
-            pointRadius: 5
+            backgroundColor: priceRows.map(row => row.bond.securityId === this.targetSecurityId ? '#d95757' : chartColors[0]),
+            pointRadius: priceRows.map(row => row.bond.securityId === this.targetSecurityId ? 7 : 5)
           }
         ]
       },
       options: {
-        ...this.scatterChartOptions('Prix de marché et prix théorique', 'Prix de marché par 100', 'Prix théorique par 100'),
+        ...this.scatterChartOptions(
+          hasMarketPrices ? 'Prix de marché et prix théorique' : 'Prix clean du classeur et prix théorique',
+          'Prix importé par 100 de nominal',
+          'Prix théorique par 100 de nominal'
+        ),
         plugins: {
-          title: { display: true, text: 'Prix de marché et prix théorique', color: this.chartTitleColor },
+          title: {
+            display: true,
+            text: hasMarketPrices ? 'Prix de marché et prix théorique' : 'Prix clean du classeur et prix théorique',
+            color: this.chartTitleColor
+          },
           legend: { display: true, position: 'bottom', labels: { color: textColor, boxWidth: 10 } },
           tooltip: {
             callbacks: {
               label: context => {
-                if (context.datasetIndex === 0) return 'Référence : prix de marché = prix théorique';
-                const row = marketRows[context.dataIndex];
-                const marketPrice = context.parsed.x ?? 0;
+                if (context.datasetIndex === 0) return 'Référence : prix importé = prix théorique';
+                const row = priceRows[context.dataIndex];
+                const importedPrice = context.parsed.x ?? 0;
                 const theoreticalPrice = context.parsed.y ?? 0;
-                return `${row?.bond.securityId ?? 'Obligation'} : marché ${marketPrice.toFixed(2)}, théorique ${theoreticalPrice.toFixed(2)}`;
+                const priceLabel = Number.isFinite(row?.bond.marketPrice) ? 'marché' : 'clean du classeur';
+                return `${row?.bond.securityId ?? 'Obligation'} : ${priceLabel} ${importedPrice.toFixed(2)}, théorique ${theoreticalPrice.toFixed(2)}`;
               }
             }
           }
         }
       }
     })];
+
+    const spreadRows = this.bonds
+      .filter(bond => Number.isFinite(bond.zSpread ?? bond.spreadBps))
+      .sort((left, right) => Math.abs(Number(right.zSpread ?? right.spreadBps)) - Math.abs(Number(left.zSpread ?? left.spreadBps)))
+      .slice(0, 20);
+    const spreadLabel = spreadRows.some(bond => bond.spreadDataStatus)
+      ? 'Spread illustratif (pb)'
+      : 'Spread fourni (pb)';
+    const targetSpreadRow = this.bonds.find(bond => bond.securityId === this.targetSecurityId && Number.isFinite(bond.zSpread ?? bond.spreadBps));
+    if (targetSpreadRow && !spreadRows.includes(targetSpreadRow)) spreadRows[spreadRows.length - 1] = targetSpreadRow;
+    charts.push(new Chart(this.creditSpreadChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: spreadRows.map(bond => bond.securityId),
+        datasets: [{
+          label: spreadLabel,
+          data: spreadRows.map(bond => Number(bond.zSpread ?? bond.spreadBps)),
+          backgroundColor: spreadRows.map(bond => bond.securityId === this.targetSecurityId ? '#d95757' : `${chartColors[1]}bb`)
+        }]
+      },
+      options: this.chartOptions(spreadLabel)
+    }));
+
+    const liquidityCounts = this.countBy(this.bonds.filter(bond => bond.liquidity), bond => bond.liquidity ?? '');
+    const liquidityRows = this.bonds
+      .filter(bond => [bond.liquidityScore, bond.bidAskSpread, bond.volume].some(Number.isFinite))
+      .sort((left, right) => Number(right.liquidityScore ?? -1) - Number(left.liquidityScore ?? -1))
+      .slice(0, 20);
+    let liquidityMetric: 'score' | 'bid-ask' | 'volume' = 'volume';
+    if (liquidityRows.some(bond => Number.isFinite(bond.liquidityScore))) liquidityMetric = 'score';
+    else if (liquidityRows.some(bond => Number.isFinite(bond.bidAskSpread))) liquidityMetric = 'bid-ask';
+    const liquidityMetricLabels: Record<typeof liquidityMetric, string> = {
+      score: liquidityRows.some(bond => bond.liquidityDataStatus)
+        ? 'Score de liquidité indicatif (0-100)'
+        : 'Score de liquidité (0-100)',
+      'bid-ask': 'Écart bid-ask importé',
+      volume: 'Volume importé'
+    };
+    const liquidityMetricLabel = liquidityMetricLabels[liquidityMetric];
+    const liquidityMetricValues = liquidityRows.map(bond => {
+      if (liquidityMetric === 'score') return bond.liquidityScore ?? null;
+      if (liquidityMetric === 'bid-ask') return bond.bidAskSpread ?? null;
+      return bond.volume ?? null;
+    });
+    charts.push(new Chart(this.liquidityChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: liquidityRows.length ? liquidityRows.map(bond => bond.securityId) : [...liquidityCounts.keys()],
+        datasets: [{
+          label: liquidityRows.length ? liquidityMetricLabel : 'Nombre d’obligations',
+          data: liquidityRows.length
+            ? liquidityMetricValues
+            : [...liquidityCounts.values()],
+          backgroundColor: chartColors
+        }]
+      },
+      options: {
+        ...this.chartOptions(liquidityRows.length ? liquidityMetricLabel : 'Classe de liquidité déclarée'),
+        plugins: {
+          title: {
+            display: true,
+            text: liquidityRows.length ? liquidityMetricLabel : 'Classe de liquidité déclarée',
+            color: this.chartTitleColor
+          },
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                const bond = liquidityRows[context.dataIndex];
+                if (!bond) return `${context.dataset.label}: ${context.formattedValue}`;
+                const details = [
+                  Number.isFinite(bond.liquidityScore) ? `score ${bond.liquidityScore}` : null,
+                  Number.isFinite(bond.bid) ? `bid ${bond.bid}` : null,
+                  Number.isFinite(bond.ask) ? `ask ${bond.ask}` : null,
+                  Number.isFinite(bond.bidAskSpread) ? `bid-ask ${bond.bidAskSpread}` : null,
+                  Number.isFinite(bond.volume) ? `volume ${bond.volume}` : null,
+                  Number.isFinite(bond.traceVolume) ? `TRACE ${bond.traceVolume}` : null,
+                  bond.liquidityDataStatus || null
+                ].filter((value): value is string => value !== null);
+                return `${bond.securityId}: ${details.join(' · ')}`;
+              }
+            }
+          }
+        }
+      }
+    }));
+
+    const esgSectors = new Map<string, number[]>();
+    for (const bond of this.bonds) {
+      const sector = bond.sector?.trim();
+      if (!sector || !Number.isFinite(bond.esgScore)) continue;
+      const scores = esgSectors.get(sector) ?? [];
+      scores.push(Number(bond.esgScore));
+      esgSectors.set(sector, scores);
+    }
+    const sectorLabels = [...esgSectors.keys()].sort((left, right) => left.localeCompare(right));
+    charts.push(new Chart(this.esgChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: sectorLabels,
+        datasets: [{
+          label: 'Score moyen fourni',
+          data: sectorLabels.map(sector => {
+            const scores = esgSectors.get(sector) ?? [];
+            return scores.reduce((total, score) => total + score, 0) / scores.length;
+          }),
+          backgroundColor: chartColors
+        }]
+      },
+      options: this.chartOptions('Score ESG importé moyen par secteur')
+    }));
+
+    const capitalByRating = new Map<string, number[]>();
+    for (const bond of this.bonds) {
+      if (!Number.isFinite(bond.frtbCapital)) continue;
+      const rating = this.normalizeRating(bond.rating) || 'Non notée';
+      const nominal = Number.isFinite(bond.faceValue) && Number(bond.faceValue) > 0 ? Number(bond.faceValue) : 100;
+      const values = capitalByRating.get(rating) ?? [];
+      values.push(Number(bond.frtbCapital) / nominal * 100);
+      capitalByRating.set(rating, values);
+    }
+    const capitalRatings = [...capitalByRating.keys()].sort((left, right) => left.localeCompare(right));
+    charts.push(new Chart(this.frtbCapitalChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: capitalRatings,
+        datasets: [{
+          label: 'Capital indicatif moyen / 100 nominal',
+          data: capitalRatings.map(rating => {
+            const values = capitalByRating.get(rating) ?? [];
+            return values.reduce((total, value) => total + value, 0) / values.length;
+          }),
+          backgroundColor: chartColors
+        }]
+      },
+      options: this.chartOptions('Proxy FRTB SA synthétique moyen par notation')
+    }));
+
+    const ngfsByScenario = new Map<string, number[]>();
+    for (const bond of this.bonds) {
+      for (const impact of bond.ngfsScenarioImpacts ?? []) {
+        if (!Number.isFinite(impact.impactPercent)) continue;
+        const values = ngfsByScenario.get(impact.scenario) ?? [];
+        values.push(Number(impact.impactPercent) * 100);
+        ngfsByScenario.set(impact.scenario, values);
+      }
+    }
+    const scenarios = [...ngfsByScenario.keys()];
+    charts.push(new Chart(this.ngfsImpactChart.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: scenarios,
+        datasets: [{
+          label: 'Impact moyen indicatif (%)',
+          data: scenarios.map(scenario => {
+            const values = ngfsByScenario.get(scenario) ?? [];
+            return values.reduce((total, value) => total + value, 0) / values.length;
+          }),
+          backgroundColor: chartColors
+        }]
+      },
+      options: this.chartOptions('Scénarios du classeur (illustratifs, non officiels)')
+    }));
+    return charts;
   }
 
   private panelRiskRows(): PanelRiskRow[] {

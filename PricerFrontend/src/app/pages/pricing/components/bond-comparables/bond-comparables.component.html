@@ -7,12 +7,12 @@
     </div>
     <div class="screen-context">
       <div class="workspace-context"><span>{{ 'group' | translate }}</span><strong>{{ workGroupService.selectedGroup$ | async }}</strong></div>
-      <span class="data-status">{{ activeMode === 'market-hub' ? 'Références macro et courbes · FRED, BCE, Yahoo Finance' : activeMode === 'comparator' ? 'Comparateur synoptique côte-à-côte · simulation de choc de taux et audit' : activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
+      <span class="data-status">{{ activeMode === 'market-hub' ? 'Courbe US FRED partielle · autres références indicatives' : activeMode === 'comparator' ? 'Comparateur synoptique côte-à-côte · simulation de choc de taux et audit' : activeMode === 'comparables-light' ? 'Panel obligataire importé · pas de flux marché connecté' : activeMode === 'comparables-full' || activeMode === 'comparables-full-graphs' || activeMode === 'comparables-full-markowitz' ? 'Données complètes des instruments importées' : activeMode === 'portfolios' ? 'Positions enregistrées localement · valorisation selon les cours saisis' : activeMode === 'ai-analysis' ? 'Assistant IA · analyse du contexte de pricing' : activeMode === 'bond-analysis' ? 'Guide obligataire · calculs sur hypothèses saisies' : activeMode === 'bloomberg' ? 'Terminal Fixed Income · données historiques de démonstration' : activeMode === 'advanced' ? 'Tarification selon les dates et conventions de coupon' : activeMode === 'bond-graphs' ? 'Graphiques calculés sur les obligations importées' : activeMode === 'formulas' ? 'Référentiel de formules financières' : activeMode === 'periodic-calculator' ? 'Coupon par période · calcul du prix et des flux actualisés' : 'Calcul direct · taux en pourcentage' }}</span>
     </div>
   </header>
 
   <div class="mode-tabs" role="tablist" aria-label="Mode de calcul obligataire">
-    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'market-hub'" [class.active]="activeMode === 'market-hub'" (click)="setMode('market-hub')">🌐 Marché Live (FRED / Yahoo / BCE)</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeMode === 'market-hub'" [class.active]="activeMode === 'market-hub'" (click)="setMode('market-hub')">🌐 Références de marché</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'comparator'" [class.active]="activeMode === 'comparator'" (click)="setMode('comparator')">⚖️ Comparateur ({{ selectedBondIdsForCompare.size }})</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'basic'" [class.active]="activeMode === 'basic'" (click)="setMode('basic')">Calcul de base</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'periodic-calculator'" [class.active]="activeMode === 'periodic-calculator'" (click)="setMode('periodic-calculator')">Coupon par période</button>
@@ -28,6 +28,35 @@
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'portfolios'" [class.active]="activeMode === 'portfolios'" (click)="setMode('portfolios')">Portefeuilles</button>
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'ai-analysis'" [class.active]="activeMode === 'ai-analysis'" (click)="setMode('ai-analysis')">Analyse IA</button>
   </div>
+
+  <section class="active-target-context" *ngIf="panel.length > 0 || target.securityId || target.name" aria-label="Obligation analysée">
+    <div class="target-picker-controls">
+      <label for="target-bond-search">
+        Obligation cible
+        <input id="target-bond-search" type="search" aria-describedby="target-bond-count"
+          [ngModel]="targetBondSearch" (ngModelChange)="searchTargetBonds($event)"
+          placeholder="Rechercher par identifiant, nom, émetteur, ISIN…" [disabled]="!panel.length" />
+      </label>
+      <select id="target-bond-select" [ngModel]="target.securityId" (ngModelChange)="selectTarget($event)"
+        aria-label="Sélectionner une obligation cible" [disabled]="!panel.length">
+        <option value="">Sélectionner une obligation</option>
+        <option *ngIf="targetPanelBondOutsideSearch" [value]="targetPanelBond?.securityId">{{ targetPanelBond?.securityId }} · cible actuelle</option>
+        <option *ngIf="target.securityId && !targetPanelBond" [value]="target.securityId">{{ target.securityId }} · saisie manuelle</option>
+        <option *ngFor="let bond of searchedTargetBonds" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option>
+      </select>
+      <small id="target-bond-count">{{ targetBondSearch ? searchedTargetBonds.length + ' résultat(s)' : panel.length + ' obligation(s)' }}</small>
+    </div>
+    <div class="active-target-details" *ngIf="targetPanelBond as selectedBond; else manualTargetDetails">
+      <strong>{{ selectedBond.securityId }} · {{ selectedBond.name }}</strong>
+      <span>{{ selectedBond.currency }} · Échéance {{ selectedBond.maturityDate }} · Coupon {{ selectedBond.couponRate == null ? '—' : (selectedBond.couponRate | percent:'1.2-2') }} · YTM {{ selectedBond.yieldToMaturity | percent:'1.2-2' }}</span>
+    </div>
+    <ng-template #manualTargetDetails>
+      <div class="active-target-details">
+        <strong>{{ target.name || 'Cible saisie manuellement' }}</strong>
+        <span>{{ target.securityId || 'Identifiant non renseigné' }} · {{ target.currency }} · Échéance {{ target.maturityDate || '—' }} · Coupon {{ target.couponRate | number:'1.2-2' }} %</span>
+      </div>
+    </ng-template>
+  </section>
 
   <section class="calculator-section" *ngIf="activeMode === 'basic'">
     <div class="section-heading">
@@ -64,6 +93,8 @@
   <ng-container *ngIf="activeMode === 'bond-graphs'">
     <app-bond-analytics-dashboard
       [bonds]="panel"
+      [targetSecurityId]="target.securityId"
+      [targetName]="target.name"
       [faceValue]="basicForm.faceValue"
       [couponRate]="basicCouponRatePercent"
       [couponFrequency]="basicForm.couponFrequency"
@@ -160,7 +191,7 @@
       <p class="message warning" *ngIf="targetExtractionAmbiguities.length">À vérifier : {{ targetExtractionAmbiguities.join(' ') }}</p>
     </div>
     <div class="target-grid">
-      <label><span>Obligation cible</span><select [(ngModel)]="target.securityId" (ngModelChange)="selectTarget($event)"><option value="">Sélectionner une obligation importée</option><option *ngFor="let bond of panel" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option></select></label>
+      <div class="target-security-summary"><span>Identifiant</span><strong>{{ target.securityId || 'Saisie manuelle' }}</strong></div>
       <label><span>Nom</span><input [(ngModel)]="target.name" (ngModelChange)="invalidateResult()" placeholder="Nom de l’obligation" /></label>
       <label><span>Devise</span><select [(ngModel)]="target.currency" (ngModelChange)="invalidateResult()"><option value="">Sélectionner</option><option *ngFor="let currency of currencies" [value]="currency">{{ currency }}</option></select></label>
       <label><span>Nominal</span><input type="number" min="0.01" step="0.01" [(ngModel)]="target.faceValue" (ngModelChange)="invalidateResult()" /></label>
@@ -221,9 +252,8 @@
         </div>
       </div>
     </div>
-    <p class="import-hint">Colonnes requises :  
-      securityId; currency; maturityDate (AAAA-MM-JJ); yieldToMaturity; emissionDate (AAAA-MM-JJ); issuer; rating; source; settlementDate (AAAA-MM-JJ).
-      Les taux peuvent être saisis en décimal ou avec « % ».</p>
+    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity, emissionDate, issuer, rating, source et settlementDate.
+      Pour les graphiques, ajoutez couponRate, couponFrequency, marketPrice, sector et spreadBps (ou leurs équivalents français : coupon annuel, coupons par an, prix de marché, secteur, spread en pb). Les taux peuvent être saisis en décimal ou avec « % ». Les classeurs avec une feuille Bonds_Master fusionnent automatiquement Pricing_Engine, Liquidity, FRTB_SA, ESG et NGFS par BondId.</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" role="alert" *ngIf="marketSearchError">{{ marketSearchError }}</p>
     <output class="message success" *ngIf="marketSearchMessage">{{ marketSearchMessage }}</output>
@@ -390,12 +420,12 @@
     </div>
     <div class="price-block"><span>Prix clean</span><strong>{{ pricing.valuation.cleanPrice | number:'1.2-4' }}</strong><small>{{ pricing.currency }} / {{ target.faceValue | number:'1.0-2' }} nominal</small></div>
     <div class="price-block"><span>Prix dirty</span><strong>{{ pricing.valuation.dirtyPrice | number:'1.2-4' }}</strong><small>Intérêts courus : {{ pricing.valuation.accruedInterest | number:'1.2-4' }}</small></div>
-    <div class="winner-block"><span>Comparable retenu</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small></div>
+    <div class="winner-block"><span>Comparable retenu par le classement</span><strong>{{ pricing.bestYieldSecurityId }}</strong><small>YTM appliqué : {{ pricing.appliedYield | percent:'1.2-3' }}</small><small *ngIf="highestYtmComparable as highestYtm">YTM maximal admissible : {{ highestYtm.securityId }} ({{ highestYtm.yieldToMaturity | percent:'1.2-3' }})</small></div>
     <details class="ranking-audit">
       <summary>Critères et justification du classement</summary>
-      <p *ngIf="pricing.rankingCriteria?.length"><strong>Critères :</strong> {{ pricing.rankingCriteria?.join(' · ') }}</p>
+      <p *ngIf="pricing.rankingCriteria?.length"><strong>Critères :</strong> {{ pricing.rankingCriteria.join(' · ') }}</p>
       <ng-container *ngFor="let item of pricing.panel">
-        <p *ngIf="item.selected"><strong>Comparable retenu (rang {{ item.rank || 1 }}) :</strong> {{ item.rankingReasons?.length ? item.rankingReasons?.join(' · ') : 'Aucune justification détaillée fournie par le backend.' }}</p>
+        <p *ngIf="item.selected"><strong>Comparable retenu (rang {{ item.rank || 1 }}) :</strong> {{ item.rankingReasons?.length ? item.rankingReasons.join(' · ') : 'Aucune justification détaillée fournie par le backend.' }}</p>
       </ng-container>
     </details>
     <div class="analytics-grid">

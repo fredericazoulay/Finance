@@ -2,7 +2,10 @@
   <section class="scenario-section" aria-labelledby="scenario-heading">
     <header class="dashboard-heading">
       <div><p class="eyebrow">01 / Sensibilité de l’obligation</p><h2 id="scenario-heading">Prix, duration et scénarios de taux</h2></div>
-      <span *ngIf="scenario as metrics">YTM scénario : {{ scenarioYieldPercent | number:'1.2-2' }} %</span>
+      <div class="scenario-context">
+        <span class="target-context-label" *ngIf="targetSecurityId">Cible : {{ targetSecurityId }} · {{ targetName }}</span>
+        <span *ngIf="scenario as metrics">YTM scénario : {{ scenarioYieldPercent | number:'1.2-2' }} %</span>
+      </div>
     </header>
     <p class="data-note">
       Repricing exact des flux fixes selon les hypothèses du calcul de base. Le choc s’applique au rendement total ;
@@ -94,7 +97,7 @@
 
   <header class="dashboard-heading">
     <div><p class="eyebrow">02 / Répartition du panel</p><h2>Graphiques obligataires</h2></div>
-    <span>{{ bonds.length }} obligation(s) importée(s)</span>
+    <span>{{ bonds.length }} obligation(s) importée(s) · cible {{ targetSecurityId || 'manuelle' }}</span>
   </header>
   <p class="data-note">Les graphiques utilisent uniquement les champs présents dans le panel importé. Les rendements sont comparables avec prudence entre devises et dates de valorisation différentes.</p>
 
@@ -104,49 +107,48 @@
     <article class="chart-card"><div class="chart-area"><canvas #ratingChart aria-label="Répartition des obligations par notation"></canvas></div></article>
     <article class="chart-card"><div class="chart-area"><canvas #yieldRatingChart aria-label="YTM moyen par notation"></canvas></div></article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #sectorChart aria-label="Répartition des obligations par secteur"></canvas></div>
-      <p class="chart-note" *ngIf="!bondsWithSectorCount">Indisponible : le panel ne contient pas de secteur d’activité.</p>
+      <div class="chart-area" [class.chart-area-empty]="!bondsWithSectorCount"><canvas #sectorChart aria-label="Répartition des obligations par secteur"></canvas><p class="chart-empty-state" *ngIf="!bondsWithSectorCount">Le panel ne contient pas de secteur d’activité.</p></div>
     </article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #maturityYieldChart aria-label="Rendement selon le temps restant avant échéance, par notation"></canvas></div>
-      <p class="chart-note" *ngIf="!bondsWithMaturityAndYieldCount">Indisponible : il faut une échéance future et un YTM pour tracer ce graphique.</p>
+      <div class="chart-area" [class.chart-area-empty]="!bondsWithMaturityAndYieldCount"><canvas #maturityYieldChart aria-label="Rendement selon le temps restant avant échéance, par notation"></canvas><p class="chart-empty-state" *ngIf="!bondsWithMaturityAndYieldCount">Il faut une échéance future et un YTM dans le panel.</p></div>
     </article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #couponYieldChart aria-label="Rendement selon le coupon annuel, par notation"></canvas></div>
-      <p class="chart-note" *ngIf="!bondsWithCouponAndYieldCount">Indisponible : il faut le taux de coupon et le YTM de l’obligation.</p>
+      <div class="chart-area" [class.chart-area-empty]="!bondsWithCouponAndYieldCount"><canvas #couponYieldChart aria-label="Rendement selon le coupon annuel, par notation"></canvas><p class="chart-empty-state" *ngIf="!bondsWithCouponAndYieldCount">Il faut un coupon annuel et un YTM dans le panel.</p></div>
+      <p class="chart-note">Coupons issus des libellés de démonstration lorsqu’ils existent; les autres sont synthétiques. Fréquence semestrielle supposée.</p>
     </article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #panelRiskChart aria-label="Duration modifiée et DV01 par obligation"></canvas></div>
-      <p class="chart-note" *ngIf="!panelRiskCount">Indisponible : chaque obligation doit avoir un YTM, un coupon, une fréquence de coupons valide et une échéance future.</p>
+      <div class="chart-area" [class.chart-area-empty]="!panelRiskCount"><canvas #panelRiskChart aria-label="Duration modifiée et DV01 par obligation"></canvas><p class="chart-empty-state" *ngIf="!panelRiskCount">YTM, coupon, fréquence valide et échéance future requis.</p></div>
     </article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #panelShockChart aria-label="Variation du prix des obligations du panel selon plusieurs chocs de rendement"></canvas></div>
-      <p class="chart-note" *ngIf="!panelRiskCount">Indisponible : les champs de calcul du risque par obligation sont incomplets.</p>
+      <div class="chart-area" [class.chart-area-empty]="!panelRiskCount"><canvas #panelShockChart aria-label="Variation du prix des obligations du panel selon plusieurs chocs de rendement"></canvas><p class="chart-empty-state" *ngIf="!panelRiskCount">Les champs de calcul du risque sont incomplets.</p></div>
     </article>
     <article class="chart-card">
-      <div class="chart-area"><canvas #marketModelPriceChart aria-label="Comparaison des prix de marché et des prix théoriques"></canvas></div>
-      <p class="chart-note" *ngIf="!panelMarketPriceCount">Indisponible : aucun prix de marché comparable n’est fourni dans le panel.</p>
-      <p class="chart-note">Prix théorique indicatif par 100 de nominal, calculé avec des coupons fixes et le YTM du panel; sans intérêts courus ni ajustement de date de règlement.</p>
+      <div class="chart-area" [class.chart-area-empty]="!panelMarketPriceCount"><canvas #marketModelPriceChart aria-label="Comparaison du prix importé et du prix théorique"></canvas><p class="chart-empty-state" *ngIf="!panelMarketPriceCount">Aucun prix de marché ni prix clean n’est importé dans le panel.</p></div>
+      <p class="chart-note">Les prix clean synthétiques importés sont ramenés à 100 de nominal et ne sont pas des prix de marché observés. Prix théorique indicatif, sans intérêts courus ni ajustement de date de règlement.</p>
     </article>
-    <article class="chart-card unavailable-card">
+    <article class="chart-card">
       <h3>Spread de crédit</h3>
-      <p>Indisponible : aucune courbe de référence ou mesure de spread comparable n’est incluse dans le panel.</p>
+      <div class="chart-area chart-area-compact" [class.chart-area-empty]="!creditSpreadCount"><canvas #creditSpreadChart aria-label="Spreads de crédit fournis par obligation"></canvas><p class="chart-empty-state" *ngIf="!creditSpreadCount">Aucun spread fourni dans les obligations importées.</p></div>
     </article>
-    <article class="chart-card unavailable-card">
+    <article class="chart-card">
       <h3>Liquidité : bid-ask et volumes</h3>
-      <p>Indisponible : les cotations bid/ask et volumes ne sont pas présents dans les données importées.</p>
+      <div class="chart-area chart-area-compact" [class.chart-area-empty]="!liquidityCount"><canvas #liquidityChart aria-label="Score de liquidité avec bid-ask et volumes importés"></canvas><p class="chart-empty-state" *ngIf="!liquidityCount">Aucun score, bid-ask ou volume de liquidité n’est importé.</p></div>
+      <p class="chart-note">Le graphique trace le score importé, éventuellement synthétique; les valeurs bid, ask, écart et volumes sont disponibles dans l’infobulle.</p>
     </article>
-    <article class="chart-card unavailable-card">
+    <article class="chart-card">
       <h3>Capital FRTB SA par notation</h3>
-      <p>Indisponible : les données synthétiques du classeur ne sont pas importées dans ce panel et ne constituent pas un capital réglementaire validé.</p>
+      <div class="chart-area chart-area-compact" [class.chart-area-empty]="!frtbCapitalCount"><canvas #frtbCapitalChart aria-label="Proxy indicatif de capital FRTB SA moyen par notation"></canvas><p class="chart-empty-state" *ngIf="!frtbCapitalCount">Aucune valeur Capital n’est fournie dans l’onglet FRTB_SA.</p></div>
+      <p class="chart-note">Proxy synthétique du classeur, ramené à 100 de nominal; il ne constitue pas un capital réglementaire validé.</p>
     </article>
-    <article class="chart-card unavailable-card">
+    <article class="chart-card">
       <h3>Scores ESG moyens par secteur</h3>
-      <p>Indisponible : les scores ESG du classeur sont synthétiques; aucun score fournisseur validé n’est transmis au panel.</p>
+      <div class="chart-area chart-area-compact" [class.chart-area-empty]="!esgSectorCount"><canvas #esgChart aria-label="Score ESG moyen par secteur à partir des données importées"></canvas><p class="chart-empty-state" *ngIf="!esgSectorCount">Aucun score ESG avec secteur n’est fourni dans le panel.</p></div>
+      <p class="chart-note">Score moyen des notations ESG disponibles dans le classeur; les valeurs synthétiques ne sont pas des scores déclarés par les fournisseurs.</p>
     </article>
-    <article class="chart-card unavailable-card">
+    <article class="chart-card">
       <h3>Impact NGFS par scénario</h3>
-      <p>Indisponible : les chocs du classeur sont illustratifs et ne sont pas des sorties officielles de scénarios NGFS.</p>
+      <div class="chart-area chart-area-compact" [class.chart-area-empty]="!ngfsImpactCount"><canvas #ngfsImpactChart aria-label="Impact moyen par scénario NGFS du classeur"></canvas><p class="chart-empty-state" *ngIf="!ngfsImpactCount">Aucun scénario n’est fourni dans l’onglet NGFS.</p></div>
+      <p class="chart-note">Impacts moyens synthétiques du classeur; scénarios illustratifs, non issus d’une sortie officielle NGFS.</p>
     </article>
   </div>
 </section>

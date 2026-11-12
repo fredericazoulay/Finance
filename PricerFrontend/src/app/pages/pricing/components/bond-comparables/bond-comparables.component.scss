@@ -22,6 +22,12 @@
 .workspace-context span { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .workspace-context strong { color: var(--green); font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; }
 .mode-tabs { display: flex; width: 100%; max-width: 100%; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+.active-target-context { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr); align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--green); background: var(--surface); }
+.target-picker-controls { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 8px; }
+.target-picker-controls small { color: var(--muted); font-size: 10px; }
+.active-target-details { display: grid; min-width: 0; gap: 4px; }
+.active-target-details strong { overflow: hidden; color: var(--ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.active-target-details span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .mode-tabs button { flex: 0 0 auto; min-height: 40px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); white-space: nowrap; }
 .mode-tabs button:hover:not(.active) { background: var(--ui-raised, rgba(124, 181, 255, 0.08)); color: var(--ink); }
 .mode-tabs button.active { border-bottom-color: var(--green); background: var(--ui-accent-soft, rgba(58, 227, 116, 0.12)); color: var(--ink); }
@@ -48,6 +54,8 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .currency-tag, .count { color: var(--green); font-size: 12px; }
 .count { background: rgba(165, 227, 141, 0.12); border-radius: 999px; padding: 3px 8px; margin-left: 6px; }
 .target-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 12px; }
+.target-security-summary { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.target-security-summary strong { overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
 .target-comparator-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; }
 .target-comparator-action strong { color: var(--ink); }
 .target-comparator-action small { color: var(--muted); }
@@ -209,5 +217,7 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 .compare-open-btn { font-weight: 600; background: var(--accent, #4169f5); color: #fff; }
 
 @media (max-width: 680px) {
+  .active-target-context { grid-template-columns: 1fr; gap: 8px; }
+  .active-target-details strong, .active-target-details span { white-space: normal; }
   .sticky-compare-bar { flex-direction: column; align-items: flex-start; }
 }

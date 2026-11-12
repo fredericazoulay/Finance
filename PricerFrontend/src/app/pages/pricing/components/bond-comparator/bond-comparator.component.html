@@ -6,13 +6,17 @@
       <p class="subtitle">Analyse multi-critères, comparaison côte-à-côte, sensibilité aux taux et audit décisionnel.</p>
     </div>
     <div class="comparator-controls" *ngIf="selectedBonds.length < 5 && availableBondsToAdd.length > 0">
-      <label for="bond-add-select" class="visually-hidden">Ajouter une obligation</label>
-      <select id="bond-add-select" [(ngModel)]="bondToAddId" (change)="onAddSelectedBond()">
+      <label for="bond-add-search">Ajouter une obligation</label>
+      <input id="bond-add-search" type="search" [ngModel]="addBondSearch" (ngModelChange)="searchBondsToAdd($event)"
+        placeholder="Rechercher par identifiant, nom, émetteur, ISIN…" />
+      <label for="bond-add-select" class="visually-hidden">Choisir l’obligation à ajouter</label>
+      <select id="bond-add-select" [(ngModel)]="bondToAddId" (change)="onAddSelectedBond()" [disabled]="!searchedAvailableBonds.length">
         <option value="">+ Ajouter un titre au comparateur ({{ selectedBonds.length }}/5)</option>
-        <option *ngFor="let bond of availableBondsToAdd" [value]="bond.securityId">
+        <option *ngFor="let bond of searchedAvailableBonds" [value]="bond.securityId">
           {{ bond.securityId }} · {{ bond.name }} ({{ bond.rating || 'NR' }} · YTM {{ (bond.yieldToMaturity > 1 ? bond.yieldToMaturity : bond.yieldToMaturity * 100) | number:'1.2-2' }}%)
         </option>
       </select>
+      <small class="search-count">{{ addBondSearch ? searchedAvailableBonds.length + ' résultat(s)' : availableBondsToAdd.length + ' obligation(s) disponible(s)' }}</small>
     </div>
   </header>
 

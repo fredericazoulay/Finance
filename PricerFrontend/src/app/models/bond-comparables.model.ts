@@ -9,8 +9,11 @@ export interface BondComparable {
   yieldToMaturity: number;
   faceValue?: number;
   couponFrequency?: number;
+  couponDataStatus?: string;
   couponRate?: number;
   marketPrice?: number;
+  cleanPrice?: number;
+  cleanPriceDataStatus?: string;
   rating?: string;
   sector?: string;
   source?: string;
@@ -22,10 +25,29 @@ export interface BondComparable {
   convexity?: number;
   dv01?: number;
   spreadBps?: number;
+  spreadDataStatus?: string;
   zSpread?: number;
+  bid?: number;
+  ask?: number;
+  bidAskSpread?: number;
+  volume?: number;
+  traceVolume?: number;
+  liquidityScore?: number;
+  liquidityDataStatus?: string;
+  turnoverRatio?: number;
+  frtbCapital?: number;
+  frtbDisclaimer?: string;
   couponType?: 'Fixe' | 'Variable' | 'Zéro';
   liquidity?: 'Élevée' | 'Moyenne' | 'Faible';
   esgScore?: number;
+  esgDataStatus?: string;
+  ngfsScenarioImpacts?: Array<{
+    scenario: string;
+    spreadShockBps?: number;
+    impact?: number;
+    impactPercent?: number;
+    dataStatus?: string;
+  }>;
   isGreenBond?: boolean;
   relativeValueStatus?: 'CHEAP' | 'FAIR' | 'RICH';
 }

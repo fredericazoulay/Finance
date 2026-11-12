@@ -64,6 +64,7 @@ export class BondComparatorComponent implements AfterViewInit, OnChanges, OnDest
   rateShockBps = 100;
   investedAmount = 100000;
   bondToAddId = '';
+  addBondSearch = '';
 
   // 10-point inspection checklist based on application_bonds2.md
   checklist: ChecklistItem[] = [
@@ -112,6 +113,25 @@ export class BondComparatorComponent implements AfterViewInit, OnChanges, OnDest
   get availableBondsToAdd(): BondComparable[] {
     const selectedIds = new Set(this.selectedBonds.map(b => b.securityId));
     return this.allBonds.filter(b => !selectedIds.has(b.securityId));
+  }
+
+  get searchedAvailableBonds(): BondComparable[] {
+    const query = this.addBondSearch.trim().toLocaleLowerCase();
+    if (!query) return this.availableBondsToAdd;
+    return this.availableBondsToAdd.filter(bond => [
+      bond.securityId,
+      bond.name,
+      bond.issuer,
+      bond.isin,
+      bond.currency,
+      bond.maturityDate,
+      bond.rating
+    ].some(value => value?.toLocaleLowerCase().includes(query)));
+  }
+
+  searchBondsToAdd(query: string): void {
+    this.addBondSearch = query;
+    if (!this.searchedAvailableBonds.some(bond => bond.securityId === this.bondToAddId)) this.bondToAddId = '';
   }
 
   onAddSelectedBond(): void {

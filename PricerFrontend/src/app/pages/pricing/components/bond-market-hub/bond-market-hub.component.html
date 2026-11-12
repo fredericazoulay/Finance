@@ -2,20 +2,20 @@
   <header class="market-hub-header">
     <div>
       <p class="eyebrow">Market data &amp; macro intelligence</p>
-      <h2>Flux obligataire en direct · FRED &amp; Yahoo Finance &amp; BCE</h2>
-      <p class="subtitle">Courbes des taux souveraines, spreads de crédit, taux monétaires et indices obligataires de référence.</p>
+      <h2>Références obligataires · données partielles ou indicatives</h2>
+      <p class="subtitle">Courbes souveraines, indicateurs macro et indices de référence. La provenance et la date sont indiquées par donnée.</p>
     </div>
     <div class="header-actions">
       <span class="status-pill" [class.live]="snapshot?.isLive">
         <span class="pulse-dot"></span>
-        {{ snapshot?.isLive ? '🟢 Connecté · Données Marché Live' : '🟡 Mode secours étalonné' }}
-        <small *ngIf="snapshot?.lastUpdated">({{ snapshot!.lastUpdated | date:'HH:mm:ss' }})</small>
+        {{ getSnapshotStatusLabel(snapshot?.dataStatus) }}
+        <small *ngIf="snapshot?.lastUpdated">(vérifié {{ snapshot!.lastUpdated | date:'HH:mm:ss' }})</small>
       </span>
       <button type="button" class="secondary-button" [disabled]="isSyncing" (click)="refresh()">
         {{ isSyncing ? 'Synchronisation…' : '🔄 Actualiser le flux' }}
       </button>
-      <button type="button" class="primary-button apply-btn" (click)="onApplyLiveRates()" title="Calibrer le Pricer et le comparateur avec les taux réels">
-        ⚡ Appliquer au Pricer &amp; Comparateur
+      <button type="button" class="primary-button apply-btn" (click)="onApplyLiveRates()" title="Actualiser les références utilisées par le Pricer et le comparateur">
+        ⚡ Actualiser les références
       </button>
     </div>
   </header>
@@ -27,7 +27,7 @@
     <div class="hub-card-header">
       <div class="header-titles">
         <h3>1. Baromètre macroéconomique &amp; Primes de risque</h3>
-        <p class="section-desc">Indicateurs clés fournis par la Réserve Fédérale de St. Louis (FRED) et la Banque Centrale Européenne (BCE).</p>
+        <p class="section-desc">Indicateurs macroéconomiques de référence; la source et la date de chaque observation sont précisées.</p>
       </div>
       <div class="category-tabs">
         <button type="button" [class.active]="selectedMacroCategory === 'ALL'" (click)="selectedMacroCategory = 'ALL'">Tous</button>
@@ -41,8 +41,8 @@
     <div class="macro-grid">
       <div class="macro-card" *ngFor="let ind of filteredMacroIndicators">
         <div class="macro-top">
-          <span class="macro-source-tag" [attr.data-source]="ind.source">{{ ind.source }}</span>
-          <span class="macro-asof">{{ ind.asOf }}</span>
+          <span class="macro-source-tag" [attr.data-source]="ind.source" [attr.data-status]="ind.dataStatus">{{ ind.source }}</span>
+          <span class="macro-asof">{{ ind.asOf || 'Non daté' }} · {{ getFreshnessLabel(ind.dataStatus, ind.ageDays) }}</span>
         </div>
         <strong class="macro-name">{{ ind.name }}</strong>
         <div class="macro-val-row">
@@ -60,19 +60,21 @@
   <div class="hub-card">
     <div class="hub-card-header">
       <div class="header-titles">
-        <h3>2. Courbes des taux souveraines en direct (Yield Curves)</h3>
-        <p class="section-desc">Structure par terme des emprunts d'État : US Treasuries (FRED DGS) vs Zone Euro AAA / Bund allemand (BCE).</p>
+        <h3>2. Courbes souveraines de référence (Yield Curves)</h3>
+        <p class="section-desc">Structure par terme indicative des emprunts d'État US et de la zone euro.</p>
       </div>
       <div class="slope-summary" *ngIf="snapshot">
-        <div class="slope-badge" [class.inverted]="snapshot.usCurve.spread2s10sBps < 0">
+        <div class="slope-badge" [class.inverted]="(snapshot.usCurve.spread2s10sBps ?? 0) < 0">
           <span>Pente US 2s10s :</span>
-          <strong>{{ snapshot.usCurve.spread2s10sBps > 0 ? '+' : '' }}{{ snapshot.usCurve.spread2s10sBps }} bp</strong>
-          <small>({{ snapshot.usCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
+          <strong>{{ snapshot.usCurve.spread2s10sBps === null ? '—' : (snapshot.usCurve.spread2s10sBps > 0 ? '+' : '') + snapshot.usCurve.spread2s10sBps + ' bp' }}</strong>
+          <small *ngIf="snapshot.usCurve.spread2s10sBps === null">(deux points FRED nécessaires)</small>
+          <small *ngIf="snapshot.usCurve.spread2s10sBps !== null">({{ snapshot.usCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
         </div>
-        <div class="slope-badge" [class.inverted]="snapshot.euCurve.spread2s10sBps < 0">
+        <div class="slope-badge" [class.inverted]="(snapshot.euCurve.spread2s10sBps ?? 0) < 0">
           <span>Pente Euro 2s10s :</span>
-          <strong>{{ snapshot.euCurve.spread2s10sBps > 0 ? '+' : '' }}{{ snapshot.euCurve.spread2s10sBps }} bp</strong>
-          <small>({{ snapshot.euCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
+          <strong>{{ snapshot.euCurve.spread2s10sBps === null ? '—' : (snapshot.euCurve.spread2s10sBps > 0 ? '+' : '') + snapshot.euCurve.spread2s10sBps + ' bp' }}</strong>
+          <small *ngIf="snapshot.euCurve.spread2s10sBps === null">(données indicatives)</small>
+          <small *ngIf="snapshot.euCurve.spread2s10sBps !== null">({{ snapshot.euCurve.spread2s10sBps < 0 ? 'Courbe inversée' : 'Pente normale' }})</small>
         </div>
       </div>
     </div>
@@ -100,50 +102,38 @@
         <tbody>
           <tr>
             <th>US Treasury (USD)</th>
-            <td>4.75 %</td>
-            <td>4.32 %</td>
-            <td><strong>{{ snapshot.usCurve.nodes[4]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td><strong>{{ snapshot.usCurve.nodes[6]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td>{{ snapshot.usCurve.nodes[7]?.ratePercent | number:'1.2-2' }} %</td>
-            <td class="key-node"><strong>{{ snapshot.usCurve.nodes[8]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td>{{ snapshot.usCurve.nodes[9]?.ratePercent | number:'1.2-2' }} %</td>
-            <td>{{ snapshot.usCurve.nodes[10]?.ratePercent | number:'1.2-2' }} %</td>
+            <td *ngFor="let tenor of ['3M', '1Y', '2Y', '5Y', '7Y', '10Y', '20Y', '30Y']" [class.key-node]="tenor === '10Y'" [attr.data-status]="getCurveNode(snapshot.usCurve, tenor)?.dataStatus" [attr.title]="getCurveNodeProvenance(snapshot.usCurve, tenor)">
+              <strong>{{ getCurveNode(snapshot.usCurve, tenor)?.ratePercent | number:'1.2-2' }} %</strong>
+              <small class="node-provenance">{{ getCurveNodeProvenance(snapshot.usCurve, tenor) }}</small>
+            </td>
           </tr>
           <tr>
             <th>Zone Euro AAA / Bund (EUR)</th>
-            <td>3.20 %</td>
-            <td>2.74 %</td>
-            <td><strong>{{ snapshot.euCurve.nodes[3]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td><strong>{{ snapshot.euCurve.nodes[5]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td>{{ snapshot.euCurve.nodes[6]?.ratePercent | number:'1.2-2' }} %</td>
-            <td class="key-node"><strong>{{ snapshot.euCurve.nodes[7]?.ratePercent | number:'1.2-2' }} %</strong></td>
-            <td>{{ snapshot.euCurve.nodes[8]?.ratePercent | number:'1.2-2' }} %</td>
-            <td>{{ snapshot.euCurve.nodes[9]?.ratePercent | number:'1.2-2' }} %</td>
+            <td *ngFor="let tenor of ['3M', '1Y', '2Y', '5Y', '7Y', '10Y', '20Y', '30Y']" [class.key-node]="tenor === '10Y'" [attr.data-status]="getCurveNode(snapshot.euCurve, tenor)?.dataStatus" [attr.title]="getCurveNodeProvenance(snapshot.euCurve, tenor)">
+              <strong>{{ getCurveNode(snapshot.euCurve, tenor)?.ratePercent | number:'1.2-2' }} %</strong>
+              <small class="node-provenance">{{ getCurveNodeProvenance(snapshot.euCurve, tenor) }}</small>
+            </td>
           </tr>
           <tr class="spread-row">
-            <th>Spread Transatlantique (USD - EUR)</th>
-            <td>+155 bp</td>
-            <td>+158 bp</td>
-            <td>+188 bp</td>
-            <td>+180 bp</td>
-            <td>+185 bp</td>
-            <td class="key-node"><strong>+190 bp</strong></td>
-            <td>+192 bp</td>
-            <td>+180 bp</td>
+            <th>Écart calculé US - zone euro</th>
+            <td *ngFor="let tenor of ['3M', '1Y', '2Y', '5Y', '7Y', '10Y', '20Y', '30Y']" [class.key-node]="tenor === '10Y'" [attr.title]="getCrossCurveSpreadProvenance(tenor)">
+              <strong>{{ getCrossCurveSpreadBps(tenor) | number:'1.0-0' }} bp</strong>
+              <small class="node-provenance">Calculé · provenance des deux courbes</small>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- 3. YAHOO FINANCE BENCHMARKS & BOND ETFS -->
+  <!-- 3. INDICES AND BOND ETF REFERENCES -->
   <div class="hub-card">
     <div class="hub-card-header">
       <div class="header-titles">
-        <h3>3. Indices de taux &amp; ETF Obligataires (Yahoo Finance)</h3>
-        <p class="section-desc">Cotations de référence pour le suivi des marchés obligataires mondiaux, de l’Investment Grade au High Yield.</p>
+        <h3>3. Indices de taux &amp; ETF obligataires de référence</h3>
+        <p class="section-desc">Valeurs indicatives pour le suivi des marchés obligataires; elles ne constituent pas des cotations d’obligations individuelles.</p>
       </div>
-      <span class="source-tag">Source API : Yahoo Finance</span>
+      <span class="source-tag">Provenance indiquée par ligne</span>
     </div>
 
     <div class="quotes-table-wrap" *ngIf="snapshot">
@@ -172,7 +162,7 @@
             </td>
             <td class="yield-cell"><strong>{{ q.yieldPercent | number:'1.2-2' }} %</strong></td>
             <td>{{ q.currency }}</td>
-            <td><small>{{ q.source }}</small></td>
+            <td><small>{{ q.source }} · {{ q.asOf || 'Non daté' }} · {{ getFreshnessLabel(q.dataStatus, q.ageDays) }}</small></td>
             <td>
               <button type="button" class="compare-add-btn" (click)="addBenchmarkToCompare.emit(q.symbol)" title="Comparer cet indice aux obligations">
                 + Comparer ⚖️

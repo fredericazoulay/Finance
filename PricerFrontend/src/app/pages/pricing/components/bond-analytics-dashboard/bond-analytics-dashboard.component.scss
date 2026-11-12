@@ -1,5 +1,7 @@
 .dashboard-section { padding: 18px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-page, #f7f9fc); color: var(--ui-text, #263445); }
 .dashboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.scenario-context { display: grid; justify-items: end; gap: 4px; }
+.scenario-context .target-context-label { color: #d95757; font-size: 11px; font-weight: 700; }
 .dashboard-heading > span { color: var(--ui-accent, #315bf2); font-size: 12px; font-weight: 700; }
 .eyebrow { margin: 0 0 5px; color: var(--ui-accent, #62728a); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 h2, h3, p { margin-top: 0; }
@@ -9,6 +11,10 @@ h3 { margin-bottom: 8px; font-size: 14px; }
 .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .chart-card { min-width: 0; min-height: 250px; padding: 12px; border: 1px solid var(--ui-border, #d6deea); border-radius: 6px; background: var(--ui-surface, #fff); color: var(--ui-text, #263445); }
 .chart-area { position: relative; height: 245px; }
+.chart-area-empty canvas { visibility: hidden; }
+.chart-empty-state { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 20px; color: var(--ui-muted, #657387); font-size: 12px; line-height: 1.5; text-align: center; }
+.chart-area-compact { height: 210px; }
+.chart-card > h3 + .chart-area { height: 210px; }
 .chart-note { margin: 0; color: var(--ui-muted, #657387); font-size: 11px; }
 .unavailable-card { display: flex; flex-direction: column; justify-content: center; min-height: 180px; box-sizing: border-box; }
 .unavailable-card p { margin-bottom: 0; color: var(--ui-muted, #657387); font-size: 12px; line-height: 1.5; }
@@ -48,4 +54,5 @@ h3 { margin-bottom: 8px; font-size: 14px; }
   .scenario-curve-card .chart-area { height: 260px; }
   .scenario-controls { align-items: stretch; flex-direction: column; gap: 8px; }
   .scenario-controls label { flex-basis: auto; }
+  .scenario-context { justify-items: start; }
 }

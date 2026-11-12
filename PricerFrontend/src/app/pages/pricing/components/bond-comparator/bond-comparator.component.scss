@@ -38,15 +38,24 @@
     font-size: 0.875rem;
   }
 
-  .comparator-controls select {
-    padding: 0.5rem 0.85rem;
-    border-radius: 6px;
-    border: 1px solid var(--ui-border, #cbd5e1);
-    background: var(--ui-bg, #f8fafc);
-    color: var(--ui-text, #1e293b);
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
+  .comparator-controls {
+    display: grid;
+    width: min(420px, 100%);
+    gap: 0.4rem;
+
+    label { color: var(--ui-muted, #64748b); font-size: 0.75rem; font-weight: 600; }
+    input, select {
+      min-width: 0;
+      padding: 0.5rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--ui-border, #cbd5e1);
+      background: var(--ui-bg, #f8fafc);
+      color: var(--ui-text, #1e293b);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    select { cursor: pointer; }
+    .search-count { color: var(--ui-muted, #64748b); font-size: 0.7rem; }
   }
 }
 

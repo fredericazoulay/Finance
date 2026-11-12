@@ -129,7 +129,7 @@ export class BondComparablesComponent {
   private readonly commonCurrencies = ['AUD', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'JPY', 'USD'];
   private importGeneration = 0;
   readonly eligibilityOptions = [
-    { value: 'best', label: 'Meilleur YTM' },
+    { value: 'best', label: 'Retenu par le classement' },
     { value: 'eligible', label: 'Comparable' },
     { value: 'excluded', label: 'Exclue' },
     { value: 'pending', label: 'À analyser' }
@@ -156,6 +156,7 @@ export class BondComparablesComponent {
   collapsedFullOptionGroups = new Set<string>();
   isFullOptionGroupingDragOver = false;
   activeMode: BondScreenMode = 'basic';
+  targetBondSearch = '';
   directResult: BondDirectPricingResponse | null = null;
   directError = '';
   isDirectPricing = false;
@@ -331,6 +332,27 @@ export class BondComparablesComponent {
 
   get targetPanelBond(): BondComparable | null {
     return this.panel.find(bond => bond.securityId === this.target.securityId) ?? null;
+  }
+
+  get searchedTargetBonds(): BondComparable[] {
+    const query = this.targetBondSearch.trim().toLocaleLowerCase();
+    if (!query) return this.panel;
+    return this.panel.filter(bond => [
+      bond.securityId,
+      bond.name,
+      bond.issuer,
+      bond.isin,
+      bond.currency,
+      bond.maturityDate
+    ].some(value => value?.toLocaleLowerCase().includes(query)));
+  }
+
+  get targetPanelBondOutsideSearch(): boolean {
+    return Boolean(this.targetPanelBond && !this.searchedTargetBonds.some(bond => bond.securityId === this.target.securityId));
+  }
+
+  searchTargetBonds(query: string): void {
+    this.targetBondSearch = query;
   }
 
   toggleCompareBond(securityId: string): void {
@@ -734,11 +756,82 @@ export class BondComparablesComponent {
     const buffer = await file.arrayBuffer();
     if (generation !== this.importGeneration) return null;
     const workbook = xlsx.read(buffer, { type: 'array', cellDates: true, raw: true });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const masterSheet = workbook.Sheets['Bonds_Master'];
+    const firstSheet = masterSheet ?? workbook.Sheets[workbook.SheetNames[0]];
     if (!firstSheet) throw new Error('Le fichier ne contient aucune feuille.');
     const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: null });
     if (!rows.length) throw new Error('Aucune ligne trouvée dans la première feuille.');
+    if (masterSheet) this.mergeBondWorkbookSheets(rows, workbook.Sheets, xlsx);
     return { xlsx, rows };
+  }
+
+  private mergeBondWorkbookSheets(
+    rows: Record<string, unknown>[],
+    sheets: Record<string, import('xlsx-js-style').WorkSheet>,
+    xlsx: typeof import('xlsx-js-style')
+  ): void {
+    const bondsById = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const bondId = this.importBondId(row);
+      if (bondId) bondsById.set(bondId, row);
+    }
+    for (const sheetName of ['Pricing_Engine', 'Liquidity', 'FRTB_SA', 'ESG']) {
+      this.mergeBondDetailSheet(bondsById, sheets[sheetName], xlsx);
+    }
+    this.mergeBondNgfsSheet(bondsById, sheets['NGFS'], xlsx);
+  }
+
+  private mergeBondDetailSheet(
+    bondsById: Map<string, Record<string, unknown>>,
+    sheet: import('xlsx-js-style').WorkSheet | undefined,
+    xlsx: typeof import('xlsx-js-style')
+  ): void {
+    if (!sheet) return;
+    const detailRows = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
+    for (const detailRow of detailRows) {
+      const bond = bondsById.get(this.importBondId(detailRow));
+      if (bond) Object.assign(bond, detailRow);
+    }
+  }
+
+  private mergeBondNgfsSheet(
+    bondsById: Map<string, Record<string, unknown>>,
+    sheet: import('xlsx-js-style').WorkSheet | undefined,
+    xlsx: typeof import('xlsx-js-style')
+  ): void {
+    if (!sheet) return;
+    const impactsByBond = new Map<string, NonNullable<BondComparable['ngfsScenarioImpacts']>>();
+    const ngfsRows = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
+    for (const ngfsRow of ngfsRows) {
+      const bondId = this.importBondId(ngfsRow);
+      const scenario = typeof ngfsRow['Scenario'] === 'string' ? ngfsRow['Scenario'].trim() : '';
+      if (!bondId || !scenario || !bondsById.has(bondId)) continue;
+      const impacts = impactsByBond.get(bondId) ?? [];
+      impacts.push({
+        scenario,
+        spreadShockBps: this.importNumber(ngfsRow['SpreadShockBps']),
+        impact: this.importNumber(ngfsRow['Impact']),
+        impactPercent: this.importNumber(ngfsRow['ImpactPercent']),
+        dataStatus: typeof ngfsRow['DataStatus'] === 'string' ? ngfsRow['DataStatus'] : undefined
+      });
+      impactsByBond.set(bondId, impacts);
+    }
+    for (const [bondId, impacts] of impactsByBond) {
+      const bond = bondsById.get(bondId);
+      if (bond) bond['ngfsScenarioImpacts'] = impacts;
+    }
+  }
+
+  private importBondId(row: Record<string, unknown>): string {
+    const value = row['BondId'] ?? row['securityId'] ?? row['SecurityId'];
+    if (typeof value !== 'string' && typeof value !== 'number') return '';
+    return this.normalizeKey(String(value));
+  }
+
+  private importNumber(value: unknown): number | undefined {
+    if (typeof value !== 'number' && typeof value !== 'string') return undefined;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   private applyImportedRows(
@@ -859,6 +952,14 @@ export class BondComparablesComponent {
       }));
     }
     return this.panel.map(bond => ({ ...bond, eligible: null, selected: false, exclusionReason: null }));
+  }
+
+  get highestYtmComparable(): BondComparable | null {
+    const eligible = this.result?.panel.filter(item => item.eligible) ?? [];
+    if (!eligible.length) return null;
+    return eligible.reduce((highest, item) => {
+      return item.bond.yieldToMaturity > highest.bond.yieldToMaturity ? item : highest;
+    }, eligible[0]).bond;
   }
 
   get filteredPanelRows(): BondComparableRow[] {
@@ -1678,6 +1779,8 @@ export class BondComparablesComponent {
     const bond = this.panel.find(item => item.securityId === securityId);
     if (!bond) return;
 
+    this.applyTargetBondToPricingForms(bond);
+
     this.target = {
       ...this.target,
       securityId: bond.securityId,
@@ -1687,13 +1790,46 @@ export class BondComparablesComponent {
       maturityDate: bond.maturityDate,
       settlementDate: bond.settlementDate ?? currentLocalDate(),
       faceValue: bond.faceValue ?? this.target.faceValue,
-      couponRate: bond.couponRate == null ? this.target.couponRate : bond.couponRate * 100,
+      couponRate: bond.couponRate == null ? this.target.couponRate : this.normalizePercent(bond.couponRate),
       couponFrequency: bond.couponFrequency ?? this.target.couponFrequency
     };
     this.result = null;
     this.lastCalculatedAt = null;
     this.error = '';
     this.persistState();
+  }
+
+  private applyTargetBondToPricingForms(bond: BondComparable): void {
+    const faceValue = bond.faceValue ?? this.target.faceValue;
+    const couponRate = bond.couponRate == null ? null : this.normalizePercent(bond.couponRate);
+    const yieldToMaturity = Number.isFinite(bond.yieldToMaturity) ? this.normalizePercent(bond.yieldToMaturity) : null;
+    const maturityTime = Date.parse(`${bond.maturityDate}T00:00:00Z`);
+    const todayTime = Date.parse(`${currentLocalDate()}T00:00:00Z`);
+    const maturityYears = Number.isFinite(maturityTime) && maturityTime > todayTime
+      ? (maturityTime - todayTime) / (365.25 * 24 * 60 * 60 * 1000)
+      : null;
+
+    this.directCurrency = bond.currency.toUpperCase();
+    this.basicForm.faceValue = faceValue;
+    if (couponRate !== null) {
+      this.basicForm.couponValue = couponRate;
+      this.basicForm.couponUnit = 'PERCENT';
+    }
+    if (bond.couponFrequency != null) this.basicForm.couponFrequency = bond.couponFrequency;
+    if (yieldToMaturity !== null) this.basicForm.ytm = yieldToMaturity;
+    if (maturityYears !== null) this.basicForm.termYears = maturityYears;
+
+    this.advancedForm.faceValue = faceValue;
+    if (couponRate !== null) this.advancedForm.couponRate = couponRate;
+    if (bond.couponFrequency != null) this.advancedForm.couponFrequency = bond.couponFrequency;
+    if (bond.issueDate) this.advancedForm.issueDate = bond.issueDate;
+    this.advancedForm.maturityDate = bond.maturityDate;
+    this.advancedForm.settlementDate = bond.settlementDate ?? currentLocalDate();
+    if (yieldToMaturity !== null) this.advancedForm.ytm = yieldToMaturity;
+  }
+
+  private normalizePercent(value: number): number {
+    return Math.abs(value) <= 1 ? value * 100 : value;
   }
 
   private toPricingBond(bond: BondComparable): BondComparable {
@@ -1919,6 +2055,10 @@ export class BondComparablesComponent {
       }
       const value = asText(raw);
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      const europeanDate = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+      if (europeanDate) {
+        return `${europeanDate[3]}-${europeanDate[2].padStart(2, '0')}-${europeanDate[1].padStart(2, '0')}`;
+      }
       const parsed = new Date(value);
       if (!Number.isNaN(parsed.getTime())) return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
       throw new Error(`Ligne ${index + 2} : ${label} invalide, format attendu AAAA-MM-JJ.`);
@@ -1934,28 +2074,120 @@ export class BondComparablesComponent {
     const optionalNumber = (...keys: string[]): number | undefined => {
       const value = text(...keys);
       if (!value) return undefined;
-      const parsed = Number(value.replace(',', '.'));
+      const normalizedValue = value.trim().toLowerCase().replace(',', '.');
+      const suffixes = ['bps', 'bp', '%', 'eur', 'usd', '€'];
+      const suffix = suffixes.find(candidate => normalizedValue.endsWith(candidate));
+      const numericValue = suffix
+        ? normalizedValue.slice(0, -suffix.length).trim().replaceAll(' ', '')
+        : normalizedValue.replaceAll(' ', '');
+      const parsed = Number(numericValue);
       return Number.isFinite(parsed) ? parsed : undefined;
     };
+    const couponFrequencyText = this.normalizeKey(text(
+      'couponFrequency', 'frequency', 'couponsPerYear', 'coupons par an', 'fréquence coupon', 'fréquence des coupons'
+    ));
+    const frequencyByLabel: Record<string, number> = {
+      annuel: 1, annuelle: 1, annual: 1, annually: 1,
+      semestriel: 2, semestrielle: 2, semiannual: 2, semiannually: 2,
+      trimestriel: 4, trimestrielle: 4, quarterly: 4,
+      mensuel: 12, mensuelle: 12, monthly: 12
+    };
+    const couponFrequency = optionalNumber(
+      'couponFrequency', 'frequency', 'couponsPerYear', 'coupons par an', 'fréquence coupon', 'fréquence des coupons'
+    ) ?? frequencyByLabel[couponFrequencyText];
+    const liquidityValue = this.normalizeKey(text('liquidity', 'liquidityClass', 'classeLiquidite', 'liquidite'));
+    let liquidity: BondComparable['liquidity'];
+    if (['elevee', 'high'].includes(liquidityValue)) liquidity = 'Élevée';
+    else if (['moyenne', 'medium'].includes(liquidityValue)) liquidity = 'Moyenne';
+    else if (['faible', 'low'].includes(liquidityValue)) liquidity = 'Faible';
+    const greenBondValue = this.normalizeKey(text('isGreenBond', 'greenBond', 'obligationVerte'));
+    let isGreenBond: boolean | undefined;
+    if (['true', 'yes', 'oui', '1'].includes(greenBondValue)) isGreenBond = true;
+    else if (['false', 'no', 'non', '0'].includes(greenBondValue)) isGreenBond = false;
+    const faceValue = optionalNumber('faceValue', 'nominal') ?? 100;
+    const rawCleanPrice = optionalNumber('cleanPrice', 'cleanPriceDCF', 'prix clean');
+    const cleanPrice = rawCleanPrice == null
+      ? undefined
+      : rawCleanPrice / (faceValue > 1000 ? faceValue : 100) * 100;
+    const rawZSpread = optionalNumber('zSpread');
+    let rawZSpreadBps: number | undefined;
+    if (rawZSpread != null) rawZSpreadBps = Math.abs(rawZSpread) <= 1 ? rawZSpread * 10000 : rawZSpread;
+    const zSpread = optionalNumber('zSpreadBps', 'z-spread (bp)', 'z-spread en pb') ?? rawZSpreadBps;
+    const spreadBps = optionalNumber('spreadBps', 'gSpreadBps', 'gSpread', 'spread (bp)', 'spread en pb') ?? zSpread;
+    const esgAgencyScores = ['MSCI', 'Sustainalytics', 'ISS', 'SP_ESG', 'Moodys_ESG']
+      .map(provider => optionalNumber(provider))
+      .filter((score): score is number => score != null);
+    const esgScore = optionalNumber('esgScore', 'scoreESG', 'score ESG')
+      ?? (esgAgencyScores.length
+        ? esgAgencyScores.reduce((total, score) => total + score, 0) / esgAgencyScores.length
+        : undefined);
+    const rawNgfsImpacts = values.get(this.normalizeKey('ngfsScenarioImpacts'));
+    let parsedNgfsImpacts: unknown = rawNgfsImpacts;
+    if (typeof rawNgfsImpacts === 'string') {
+      try {
+        parsedNgfsImpacts = JSON.parse(rawNgfsImpacts);
+      } catch {
+        parsedNgfsImpacts = undefined;
+      }
+    }
+    const ngfsScenarioImpacts = Array.isArray(parsedNgfsImpacts)
+      ? parsedNgfsImpacts.flatMap((value: unknown) => {
+        if (!value || typeof value !== 'object') return [];
+        const impact = value as Record<string, unknown>;
+        const scenario = typeof impact['scenario'] === 'string' ? impact['scenario'].trim() : '';
+        const impactPercent = this.importNumber(impact['impactPercent']);
+        if (!scenario || impactPercent === undefined) return [];
+        return [{
+          scenario,
+          impactPercent,
+          spreadShockBps: this.importNumber(impact['spreadShockBps']),
+          impact: this.importNumber(impact['impact']),
+          dataStatus: typeof impact['dataStatus'] === 'string' ? impact['dataStatus'] : undefined
+        }];
+      })
+      : undefined;
 
-    const securityId = requiredText('securityId', 'securityId', 'isin', 'symbol', 'ticker');
+    const securityId = requiredText('securityId', 'securityId', 'bondId', 'isin', 'symbol', 'ticker');
     return {
       securityId,
-      name: text('name', 'securityName', 'description') || securityId,
+      name: text('name', 'securityName', 'description', 'bondId') || securityId,
       issuer: text('issuer') || undefined,
       currency: requiredText('currency', 'currency', 'ccy').toUpperCase(),
       issueDate,
       settlementDate,
-      maturityDate: dateValue('échéance', 'maturityDate', 'maturity'),
-      yieldToMaturity: rate('yieldToMaturity', 'yieldToMaturity', 'ytm'),
-      faceValue: optionalNumber('faceValue', 'faceValue', 'nominal'),
-      couponFrequency: optionalNumber('couponFrequency', 'couponFrequency', 'frequency'),
-      couponRate: optionalNumber('couponRate', 'coupon') == null
+      maturityDate: dateValue('échéance', 'maturityDate', 'maturity', 'maturité', 'date d’échéance'),
+      yieldToMaturity: rate(
+        'YTM', 'yieldToMaturity', 'ytm', 'yield', 'rendement', 'rendement actuariel', 'rendement à l’échéance', 'taux actuariel'
+      ),
+      faceValue,
+      couponFrequency: couponFrequency ?? optionalNumber('paymentFrequency'),
+      couponRate: optionalNumber('couponRate', 'coupon', 'annualCouponRate', 'coupon annuel', 'taux du coupon') == null
         ? undefined
-        : rate('couponRate', 'couponRate', 'coupon'),
-      marketPrice: optionalNumber('marketPrice', 'price'),
+        : rate('coupon annuel', 'couponRate', 'coupon', 'annualCouponRate', 'coupon annuel', 'taux du coupon'),
+      couponDataStatus: text('couponDataStatus') || undefined,
+      marketPrice: optionalNumber('marketPrice', 'price', 'prix de marché', 'prix marché'),
+      cleanPrice,
+      cleanPriceDataStatus: text('cleanPriceDataStatus') || undefined,
+      spreadBps,
+      zSpread,
+      spreadDataStatus: text('spreadDataStatus', 'spreadStatus') || undefined,
       rating: text('rating') || undefined,
-      sector: text('sector') || undefined,
+      sector: text('sector', 'secteur', 'secteur d’activité', 'industry', 'industry sector', 'issuerType') || undefined,
+      liquidity,
+      bid: optionalNumber('bid'),
+      ask: optionalNumber('ask'),
+      bidAskSpread: optionalNumber('bidAskSpread', 'bidAskSpreadBps'),
+      volume: optionalNumber('volume'),
+      traceVolume: optionalNumber('traceVolume'),
+      liquidityScore: optionalNumber('liquidityScore'),
+      liquidityDataStatus: text('liquidityDataStatus') || undefined,
+      turnoverRatio: optionalNumber('turnoverRatio'),
+      frtbCapital: optionalNumber('frtbCapital', 'capital', 'totalCapital'),
+      frtbDisclaimer: text('frtbDisclaimer', 'disclaimer') || undefined,
+      esgScore,
+      esgDataStatus: text('esgDataStatus', 'dataStatus') || undefined,
+      ngfsScenarioImpacts,
+      isGreenBond,
       source: sourceText.replace(/\s*[\/|]\s*\d{4}-\d{2}-\d{2}$/, '').trim() || sourceText || 'Import utilisateur',
       asOf: text('asOf', 'quoteDate', 'date') || sourceDate?.[1] || undefined
     };

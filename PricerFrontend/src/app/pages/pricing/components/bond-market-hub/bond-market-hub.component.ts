@@ -2,14 +2,15 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, OnDestroy, OnInit, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
-import { Chart, ChartOptions, Legend, LineController, LineElement, LinearScale, PointElement, Title, Tooltip } from 'chart.js';
+import { Chart, Legend, LineController, LineElement, LinearScale, PointElement, Title, Tooltip } from 'chart.js';
 import { Subscription } from 'rxjs';
 import {
-  BondMarketQuote,
   LiveMarketSnapshot,
+  MarketDataFreshness,
   MacroIndicator,
   MarketDataLiveService,
-  SovereignYieldCurve
+  SovereignYieldCurve,
+  YieldCurveNode
 } from '../../../../services/market-data-live.service';
 
 Chart.register(LineController, LineElement, LinearScale, PointElement, Title, Tooltip, Legend);
@@ -37,6 +38,47 @@ export class BondMarketHubComponent implements OnInit, AfterViewInit, OnDestroy 
 
   constructor(readonly marketDataService: MarketDataLiveService) {}
 
+  getSnapshotStatusLabel(status: LiveMarketSnapshot['dataStatus'] | undefined): string {
+    switch (status) {
+      case 'live': return 'Données live';
+      case 'partial': return 'Partiel · reste du panel indicatif';
+      case 'stale': return 'Donnée FRED périmée · reste du panel indicatif';
+      default: return 'Données indicatives';
+    }
+  }
+
+  getFreshnessLabel(status: MarketDataFreshness, ageDays?: number): string {
+    switch (status) {
+      case 'live': return `À jour · ${ageDays ?? 0} j`;
+      case 'stale': return `Périmée · ${ageDays ?? 0} j`;
+      case 'imported': return 'Importée';
+      default: return 'Indicative';
+    }
+  }
+
+  getCurveNode(curve: SovereignYieldCurve, tenor: string): YieldCurveNode | undefined {
+    return curve.nodes.find(node => node.tenor === tenor);
+  }
+
+  getCurveNodeProvenance(curve: SovereignYieldCurve, tenor: string): string {
+    const node = this.getCurveNode(curve, tenor);
+    if (!node) return 'Non disponible';
+    return `${node.source} · ${node.asOf || 'Non daté'} · ${this.getFreshnessLabel(node.dataStatus, node.ageDays)}`;
+  }
+
+  getCrossCurveSpreadBps(tenor: string): number | null {
+    if (!this.snapshot) return null;
+    const usNode = this.getCurveNode(this.snapshot.usCurve, tenor);
+    const euNode = this.getCurveNode(this.snapshot.euCurve, tenor);
+    if (!usNode || !euNode) return null;
+    return Math.round((usNode.ratePercent - euNode.ratePercent) * 100);
+  }
+
+  getCrossCurveSpreadProvenance(tenor: string): string {
+    if (!this.snapshot) return 'Non disponible';
+    return `US: ${this.getCurveNodeProvenance(this.snapshot.usCurve, tenor)} / EUR: ${this.getCurveNodeProvenance(this.snapshot.euCurve, tenor)}`;
+  }
+
   ngOnInit(): void {
     this.sub = this.marketDataService.snapshot$.subscribe(snap => {
       this.snapshot = snap;
@@ -62,9 +104,15 @@ export class BondMarketHubComponent implements OnInit, AfterViewInit, OnDestroy 
   refresh(): void {
     this.marketDataService.refreshLiveMarketData().subscribe({
       next: snapshot => {
-        this.appliedSuccessMessage = snapshot.isLive
-          ? 'Données de marché actualisées depuis au moins une source externe.'
-          : 'Aucune source externe ne répond; les données de secours sont conservées.';
+        if (snapshot.dataStatus === 'live') {
+          this.appliedSuccessMessage = 'Données de marché actualisées.';
+        } else if (snapshot.dataStatus === 'partial') {
+          this.appliedSuccessMessage = 'Une observation FRED a été reçue; le reste du panel demeure indicatif.';
+        } else if (snapshot.dataStatus === 'stale') {
+          this.appliedSuccessMessage = 'La dernière observation FRED est périmée; le reste du panel demeure indicatif.';
+        } else {
+          this.appliedSuccessMessage = 'Aucune observation exploitable reçue; les données indicatives sont conservées.';
+        }
         setTimeout(() => this.appliedSuccessMessage = '', 4000);
       }
     });
