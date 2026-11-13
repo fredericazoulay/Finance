@@ -34,7 +34,7 @@
 
   <ng-container *ngIf="selectedBonds.length > 0">
     <!-- Comparison Matrix Table -->
-    <div class="table-card">
+    <div class="table-card" appCollapsiblePanel="Comparaison des obligations" [appCollapsiblePanelHeader]="'.table-card-header'">
       <div class="table-card-header">
         <div class="table-header-left">
           <h3>1. Matrice comparative côte-à-côte</h3>
@@ -230,7 +230,7 @@
     </div>
 
     <!-- Rate Shock Simulator Section -->
-    <div class="simulation-card">
+    <div class="simulation-card" appCollapsiblePanel="Simulation de choc de taux" [appCollapsiblePanelHeader]="'.simulation-header'">
       <div class="simulation-header">
         <div>
           <h3>2. Simulateur de choc de taux comparatif</h3>
@@ -292,7 +292,7 @@
     </div>
 
     <!-- 10-Point Analysis Checklist Section -->
-    <div class="checklist-card">
+    <div class="checklist-card" appCollapsiblePanel="Audit du comparateur" [appCollapsiblePanelHeader]="'.checklist-header'">
       <div class="checklist-header">
         <div>
           <h3>3. Grille d’audit et de sélection obligataire (10 points de contrôle)</h3>

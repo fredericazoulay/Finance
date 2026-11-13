@@ -28,6 +28,7 @@ import {
 
 import { AmortizationRow } from '../../../../models/calculator.model';
 import { ThemeService } from '../../../../services/theme.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 Chart.register(
   BarController,
@@ -45,7 +46,7 @@ Chart.register(
 @Component({
   selector: 'app-amortization-chart',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './amortization-chart.component.html',
   styleUrls: ['./amortization-chart.component.scss']
 })

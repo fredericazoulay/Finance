@@ -6,11 +6,12 @@ import { FieldConfig, ProductOption } from '../../../../models/pricing.model';
 import { YahooSecurity } from '../../../../models/security.model';
 import { PricingService } from '../../../../services/pricing.service';
 import { SecuritiesService } from '../../../../services/securities.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-pricing-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslateModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './pricing-form.component.html',
   styleUrls: ['./pricing-form.component.scss']
 })

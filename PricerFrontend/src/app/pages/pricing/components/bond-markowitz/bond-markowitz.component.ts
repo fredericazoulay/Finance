@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, Simp
 import { CommonModule } from '@angular/common';
 import { Chart, ChartConfiguration, LinearScale, PointElement, ScatterController, Tooltip } from 'chart.js';
 import { OptionImportRecord } from '../../../../models/option-import.model';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 Chart.register(LinearScale, PointElement, ScatterController, Tooltip);
 
@@ -17,7 +18,7 @@ interface BondRiskPoint {
 @Component({
   selector: 'app-bond-markowitz',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CollapsiblePanelDirective],
   templateUrl: './bond-markowitz.component.html',
   styleUrls: ['./bond-markowitz.component.scss']
 })

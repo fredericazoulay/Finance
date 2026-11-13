@@ -1,11 +1,11 @@
-<section class="calculator-section periodic-calculator">
+<section class="calculator-section periodic-calculator" appCollapsiblePanel="Coupon par période" [appCollapsiblePanelHeader]="'.section-heading'">
   <div class="section-heading">
     <div><p class="eyebrow">01 / Coupon par période</p><h2>Calculatrice d’obligations</h2></div>
     <span class="currency-tag">{{ currency }}</span>
   </div>
 
   <div class="calculator-layout">
-    <div class="calculator-inputs">
+    <div class="calculator-inputs" (keydown.enter)="onEnterCalculate($event)">
       <section class="input-group">
         <h3>Coupon par période</h3>
         <label>

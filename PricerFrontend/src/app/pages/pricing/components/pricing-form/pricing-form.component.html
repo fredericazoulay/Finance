@@ -79,7 +79,7 @@
     </button>
   </div>
 
-  <div class="subsection" *ngIf="marketFields.length">
+  <div class="subsection" *ngIf="marketFields.length" appCollapsiblePanel="Données de marché" [appCollapsiblePanelHeader]="'h3'">
     <h3>{{ 'market_data' | translate }}</h3>
     <div class="grid small-grid">
       <label *ngFor="let field of marketFields">
@@ -97,7 +97,7 @@
     </div>
   </div>
 
-  <div class="subsection" *ngIf="instrumentFields.length">
+  <div class="subsection" *ngIf="instrumentFields.length" appCollapsiblePanel="Instrument" [appCollapsiblePanelHeader]="'h3'">
     <h3>{{ 'instrument_section' | translate }}</h3>
     <div class="grid small-grid">
       <ng-container *ngFor="let field of instrumentFields">

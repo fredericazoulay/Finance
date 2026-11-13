@@ -4,11 +4,12 @@ import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AiAssistantService } from '../../../../services/ai-assistant.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-ai-analysis',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CollapsiblePanelDirective],
   templateUrl: './ai-analysis.component.html',
   styleUrls: ['./ai-analysis.component.scss']
 })

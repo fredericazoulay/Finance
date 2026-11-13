@@ -12,6 +12,7 @@ import { PricingFormComponent } from './components/pricing-form/pricing-form.com
 import { QuoteMonitorComponent } from './components/quote-monitor/quote-monitor.component';
 import { FinancialChartComponent } from './components/financial-chart/financial-chart.component';
 import { BondComparablesComponent } from './components/bond-comparables/bond-comparables.component';
+import { CollapsiblePanelDirective } from '../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-pricing-page',
@@ -22,7 +23,8 @@ import { BondComparablesComponent } from './components/bond-comparables/bond-com
     PricingFormComponent,
     QuoteMonitorComponent,
     FinancialChartComponent,
-    BondComparablesComponent
+    BondComparablesComponent,
+    CollapsiblePanelDirective
   ],
   templateUrl: './pricing-page.component.html',
   styleUrls: ['./pricing-page.component.scss']

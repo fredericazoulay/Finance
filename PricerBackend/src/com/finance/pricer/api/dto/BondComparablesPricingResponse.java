@@ -19,7 +19,33 @@ public record BondComparablesPricingResponse(
             boolean selected,
                         String exclusionReason,
                         Integer rank,
-                        List<String> rankingReasons
+                        List<String> rankingReasons,
+                        ComparableAnalytics analytics
+    ) {
+        public PanelItem(
+                BondComparablesPricingRequest.ComparableBond bond,
+                boolean eligible,
+                boolean selected,
+                String exclusionReason,
+                Integer rank,
+                List<String> rankingReasons) {
+            this(bond, eligible, selected, exclusionReason, rank, rankingReasons, null);
+        }
+    }
+
+    public record ComparableAnalytics(
+            Double cleanPrice,
+            Double dirtyPrice,
+            Double accruedInterest,
+            Double ytm,
+            Double macaulayDuration,
+            Double modifiedDuration,
+            Double convexity,
+            Double dv01,
+            Double zSpreadBps,
+            String priceBasis,
+            String zSpreadStatus,
+            String calculationStatus
     ) {}
 
     public record BondValuation(

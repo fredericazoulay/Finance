@@ -1,23 +1,23 @@
 <div class="full-option-charts">
-  <section class="chart-panel">
+  <section class="chart-panel" appCollapsiblePanel="Cours et volatilité" [appCollapsiblePanelHeader]="'h3'">
     <h3>Marché et valorisation <span>{{ option.currency }}</span></h3>
     <div class="chart-canvas"><canvas #marketChart></canvas></div>
   </section>
-  <section class="chart-panel">
+  <section class="chart-panel" appCollapsiblePanel="Sensibilités" [appCollapsiblePanelHeader]="'h3'">
     <h3>Risque et sensibilités</h3>
     <div class="chart-canvas"><canvas #riskChart></canvas></div>
   </section>
-  <section class="chart-panel">
+  <section class="chart-panel" appCollapsiblePanel="Profil risque-rendement" [appCollapsiblePanelHeader]="'h3'">
     <h3>P&amp;L à l’échéance <span>par unité · hors exercice anticipé</span></h3>
     <div class="chart-canvas"><canvas #payoffChart></canvas></div>
   </section>
-  <section class="chart-panel">
+  <section class="chart-panel" appCollapsiblePanel="Grecs" [appCollapsiblePanelHeader]="'h3'">
     <h3>Smile de volatilité <span>{{ option.expirationDate }}</span></h3>
     <div class="chart-canvas" [class.chart-hidden]="!hasSmileData"><canvas #smileChart></canvas></div>
     <p class="assumption-note" *ngIf="smileNotice">{{ smileNotice }}</p>
     <p class="chart-empty" *ngIf="!hasSmileData">Aucune volatilité valide n’est disponible pour cette option.</p>
   </section>
-  <section class="chart-panel wide-panel">
+  <section class="chart-panel wide-panel" appCollapsiblePanel="Flux de l'obligation sous-jacente" [appCollapsiblePanelHeader]="'h3'">
     <h3>Flux de l’obligation sous-jacente <span>projection indicative · {{ option.currency }}</span></h3>
     <div class="chart-canvas cash-flow-canvas" [class.chart-hidden]="!bondAnalysis"><canvas #cashFlowChart></canvas></div>
     <div class="duration-summary" *ngIf="bondAnalysis as analysis">

@@ -3,6 +3,7 @@ import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 import { BondComputedMetrics, computeBondAnalytics } from '../../../../services/bond-analytics-calc';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 type BloombergScreen = 'SECF' | 'DES' | 'YAS' | 'DEBT';
 type BloombergCouponType = 'Fixe' | 'Variable';
@@ -44,7 +45,7 @@ export interface BloombergSecurity {
 @Component({
   selector: 'app-bond-bloomberg',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CollapsiblePanelDirective],
   templateUrl: './bond-bloomberg.component.html',
   styleUrls: ['./bond-bloomberg.component.scss']
 })

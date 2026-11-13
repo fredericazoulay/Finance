@@ -105,6 +105,20 @@ export interface BondComparablesResponse {
     exclusionReason: string | null;
     rank?: number | null;
     rankingReasons?: string[];
+    analytics?: {
+      cleanPrice: number | null;
+      dirtyPrice: number | null;
+      accruedInterest: number | null;
+      ytm: number | null;
+      macaulayDuration: number | null;
+      modifiedDuration: number | null;
+      convexity: number | null;
+      dv01: number | null;
+      zSpreadBps: number | null;
+      priceBasis: string | null;
+      zSpreadStatus: string;
+      calculationStatus: string;
+    } | null;
   }>;
   bestYieldSecurityId: string;
   appliedYield: number;

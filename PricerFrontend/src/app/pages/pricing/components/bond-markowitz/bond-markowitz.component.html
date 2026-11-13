@@ -29,7 +29,7 @@
   </div>
 
   <div class="markowitz-layout">
-    <section class="risk-chart-panel">
+    <section class="risk-chart-panel" appCollapsiblePanel="Univers obligataire" [appCollapsiblePanelHeader]="'.panel-heading'">
       <div class="panel-heading">
         <h3>Univers obligataire <span>{{ bonds.length }}</span></h3>
         <span class="chart-legend"><i></i> Dans le portefeuille</span>
@@ -41,7 +41,7 @@
       </div>
     </section>
 
-    <section class="portfolio-panel" *ngIf="bonds.length">
+    <section class="portfolio-panel" *ngIf="bonds.length" appCollapsiblePanel="Portefeuille proposé" [appCollapsiblePanelHeader]="'.panel-heading'">
       <div class="panel-heading">
         <h3>Portefeuille proposé <span>{{ selectedBonds.length }}</span></h3>
       </div>

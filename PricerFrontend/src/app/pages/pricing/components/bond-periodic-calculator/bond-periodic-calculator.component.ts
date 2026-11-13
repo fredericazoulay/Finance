@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { finalize, Subscription, TimeoutError } from 'rxjs';
 import { BondComparable, BondDirectPricingRequest, BondDirectPricingResponse } from '../../../../models/bond-comparables.model';
 import { BondComparablesService } from '../../../../services/bond-comparables.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -17,7 +18,7 @@ interface PresentValuePayment {
 @Component({
   selector: 'app-bond-periodic-calculator',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CollapsiblePanelDirective],
   templateUrl: './bond-periodic-calculator.component.html',
   styleUrls: ['./bond-periodic-calculator.component.scss']
 })
@@ -85,6 +86,16 @@ export class BondPeriodicCalculatorComponent implements AfterViewInit, OnChanges
     this.result = null;
     this.error = '';
     this.updateChart();
+  }
+
+  onEnterCalculate(event: Event): void {
+    if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.calculate();
   }
 
   calculate(): void {

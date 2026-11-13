@@ -1,4 +1,5 @@
-<div class="financial-chart-panel">
+<div class="financial-chart-panel" appCollapsiblePanel="Graphique financier" [appCollapsiblePanelHeader]="'.app-collapsible-panel-heading'">
+  <header class="app-collapsible-panel-heading"><h3>Graphique financier</h3></header>
   <!-- Greeks metrics bar (Options) -->
   <div class="greeks-banner" *ngIf="product === 'EQTY_OPT' && greeks">
     <div class="greek-item">

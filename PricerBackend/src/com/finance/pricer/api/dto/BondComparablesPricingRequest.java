@@ -68,8 +68,30 @@ public record BondComparablesPricingRequest(
                         String asOf,
                         LocalDate issueDate,
                         String sector,
-                        String seniority
+                        String seniority,
+                        Double faceValue,
+                        Integer couponFrequency,
+                        Double cleanPrice
         ) {
+                public ComparableBond(
+                                String securityId,
+                                String name,
+                                String issuer,
+                                String currency,
+                                LocalDate maturityDate,
+                                Double yieldToMaturity,
+                                Double couponRate,
+                                Double marketPrice,
+                                String rating,
+                                String source,
+                                String asOf,
+                                LocalDate issueDate,
+                                String sector,
+                                String seniority) {
+                        this(securityId, name, issuer, currency, maturityDate, yieldToMaturity, couponRate,
+                                        marketPrice, rating, source, asOf, issueDate, sector, seniority, null, null, null);
+                }
+
                 public ComparableBond(
                                 String securityId,
                                 String name,
@@ -84,7 +106,7 @@ public record BondComparablesPricingRequest(
                                 String asOf,
                                 LocalDate issueDate) {
                         this(securityId, name, issuer, currency, maturityDate, yieldToMaturity, couponRate,
-                                        marketPrice, rating, source, asOf, issueDate, null, null);
+                                        marketPrice, rating, source, asOf, issueDate, null, null, null, null, null);
                 }
         }
 }

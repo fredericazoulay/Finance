@@ -18,7 +18,7 @@
     <a [routerLink]="[]" [fragment]="'analysis-checklist'" (click)="scrollToSection('analysis-checklist')">Checklist</a>
   </nav>
 
-  <section id="rate-simulator" class="analysis-section">
+  <section id="rate-simulator" class="analysis-section" appCollapsiblePanel="Simulateur de sensibilité" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading">
       <div><p class="eyebrow">01 / Scénarios de taux</p><h3>Simulateur de sensibilité</h3></div>
       <span class="section-tag">Approximation duration / convexité</span>
@@ -71,7 +71,7 @@
     <p class="disclaimer">Estimation de premier ou second ordre, pas une valorisation complète. Elle suppose un déplacement parallèle et homogène des rendements. Elle exclut les variations de spread, les options, les mouvements non parallèles, le défaut, la liquidité, les frais et le change. Saisissez une convexité cohérente avec la convention de duration utilisée.</p>
   </section>
 
-  <section id="bond-valuation" class="analysis-section">
+  <section id="bond-valuation" class="analysis-section" appCollapsiblePanel="Prix et rendement" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading">
       <div><p class="eyebrow">02 / Flux contractuels</p><h3>Prix théorique et rendement actuariel</h3></div>
       <span class="section-tag">{{ solveFor === 'PRICE' ? 'Prix à partir du YTM' : 'YTM à partir du prix' }}</span>
@@ -105,7 +105,7 @@
     <p class="disclaimer">Le YTM est un taux actuariel théorique si les flux sont payés et si l’obligation est conservée jusqu’à l’échéance. Le rendement réalisé dépend aussi du réinvestissement des coupons, du prix de revente, des frais, de la fiscalité et du risque de crédit. Le modèle ne traite pas de stub de coupon, de jour exact, d’option ni d’intérêts courus.</p>
   </section>
 
-  <section id="credit-spread" class="analysis-section">
+  <section id="credit-spread" class="analysis-section" appCollapsiblePanel="Spreads de crédit" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading"><div><p class="eyebrow">03 / Prime de risque</p><h3>Spread, inflation et rendement net</h3></div></div>
     <div class="spread-layout">
       <div class="spread-tool">
@@ -133,7 +133,7 @@
     </div>
   </section>
 
-  <section id="risk-framework" class="analysis-section">
+  <section id="risk-framework" class="analysis-section" appCollapsiblePanel="Risques" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading"><div><p class="eyebrow">04 / Lecture du risque</p><h3>Les risques à dissocier</h3></div></div>
     <div class="risk-table-wrap">
       <table class="risk-table">
@@ -163,7 +163,7 @@
     </div>
   </section>
 
-  <section id="credit-ratings" class="analysis-section">
+  <section id="credit-ratings" class="analysis-section" appCollapsiblePanel="Notations et ESG" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading"><div><p class="eyebrow">05 / Émetteur et durabilité</p><h3>Notation, structure et critères ESG</h3></div></div>
     <div class="two-column-content">
       <div>
@@ -192,7 +192,7 @@
     <p class="disclaimer">Les scores ESG peuvent diverger selon les données et pondérations. Un label ou un score ne garantit ni solvabilité ni performance. Pour limiter le greenwashing, vérifiez l’usage des fonds, les rapports d’allocation et d’impact, la revue externe et la cohérence avec la stratégie globale de l’émetteur.</p>
   </section>
 
-  <section id="bond-comparison" class="analysis-section">
+  <section id="bond-comparison" class="analysis-section" appCollapsiblePanel="Comparaison des obligations" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading"><div><p class="eyebrow">06 / Mise en perspective</p><h3>Comparer deux obligations</h3></div><span class="section-tag">Valeurs modifiables · illustration sans flux marché</span></div>
     <p class="section-copy">La comparaison est pertinente à devise, échéance, structure et date de valorisation comparables. Une prime de rendement rémunère des risques, elle ne suffit pas à conclure.</p>
     <div class="comparison-table-wrap">
@@ -216,7 +216,7 @@
     </div>
   </section>
 
-  <section class="analysis-section">
+  <section class="analysis-section" appCollapsiblePanel="Checklist" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading"><div><p class="eyebrow">07 / Données et limites</p><h3>Ce que le panel permet de conclure</h3></div></div>
     <p class="section-copy">Les résultats de ce module proviennent des hypothèses affichées et des données saisies. Le panel importé de l’application ne fournit pas nécessairement prix bid/ask, courbe de référence, historique de volumes, données financières détaillées d’émetteur ou scores ESG validés. Sans ces données, spread, liquidité, crédit et ESG ne sont pas évalués par le moteur.</p>
     <div class="data-boundaries"><span><strong>Calculable ici</strong> Prix/YTM de modèle, rendement courant, durations, convexité, DV01 et scénarios paramétrés.</span><span><strong>À fournir ou vérifier</strong> Convention exacte, prix de marché, courbe, spread observé, rating actuel, documentation, données ESG et fiscalité personnelle.</span></div>

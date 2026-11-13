@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { WorkGroupService } from '../../services/work-group.service';
+import { CollapsiblePanelDirective } from '../../shared/directives/collapsible-panel.directive';
 
 type MurexScreenKind = 'query' | 'ticket' | 'market' | 'risk' | 'process';
 
@@ -117,7 +118,7 @@ const DEMO_ORDERS: MurexRecord[] = [
 @Component({
   selector: 'app-murex-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './murex-page.component.html',
   styleUrls: ['./murex-page.component.scss']
 })

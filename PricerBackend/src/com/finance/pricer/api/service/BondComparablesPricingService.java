@@ -41,9 +41,10 @@ public class BondComparablesPricingService {
         BondComparablesPricingRequest.TargetBond target = request.target();
         validateTarget(target);
         int tolerance = maturityTolerance(request);
+        YieldCurve zeroCurve = buildZeroCurve(target, request.zeroCurve());
         List<BondComparablesPricingResponse.PanelItem> items = new ArrayList<>();
         List<BondComparablesPricingRequest.ComparableBond> eligible = collectEligibleBonds(
-            target, request.panel() == null ? List.of() : request.panel(), tolerance, items);
+            target, request.panel() == null ? List.of() : request.panel(), tolerance, items, zeroCurve);
         if (eligible.isEmpty()) {
             throw new IllegalArgumentException(noEligibleComparablesMessage(items));
         }
@@ -51,7 +52,9 @@ public class BondComparablesPricingService {
         BondComparablesPricingRequest.ComparableBond best = selectBestComparable(eligible);
         List<BondComparablesPricingResponse.PanelItem> rankedItems = markSelectedBond(items, eligible, best, target);
         BondComparablesPricingResponse.BondValuation valuation = calculateValuation(target, best);
-        Double zSpread = calculateZSpread(target, valuation.dirtyPrice(), request.zeroCurve());
+        Double zSpread = zeroCurve == null
+                ? null
+                : BondAnalytics.calculateZSpread(targetBond(target), target.settlementDate(), valuation.dirtyPrice(), zeroCurve);
 
         return new BondComparablesPricingResponse(
             target.securityId(), target.currency().trim().toUpperCase(), tolerance,
@@ -72,14 +75,16 @@ public class BondComparablesPricingService {
             BondComparablesPricingRequest.TargetBond target,
             List<BondComparablesPricingRequest.ComparableBond> bonds,
             int tolerance,
-            List<BondComparablesPricingResponse.PanelItem> items) {
+            List<BondComparablesPricingResponse.PanelItem> items,
+            YieldCurve zeroCurve) {
         List<BondComparablesPricingRequest.ComparableBond> eligible = new ArrayList<>();
         for (BondComparablesPricingRequest.ComparableBond bond : bonds) {
             String exclusionReason = exclusionReason(target, bond, tolerance);
             boolean isEligible = exclusionReason == null;
             if (isEligible) eligible.add(bond);
                 items.add(new BondComparablesPricingResponse.PanelItem(
-                    bond, isEligible, false, exclusionReason, null, List.of()));
+                    bond, isEligible, false, exclusionReason, null, List.of(),
+                    calculateComparableAnalytics(target, bond, zeroCurve)));
         }
         return eligible;
         }
@@ -114,7 +119,8 @@ public class BondComparablesPricingService {
             return items.stream()
                 .map(item -> new BondComparablesPricingResponse.PanelItem(
                         item.bond(), item.eligible(), item.bond() == best, item.exclusionReason(),
-                        ranks.get(item.bond()), item.eligible() ? rankingReasons(target, item.bond()) : List.of()))
+                        ranks.get(item.bond()), item.eligible() ? rankingReasons(target, item.bond()) : List.of(),
+                        item.analytics()))
                 .toList();
             }
 
@@ -153,9 +159,8 @@ public class BondComparablesPricingService {
                 BusinessDayConvention.MODIFIED_FOLLOWING);
     }
 
-    private static Double calculateZSpread(
+    private static YieldCurve buildZeroCurve(
             BondComparablesPricingRequest.TargetBond target,
-            double dirtyPrice,
             BondComparablesPricingRequest.ZeroCurve curveRequest) {
         if (curveRequest == null) return null;
 
@@ -184,10 +189,114 @@ public class BondComparablesPricingService {
         String dayCountValue = curveRequest.dayCount() == null || curveRequest.dayCount().isBlank()
                 ? target.dayCount()
                 : curveRequest.dayCount();
-        YieldCurve zeroCurve = new ZeroRateCurve(
+        return new ZeroRateCurve(
                 target.settlementDate(), parseDayCount(dayCountValue), curveTimes, zeroRates);
-        return BondAnalytics.calculateZSpread(
-                targetBond(target), target.settlementDate(), dirtyPrice, zeroCurve);
+    }
+
+    private static BondComparablesPricingResponse.ComparableAnalytics calculateComparableAnalytics(
+            BondComparablesPricingRequest.TargetBond target,
+            BondComparablesPricingRequest.ComparableBond comparable,
+            YieldCurve zeroCurve) {
+        if (comparable == null || comparable.yieldToMaturity() == null
+                || !Double.isFinite(comparable.yieldToMaturity())) {
+            return unavailableAnalytics("YTM manquant ou invalide");
+        }
+        if (comparable.couponRate() == null || !Double.isFinite(comparable.couponRate())
+                || comparable.couponRate() < 0 || comparable.couponFrequency() == null
+                || !List.of(1, 2, 3, 4, 6, 12).contains(comparable.couponFrequency())) {
+            return unavailableAnalytics("Coupon et fréquence requis pour calculer les indicateurs");
+        }
+
+        double faceValue = comparable.faceValue() == null ? 100.0 : comparable.faceValue();
+        if (!Double.isFinite(faceValue) || faceValue <= 0) {
+            return unavailableAnalytics("Nominal invalide");
+        }
+        int frequency = comparable.couponFrequency();
+        if (comparable.yieldToMaturity() <= -frequency) {
+            return unavailableAnalytics("YTM incompatible avec la fréquence du coupon");
+        }
+
+        LocalDate settlementDate = target.settlementDate();
+        LocalDate maturityDate = comparable.maturityDate();
+        if (maturityDate == null || !settlementDate.isBefore(maturityDate)) {
+            return unavailableAnalytics("Échéance invalide à la date de règlement");
+        }
+        LocalDate issueDate = comparable.issueDate() == null
+                ? effectiveIssueDate(maturityDate, settlementDate, frequency)
+                : comparable.issueDate();
+        if (issueDate.isAfter(settlementDate) || issueDate.isAfter(maturityDate)) {
+            return unavailableAnalytics("Date d’émission invalide");
+        }
+
+        FixedCouponBond bond = new FixedCouponBond(
+                comparable.securityId() == null ? "" : comparable.securityId(),
+                faceValue,
+                comparable.couponRate(),
+                frequency,
+                issueDate,
+                maturityDate,
+                parseDayCount(target.dayCount()),
+                FinancialCalendar.weekendsOnly(),
+                BusinessDayConvention.MODIFIED_FOLLOWING);
+
+        double accruedInterest = bond.calculateAccruedInterest(settlementDate);
+        double ytmCleanPrice = BondAnalytics.dirtyPriceFromYtm(
+                bond, settlementDate, comparable.yieldToMaturity()) - accruedInterest;
+        double cleanPrice = ytmCleanPrice;
+        String priceBasis = "Prix clean déduit du YTM";
+        if (comparable.cleanPrice() != null) {
+            if (!Double.isFinite(comparable.cleanPrice()) || comparable.cleanPrice() <= 0) {
+                return unavailableAnalytics("Prix clean importé invalide");
+            }
+            cleanPrice = comparable.cleanPrice() * faceValue / 100.0;
+            priceBasis = "Prix clean importé";
+        } else if (comparable.marketPrice() != null) {
+            if (!Double.isFinite(comparable.marketPrice()) || comparable.marketPrice() <= 0) {
+                return unavailableAnalytics("Prix de marché importé invalide");
+            }
+            cleanPrice = comparable.marketPrice() * faceValue / 100.0;
+            priceBasis = "Prix de marché importé";
+        }
+
+        BondAnalytics.BondMetrics metrics;
+        try {
+            metrics = BondAnalytics.computeAllMetrics(bond, settlementDate, cleanPrice);
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return unavailableAnalytics("Prix importé non exploitable : " + exception.getMessage());
+        }
+        Double zSpreadBps = null;
+        String zSpreadStatus = "Courbe zéro non fournie";
+        if (zeroCurve != null) {
+            try {
+                zSpreadBps = BondAnalytics.calculateZSpread(
+                        bond, settlementDate, metrics.dirtyPrice(), zeroCurve) * 10_000.0;
+                zSpreadStatus = priceBasis.equals("Prix clean déduit du YTM")
+                        ? "Indicatif : prix déduit du YTM"
+                        : "Calculé sur le prix importé";
+            } catch (IllegalArgumentException exception) {
+                zSpreadStatus = "Non résolu : " + exception.getMessage();
+            }
+        }
+
+        return new BondComparablesPricingResponse.ComparableAnalytics(
+                metrics.cleanPrice() / faceValue * 100.0,
+                metrics.dirtyPrice() / faceValue * 100.0,
+                metrics.accruedInterest() / faceValue * 100.0,
+                metrics.ytm(),
+                metrics.macaulayDuration(),
+                metrics.modifiedDuration(),
+                metrics.convexity(),
+                metrics.dv01() / faceValue * 100.0,
+                zSpreadBps,
+                priceBasis,
+                zSpreadStatus,
+                "Calculé");
+    }
+
+    private static BondComparablesPricingResponse.ComparableAnalytics unavailableAnalytics(String status) {
+        return new BondComparablesPricingResponse.ComparableAnalytics(
+                null, null, null, null, null, null, null, null, null,
+                null, "Non calculé", status);
     }
 
                 private static LocalDate previousCouponDate(FixedCouponBond bond, LocalDate settlementDate) {
@@ -205,6 +314,18 @@ public class BondComparablesPricingService {
             long couponMonths = 12L / target.couponFrequency();
             LocalDate previousCoupon = target.maturityDate();
             while (previousCoupon.isAfter(target.settlementDate())) {
+                previousCoupon = previousCoupon.minusMonths(couponMonths);
+            }
+            return previousCoupon;
+        }
+
+        private static LocalDate effectiveIssueDate(
+                LocalDate maturityDate,
+                LocalDate settlementDate,
+                int couponFrequency) {
+            long couponMonths = 12L / couponFrequency;
+            LocalDate previousCoupon = maturityDate;
+            while (previousCoupon.isAfter(settlementDate)) {
                 previousCoupon = previousCoupon.minusMonths(couponMonths);
             }
             return previousCoupon;

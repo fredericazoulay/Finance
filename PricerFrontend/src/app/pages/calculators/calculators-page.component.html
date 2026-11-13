@@ -1,5 +1,5 @@
 <div class="calculators-page-layout">
-  <section class="panel calculators-panel">
+  <section class="panel calculators-panel" appCollapsiblePanel="Calculatrices financières" [appCollapsiblePanelHeader]="'.panel-header'">
     <div class="panel-header">{{ 'financial_calculators' | translate }}</div>
     <app-calculator-form
       [selectedCalculator]="selectedCalculator"
@@ -12,7 +12,7 @@
     ></app-calculator-form>
   </section>
 
-  <section class="panel calculator-results-panel">
+  <section class="panel calculator-results-panel" appCollapsiblePanel="Résultats de calcul" [appCollapsiblePanelHeader]="'.panel-header'">
     <div class="panel-header">{{ 'results' | translate }}</div>
     <app-calculator-results
       [calculatorResult]="calculatorResult"

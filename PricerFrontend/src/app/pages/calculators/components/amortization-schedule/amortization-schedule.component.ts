@@ -3,11 +3,12 @@ import { Component, Input } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AmortizationRow } from '../../../../models/calculator.model';
 import { CalculatorsService } from '../../../../services/calculators.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-amortization-schedule',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './amortization-schedule.component.html',
   styleUrls: ['./amortization-schedule.component.scss']
 })

@@ -31,7 +31,7 @@
       <article class="kpi shock-kpi"><label for="rate-shock">Choc de taux</label><div><input id="rate-shock" type="number" min="-1000" max="1000" step="25" [(ngModel)]="rateShockBps" [ngModelOptions]="{standalone: true}" /> <span>pb</span></div><small>Parallèle, approximation duration</small></article>
     </div>
 
-    <section class="add-position-section" aria-labelledby="add-position-title">
+    <section class="add-position-section" aria-labelledby="add-position-title" appCollapsiblePanel="Ajouter une position" [appCollapsiblePanelHeader]="'.section-heading'">
       <div class="section-heading"><div><p class="eyebrow">Construction</p><h3 id="add-position-title">Ajouter une obligation</h3></div><span class="source-note">Données importées ou saisie manuelle</span></div>
       <div class="position-form">
         <label class="instrument-select"><span>Instrument du panel</span><select [ngModel]="selectedBondId" [ngModelOptions]="{standalone: true}" (ngModelChange)="selectInstrument($event)"><option value="">Saisie manuelle</option><option *ngFor="let bond of bonds" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.currency }} · {{ bond.maturityDate }}</option></select></label>
@@ -48,7 +48,7 @@
       <div class="form-actions"><p class="message error" *ngIf="error">{{ error }}</p><button type="button" class="primary-button" (click)="addPosition()">＋ Ajouter à {{ portfolio.name }}</button></div>
     </section>
 
-    <section class="portfolio-analytics" aria-label="Synthèse et sensibilités du portefeuille">
+    <section class="portfolio-analytics" aria-label="Synthèse et sensibilités du portefeuille" appCollapsiblePanel="Analyse du portefeuille" [appCollapsiblePanelHeader]="'.section-heading'">
       <div class="section-heading"><div><p class="eyebrow">Risque & allocation</p><h3>Expositions par devise</h3></div><span class="source-note">Aucune conversion FX agrégée</span></div>
       <div class="currency-grid" *ngIf="currencySummaries.length; else noExposure">
         <article class="currency-panel" *ngFor="let summary of currencySummaries">
@@ -75,7 +75,7 @@
       <p class="risk-disclaimer">Le DV01 et le scénario de taux sont des approximations de premier ordre : ΔP ≈ −DV01 × choc (pb), à partir de la duration modifiée saisie. Ils excluent convexité, mouvements de spread, défaut, liquidité et change. Le P&L latent compare uniquement les prix courant et de revient saisis.</p>
     </section>
 
-    <section class="holdings-section" aria-labelledby="holdings-title">
+    <section class="holdings-section" aria-labelledby="holdings-title" appCollapsiblePanel="Positions du portefeuille" [appCollapsiblePanelHeader]="'.section-heading'">
       <div class="section-heading"><div><p class="eyebrow">Positions</p><h3 id="holdings-title">Obligations détenues</h3></div><span class="source-note">Éditez les données pour mettre à jour les impacts</span></div>
       <div class="holdings-table-wrap" *ngIf="portfolio.positions.length; else emptyHoldings">
         <table class="holdings-table">

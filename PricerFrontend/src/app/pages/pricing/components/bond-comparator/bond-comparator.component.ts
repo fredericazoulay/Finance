@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 import { Chart, Legend, LinearScale, LineController, LineElement, PointElement, Title, Tooltip } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 import {
@@ -32,7 +33,7 @@ export interface ChecklistItem {
 @Component({
   selector: 'app-bond-comparator',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './bond-comparator.component.html',
   styleUrls: ['./bond-comparator.component.scss']
 })

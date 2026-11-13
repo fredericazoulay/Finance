@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 import { WorkGroupService } from '../../../../services/work-group.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 interface PortfolioPosition {
   id: string;
@@ -55,7 +56,7 @@ interface PositionDraft {
 @Component({
   selector: 'app-bond-portfolios',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './bond-portfolios.component.html',
   styleUrls: ['./bond-portfolios.component.scss']
 })

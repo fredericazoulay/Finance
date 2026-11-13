@@ -27,7 +27,7 @@
         <input id="mx-screen-search" type="search" [(ngModel)]="screenSearch" [placeholder]="'murex_search_screens' | translate" />
       </div>
       <nav class="screen-catalog" aria-label="{{ 'murex_screens' | translate }}">
-        <section class="catalog-section" *ngFor="let section of visibleSections">
+        <section class="catalog-section" *ngFor="let section of visibleSections" [appCollapsiblePanel]="section.name" [appCollapsiblePanelHeader]="'h2'">
           <h2>{{ section.name }}</h2>
           <button type="button" class="catalog-entry" *ngFor="let screen of section.screens" [class.active]="activeScreenId === screen.id" (click)="selectScreen(screen)">
             <span class="entry-marker" aria-hidden="true"></span>
@@ -60,7 +60,7 @@
 
             <div class="query-columns">
               <div class="query-column">
-                <section class="filter-block">
+                <section class="filter-block" appCollapsiblePanel="Type de produit Murex" [appCollapsiblePanelHeader]="'h2'">
                   <h2>{{ 'murex_product_type' | translate }}</h2>
                   <div class="filter-grid product-filters">
                     <label><span>Typology</span><select [(ngModel)]="productTypeFilter" [ngModelOptions]="{standalone: true}"><option>All</option><option>Bond</option><option>IRS</option><option>Equity</option><option>FX Forward</option></select></label>
@@ -70,7 +70,7 @@
                   </div>
                 </section>
 
-                <section class="filter-block">
+                <section class="filter-block" appCollapsiblePanel="Informations de transaction" [appCollapsiblePanelHeader]="'h2'">
                   <h2>{{ isOrderQuery ? 'Order information' : 'Trade information' }}</h2>
                   <div class="filter-grid">
                     <label><span>Counterpart</span><input [(ngModel)]="counterpartyFilter" [ngModelOptions]="{standalone: true}" /></label>
@@ -82,7 +82,7 @@
                   </div>
                 </section>
 
-                <section class="filter-block date-block">
+                <section class="filter-block date-block" appCollapsiblePanel="Dates clés" [appCollapsiblePanelHeader]="'h2'">
                   <h2>{{ 'murex_key_dates' | translate }}</h2>
                   <div class="filter-grid date-grid">
                     <label><span>{{ isOrderQuery ? 'Insertion date' : 'Transaction date' }}</span><input type="date" [ngModelOptions]="{standalone: true}" ngModel /></label>
@@ -93,7 +93,7 @@
               </div>
 
               <div class="query-column">
-                <section class="filter-block">
+                <section class="filter-block" appCollapsiblePanel="Classification Murex" [appCollapsiblePanelHeader]="'h2'">
                   <h2>{{ isOrderQuery ? 'Order classification' : 'Event details' }}</h2>
                   <div class="filter-grid">
                     <label><span>{{ isOrderQuery ? 'Order status' : 'Last event date' }}</span><select *ngIf="!isOrderQuery" [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Today</option><option>Last 5 days</option></select><select *ngIf="isOrderQuery" [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Open</option><option>Executed</option><option>Cancelled</option></select></label>
@@ -102,7 +102,7 @@
                   <div class="check-row"><label class="check-control"><input type="checkbox" /><span>Include cancelled</span></label><label class="check-control"><input type="checkbox" /><span>Search impacting events only</span></label></div>
                 </section>
 
-                <section class="filter-block">
+                <section class="filter-block" appCollapsiblePanel="Dates et statut" [appCollapsiblePanelHeader]="'h2'">
                   <h2>{{ isOrderQuery ? 'Order dates and status' : 'Trade classification' }}</h2>
                   <div class="filter-grid">
                     <label><span>{{ isOrderQuery ? 'Order status' : 'Deal status' }}</span><select [ngModelOptions]="{standalone: true}" ngModel><option>All</option><option>Validated</option><option>Pending</option><option>Cancelled</option></select></label>
@@ -117,7 +117,7 @@
             <div class="query-actions"><button type="button" class="secondary-action" (click)="clearQuery()">{{ 'murex_clear' | translate }}</button><span class="action-spacer"></span><button type="submit" class="primary-action">{{ 'murex_search' | translate }}</button></div>
           </form>
 
-          <section class="results-panel" aria-label="{{ 'murex_results' | translate }}">
+          <section class="results-panel" aria-label="{{ 'murex_results' | translate }}" appCollapsiblePanel="Résultats Murex" [appCollapsiblePanelHeader]="'.panel-heading'">
             <header class="panel-heading"><div><span class="panel-index">01</span><h2>{{ 'murex_results' | translate }}</h2></div><span class="result-count" *ngIf="queryExecuted">{{ filteredRecords.length }} {{ 'murex_rows' | translate }}</span><span class="snapshot-note">{{ 'murex_demo_badge' | translate }}</span></header>
             <div class="result-empty" *ngIf="!queryExecuted"><strong>{{ 'murex_run_query' | translate }}</strong><span>{{ 'murex_query_hint' | translate }}</span></div>
             <div class="result-empty" *ngIf="queryExecuted && !filteredRecords.length"><strong>{{ 'murex_no_results' | translate }}</strong><span>{{ 'murex_no_results_hint' | translate }}</span></div>
@@ -147,7 +147,7 @@
             <div class="ticket-toolbar"><span class="trade-tab"><i></i>{{ ticketProduct }}</span><span class="toolbar-date">Pricing: {{ 'now' | date:'dd MMM yyyy' }}</span><span class="toolbar-status"><i></i>{{ 'murex_sample_data' | translate }}</span></div>
             <form class="ticket-form" (ngSubmit)="submitTicket()">
               <div class="ticket-fields">
-                <section class="ticket-section instrument-section">
+                <section class="ticket-section instrument-section" appCollapsiblePanel="Instrument du ticket" [appCollapsiblePanelHeader]="'header'">
                   <header><span>01</span><h2>{{ 'murex_instrument' | translate }}</h2><small>{{ ticketProduct }}</small></header>
                   <div class="ticket-grid">
                     <label class="wide-field"><span>Instrument</span><input [(ngModel)]="ticketInstrument" [ngModelOptions]="{standalone: true}" /></label>
@@ -158,7 +158,7 @@
                   </div>
                 </section>
 
-                <section class="ticket-section trade-section">
+                <section class="ticket-section trade-section" appCollapsiblePanel="Transaction du ticket" [appCollapsiblePanelHeader]="'header'">
                   <header><span>02</span><h2>{{ 'murex_trade_terms' | translate }}</h2><small>{{ 'murex_draft_only' | translate }}</small></header>
                   <div class="ticket-grid">
                     <fieldset class="side-control"><legend>Buy / Sell</legend><div><button type="button" [class.active]="ticketSide === 'Buy'" [attr.aria-pressed]="ticketSide === 'Buy'" (click)="ticketSide = 'Buy'">Buy</button><button type="button" [class.active]="ticketSide === 'Sell'" [attr.aria-pressed]="ticketSide === 'Sell'" (click)="ticketSide = 'Sell'">Sell</button></div></fieldset>
@@ -182,7 +182,7 @@
               </aside>
             </form>
 
-            <section class="blotter-panel">
+            <section class="blotter-panel" appCollapsiblePanel="Blotter Murex" [appCollapsiblePanelHeader]="'.panel-heading'">
               <header class="panel-heading"><div><span class="panel-index">02</span><h2>{{ 'murex_daily_blotter' | translate }}</h2></div><span class="snapshot-note">{{ ticketRows.length }} {{ 'murex_rows' | translate }}</span></header>
               <div class="table-scroll"><table class="mx-table"><thead><tr><th>Contract nb</th><th>Trade nb</th><th>Status</th><th>Typology</th><th>Instrument</th><th>Face nominal</th><th>Face cur</th><th>Counterparty</th><th>Portfolio</th><th>Source</th><th>User</th></tr></thead><tbody><tr *ngFor="let record of ticketRows"><td>{{ record.reference }}</td><td>{{ record.version }}</td><td><span class="record-status" [attr.data-status]="record.status.toLowerCase()">{{ record.status }}</span></td><td>{{ record.product }}</td><td>{{ record.instrument }}</td><td class="number-cell">{{ record.quantity }}</td><td>{{ record.currency }}</td><td>{{ record.counterparty }}</td><td>{{ record.portfolio }}</td><td>DEMO</td><td>{{ record.user }}</td></tr></tbody></table></div>
             </section>
@@ -204,7 +204,7 @@
             <article><span>{{ 'murex_market_timestamp' | translate }}</span><strong>18:00</strong><small>28/10/2026 · static sample</small></article>
           </div>
 
-          <section class="results-panel module-results">
+          <section class="results-panel module-results" appCollapsiblePanel="Résultats du module" [appCollapsiblePanelHeader]="'.panel-heading'">
             <header class="panel-heading"><div><span class="panel-index">01</span><h2>{{ activeScreen.title }}</h2></div><span class="result-count">{{ moduleRows.length }} {{ 'murex_rows' | translate }}</span><span class="snapshot-note">{{ activeScreen.command }}</span></header>
             <div class="table-scroll"><table class="mx-table"><thead><tr><th>{{ 'murex_code' | translate }}</th><th>{{ 'murex_label' | translate }}</th><th>{{ 'murex_details' | translate }}</th><th>{{ 'murex_status' | translate }}</th><th>{{ 'murex_as_of' | translate }}</th></tr></thead><tbody><tr *ngFor="let row of moduleRows"><td class="reference-cell">{{ row.code }}</td><td>{{ row.label }}</td><td>{{ row.detail }}</td><td><span class="record-status" [attr.data-status]="row.status.toLowerCase()">{{ row.status }}</span></td><td>{{ row.asOf }}</td></tr><tr *ngIf="!moduleRows.length"><td class="empty-cell" colspan="5">{{ 'murex_no_results' | translate }}</td></tr></tbody></table></div>
           </section>

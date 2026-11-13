@@ -31,6 +31,7 @@ import { BondMarketHubComponent } from '../bond-market-hub/bond-market-hub.compo
 import { DEFAULT_BENCHMARK_BONDS } from '../../../../services/bond-analytics-calc';
 import { MarketDataLiveService } from '../../../../services/market-data-live.service';
 import { WorkGroupService } from '../../../../services/work-group.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 interface BondComparableRow extends BondComparable {
   eligible: boolean | null;
@@ -38,13 +39,27 @@ interface BondComparableRow extends BondComparable {
   exclusionReason: string | null;
   rank?: number | null;
   rankingReasons?: string[];
+  calculatedCleanPrice?: number | null;
+  calculatedDirtyPrice?: number | null;
+  calculatedAccruedInterest?: number | null;
+  calculatedYtm?: number | null;
+  calculatedMacaulayDuration?: number | null;
+  calculatedModifiedDuration?: number | null;
+  calculatedConvexity?: number | null;
+  calculatedDv01?: number | null;
+  calculatedZSpreadBps?: number | null;
+  priceBasis?: string | null;
+  zSpreadStatus?: string | null;
+  calculationStatus?: string | null;
 }
 
 type BondBaseColumn = 'securityId' | 'issuer' | 'currency' | 'issueDate' | 'settlementDate' | 'maturityDate' | 'rating' | 'yieldToMaturity' | 'source';
 type BondDataColumn = 'sector' | 'seniority' | 'seniorityDataStatus' | 'spreadBps' | 'spreadDataStatus' | 'assetSwapSpreadBps' | 'assetSwapSpreadDataStatus' | 'cdsSpreadBps' | 'cdsSpreadDataStatus' | 'gSpreadBps' | 'gSpreadDataStatus' | 'iSpreadBps' | 'iSpreadDataStatus' | 'nominalSpreadBps' | 'nominalSpreadDataStatus' | 'oasBps' | 'oasDataStatus' | 'tedSpreadBps' | 'tedSpreadDataStatus' | 'zSpread' | 'zSpreadDataStatus' | 'couponRate' | 'couponFrequency' | 'couponDataStatus' | 'cleanPrice' | 'cleanPriceDataStatus' | 'liquidityScore' | 'liquidityDataStatus';
-type BondColumn = BondBaseColumn | BondDataColumn | 'eligibility';
-type TextFilterColumn = BondBaseColumn | BondDataColumn;
+type BondAnalyticsColumn = 'calculatedCleanPrice' | 'calculatedDirtyPrice' | 'calculatedAccruedInterest' | 'calculatedYtm' | 'calculatedMacaulayDuration' | 'calculatedModifiedDuration' | 'calculatedConvexity' | 'calculatedDv01' | 'calculatedZSpreadBps' | 'priceBasis' | 'zSpreadStatus' | 'calculationStatus';
+type BondColumn = BondBaseColumn | BondDataColumn | BondAnalyticsColumn | 'eligibility';
+type TextFilterColumn = BondBaseColumn | BondDataColumn | BondAnalyticsColumn;
 type EligibilityFilter = 'best' | 'eligible' | 'excluded' | 'pending';
+type CollapsiblePanel = 'targetPicker' | 'targetInstrument' | 'comparableUniverse';
 type BondTargetForm = BondComparablesRequest['target'];
 type LightExportFormat = 'csv' | 'xlsx' | 'pdf';
 type BondScreenMode = 'basic' | 'periodic-calculator' | 'bond-graphs' | 'formulas' | 'advanced' | 'bloomberg' | 'comparables-light' | 'comparables-full' | 'comparables-full-graphs' | 'comparables-full-markowitz' | 'portfolios' | 'ai-analysis' | 'bond-analysis' | 'comparator' | 'market-hub';
@@ -107,6 +122,7 @@ interface PersistedBondComparablesState {
   bondColumnOrder?: BondColumn[];
   bondVisibleColumns?: BondColumn[];
   alternateBondRows?: boolean;
+  collapsedPanels?: CollapsiblePanel[];
 }
 
 @Component({
@@ -126,7 +142,8 @@ interface PersistedBondComparablesState {
     BondBloombergComponent,
     BondAnalysisGuideComponent,
     BondComparatorComponent,
-    BondMarketHubComponent
+    BondMarketHubComponent,
+    CollapsiblePanelDirective
   ],
   templateUrl: './bond-comparables.component.html',
   styleUrls: ['./bond-comparables.component.scss']
@@ -146,8 +163,8 @@ export class BondComparablesComponent implements OnDestroy {
     { value: 'pending', label: 'À analyser' }
   ] as const;
   readonly fullOptionColumns: FullOptionColumn[] = [...OPTION_IMPORT_COLUMNS, 'calculatedPremiumPerUnit', 'pricingStatus', 'eligible'];
-  readonly defaultBondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'];
-  readonly bondColumns: BondColumn[] = [...this.defaultBondColumns, 'sector', 'seniority', 'seniorityDataStatus', 'spreadBps', 'spreadDataStatus', 'assetSwapSpreadBps', 'assetSwapSpreadDataStatus', 'cdsSpreadBps', 'cdsSpreadDataStatus', 'gSpreadBps', 'gSpreadDataStatus', 'iSpreadBps', 'iSpreadDataStatus', 'nominalSpreadBps', 'nominalSpreadDataStatus', 'oasBps', 'oasDataStatus', 'tedSpreadBps', 'tedSpreadDataStatus', 'zSpread', 'zSpreadDataStatus', 'couponRate', 'couponFrequency', 'couponDataStatus', 'cleanPrice', 'cleanPriceDataStatus', 'liquidityScore', 'liquidityDataStatus'];
+  readonly defaultBondColumns: BondColumn[] = ['securityId', 'issuer', 'currency', 'issueDate', 'settlementDate', 'maturityDate', 'rating', 'yieldToMaturity', 'calculatedYtm', 'calculatedCleanPrice', 'calculatedDirtyPrice', 'calculatedAccruedInterest', 'calculatedMacaulayDuration', 'calculatedModifiedDuration', 'calculatedConvexity', 'calculatedDv01', 'calculatedZSpreadBps', 'calculationStatus', 'source', 'eligibility'];
+  readonly bondColumns: BondColumn[] = [...this.defaultBondColumns, 'sector', 'seniority', 'seniorityDataStatus', 'spreadBps', 'spreadDataStatus', 'assetSwapSpreadBps', 'assetSwapSpreadDataStatus', 'cdsSpreadBps', 'cdsSpreadDataStatus', 'gSpreadBps', 'gSpreadDataStatus', 'iSpreadBps', 'iSpreadDataStatus', 'nominalSpreadBps', 'nominalSpreadDataStatus', 'oasBps', 'oasDataStatus', 'tedSpreadBps', 'tedSpreadDataStatus', 'zSpread', 'zSpreadDataStatus', 'couponRate', 'couponFrequency', 'couponDataStatus', 'cleanPrice', 'cleanPriceDataStatus', 'liquidityScore', 'liquidityDataStatus', 'priceBasis', 'zSpreadStatus'];
   readonly bondColumnLabels: Record<BondColumn, string> = {
     securityId: 'Obligation', issuer: 'Émetteur', currency: 'Devise', issueDate: 'Émission', settlementDate: 'Règlement',
     maturityDate: 'Échéance', rating: 'Notation', yieldToMaturity: 'YTM', source: 'Source / date', eligibility: 'Éligibilité',
@@ -162,11 +179,18 @@ export class BondComparablesComponent implements OnDestroy {
     nominalSpreadBps: 'Nominal spread (pb)', nominalSpreadDataStatus: 'Statut nominal spread',
     oasBps: 'OAS (pb)', oasDataStatus: 'Statut OAS',
     tedSpreadBps: 'TED spread (pb)', tedSpreadDataStatus: 'Statut TED',
-    zSpread: 'Z-spread importé (pb)', zSpreadDataStatus: 'Statut Z-spread importé'
+    zSpread: 'Z-spread importé (pb)', zSpreadDataStatus: 'Statut Z-spread importé',
+    calculatedCleanPrice: 'Prix clean calculé / 100', calculatedDirtyPrice: 'Prix dirty calculé / 100',
+    calculatedAccruedInterest: 'Intérêts courus / 100', calculatedYtm: 'YTM calculé',
+    calculatedMacaulayDuration: 'Duration Macaulay (ans)', calculatedModifiedDuration: 'Duration modifiée (ans)',
+    calculatedConvexity: 'Convexité calculée', calculatedDv01: 'DV01 / 100',
+    calculatedZSpreadBps: 'Z-spread calculé (pb)', priceBasis: 'Base du prix calculé',
+    zSpreadStatus: 'Statut Z-spread calculé', calculationStatus: 'Statut des calculs'
   };
   bondColumnOrder: BondColumn[] = [...this.bondColumns];
   bondVisibleColumns = new Set<BondColumn>(this.defaultBondColumns);
   alternateBondRows = false;
+  collapsedPanels = new Set<CollapsiblePanel>();
   bondGroupColumns: BondColumn[] = [];
   collapsedBondGroups = new Set<string>();
   isBondGroupingDragOver = false;
@@ -295,7 +319,11 @@ export class BondComparablesComponent implements OnDestroy {
     assetSwapSpreadBps: '', assetSwapSpreadDataStatus: '', cdsSpreadBps: '', cdsSpreadDataStatus: '',
     gSpreadBps: '', gSpreadDataStatus: '', iSpreadBps: '', iSpreadDataStatus: '',
     nominalSpreadBps: '', nominalSpreadDataStatus: '', oasBps: '', oasDataStatus: '',
-    tedSpreadBps: '', tedSpreadDataStatus: '', zSpread: '', zSpreadDataStatus: ''
+    tedSpreadBps: '', tedSpreadDataStatus: '', zSpread: '', zSpreadDataStatus: '',
+    calculatedCleanPrice: '', calculatedDirtyPrice: '', calculatedAccruedInterest: '',
+    calculatedYtm: '', calculatedMacaulayDuration: '', calculatedModifiedDuration: '',
+    calculatedConvexity: '', calculatedDv01: '', calculatedZSpreadBps: '',
+    priceBasis: '', zSpreadStatus: '', calculationStatus: ''
   };
   eligibilityFilters = new Set<EligibilityFilter>();
   yieldMinimum = '';
@@ -1071,6 +1099,18 @@ export class BondComparablesComponent implements OnDestroy {
           cleanPriceDataStatus: item.bond.cleanPriceDataStatus ?? importedBond?.cleanPriceDataStatus,
           liquidityScore: item.bond.liquidityScore ?? importedBond?.liquidityScore,
           liquidityDataStatus: item.bond.liquidityDataStatus ?? importedBond?.liquidityDataStatus,
+          calculatedCleanPrice: item.analytics?.cleanPrice ?? null,
+          calculatedDirtyPrice: item.analytics?.dirtyPrice ?? null,
+          calculatedAccruedInterest: item.analytics?.accruedInterest ?? null,
+          calculatedYtm: item.analytics?.ytm ?? null,
+          calculatedMacaulayDuration: item.analytics?.macaulayDuration ?? null,
+          calculatedModifiedDuration: item.analytics?.modifiedDuration ?? null,
+          calculatedConvexity: item.analytics?.convexity ?? null,
+          calculatedDv01: item.analytics?.dv01 ?? null,
+          calculatedZSpreadBps: item.analytics?.zSpreadBps ?? null,
+          priceBasis: item.analytics?.priceBasis ?? null,
+          zSpreadStatus: item.analytics?.zSpreadStatus ?? null,
+          calculationStatus: item.analytics?.calculationStatus ?? null,
           eligible: item.eligible,
           selected: item.selected,
           exclusionReason: item.exclusionReason,
@@ -1125,7 +1165,26 @@ export class BondComparablesComponent implements OnDestroy {
   }
 
   get visibleBondColumns(): BondColumn[] {
-    return this.bondColumnOrder.filter(column => this.bondVisibleColumns.has(column));
+    return this.availableBondColumns.filter(column => this.bondVisibleColumns.has(column));
+  }
+
+  get availableBondColumns(): BondColumn[] {
+    const rows = this.panelRows;
+    return this.bondColumnOrder.filter(column => rows.some(row => this.hasBondColumnData(row, column)));
+  }
+
+  private hasBondColumnData(row: BondComparableRow, column: BondColumn): boolean {
+    if (column === 'eligibility') return true;
+    if (column === 'source') return Boolean(row.source || row.asOf);
+    if (column === 'settlementDate') return Boolean(row.settlementDate || this.target.settlementDate);
+
+    const value = row[column];
+    if (typeof value === 'string') {
+      const normalizedValue = value.trim();
+      return normalizedValue.length > 0 && normalizedValue !== '—';
+    }
+    if (typeof value === 'number') return Number.isFinite(value);
+    return value != null;
   }
 
   get visibleBondColumnCount(): number {
@@ -1137,12 +1196,16 @@ export class BondComparablesComponent implements OnDestroy {
   }
 
   moveBondColumn(column: BondColumn, offset: -1 | 1): void {
-    const index = this.bondColumnOrder.indexOf(column);
+    const availableColumns = this.availableBondColumns;
+    const index = availableColumns.indexOf(column);
     const targetIndex = index + offset;
-    if (index < 0 || targetIndex < 0 || targetIndex >= this.bondColumnOrder.length) return;
-    const nextOrder = [...this.bondColumnOrder];
+    if (index < 0 || targetIndex < 0 || targetIndex >= availableColumns.length) return;
+    const nextOrder = [...availableColumns];
     [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
-    this.bondColumnOrder = nextOrder;
+    this.bondColumnOrder = [
+      ...nextOrder,
+      ...this.bondColumnOrder.filter(existingColumn => !availableColumns.includes(existingColumn))
+    ];
     this.persistState();
   }
 
@@ -1155,7 +1218,7 @@ export class BondComparablesComponent implements OnDestroy {
   }
 
   selectAllBondColumns(): void {
-    this.bondVisibleColumns = new Set(this.bondColumnOrder);
+    this.bondVisibleColumns = new Set(this.availableBondColumns);
     this.persistState();
   }
 
@@ -1172,6 +1235,16 @@ export class BondComparablesComponent implements OnDestroy {
 
   toggleAlternateBondRows(): void {
     this.alternateBondRows = !this.alternateBondRows;
+    this.persistState();
+  }
+
+  isSectionCollapsed(panel: CollapsiblePanel): boolean {
+    return this.collapsedPanels.has(panel);
+  }
+
+  toggleSection(panel: CollapsiblePanel): void {
+    if (this.collapsedPanels.has(panel)) this.collapsedPanels.delete(panel);
+    else this.collapsedPanels.add(panel);
     this.persistState();
   }
 
@@ -1776,6 +1849,18 @@ export class BondComparablesComponent implements OnDestroy {
       Notation: row.rating ?? '',
       YTM: `${(row.yieldToMaturity * 100).toFixed(3)}%`,
       PrixMarche: row.marketPrice ?? '',
+      YTMCalcule: row.calculatedYtm ?? '',
+      PrixCleanCalcule: row.calculatedCleanPrice ?? '',
+      PrixDirtyCalcule: row.calculatedDirtyPrice ?? '',
+      InteretsCourus: row.calculatedAccruedInterest ?? '',
+      DurationMacaulay: row.calculatedMacaulayDuration ?? '',
+      DurationModifiee: row.calculatedModifiedDuration ?? '',
+      Convexite: row.calculatedConvexity ?? '',
+      DV01: row.calculatedDv01 ?? '',
+      ZSpreadCalculePb: row.calculatedZSpreadBps ?? '',
+      BasePrixCalcule: row.priceBasis ?? '',
+      StatutZSpreadCalcule: row.zSpreadStatus ?? '',
+      StatutCalcul: row.calculationStatus ?? '',
       Source: this.sourceLabel(row),
       DateDonnees: this.sourceDateValue(row),
       Eligible: row.eligible ?? '',
@@ -1796,10 +1881,13 @@ export class BondComparablesComponent implements OnDestroy {
     document.text(`Cible : ${this.target.securityId || 'Panel'} | Reglement : ${this.target.settlementDate || '-'}`, 12, 20);
     autoTable(document, {
       startY: 25,
-      head: [['Obligation', 'Nom', 'Emetteur', 'Devise', 'Emission', 'Reglement', 'Echeance', 'Notation', 'YTM', 'Source', 'Date donnees']],
+      head: [['Obligation', 'Nom', 'Emetteur', 'Devise', 'Emission', 'Reglement', 'Echeance', 'Notation', 'YTM', 'YTM calcule', 'Prix clean calcule', 'Duration modifiee', 'DV01', 'Z-Spread calcule (pb)', 'Source', 'Date donnees']],
       body: this.filteredPanelRows.map(row => [
         row.securityId, row.name, row.issuer ?? '', row.currency, row.issueDate ?? '', row.settlementDate ?? this.target.settlementDate,
-        row.maturityDate, row.rating ?? '', `${(row.yieldToMaturity * 100).toFixed(3)}%`, this.sourceLabel(row), this.sourceDateValue(row)
+        row.maturityDate, row.rating ?? '', `${(row.yieldToMaturity * 100).toFixed(3)}%`,
+        row.calculatedYtm == null ? '' : `${(row.calculatedYtm * 100).toFixed(3)}%`,
+        row.calculatedCleanPrice ?? '', row.calculatedModifiedDuration ?? '', row.calculatedDv01 ?? '',
+        row.calculatedZSpreadBps ?? '', this.sourceLabel(row), this.sourceDateValue(row)
       ]),
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [35, 75, 56] },
@@ -1829,6 +1917,18 @@ export class BondComparablesComponent implements OnDestroy {
         Notation: row.rating ?? '',
         YTM: row.yieldToMaturity,
         PrixMarche: row.marketPrice ?? '',
+        YTMCalcule: row.calculatedYtm ?? '',
+        PrixCleanCalcule: row.calculatedCleanPrice ?? '',
+        PrixDirtyCalcule: row.calculatedDirtyPrice ?? '',
+        InteretsCourus: row.calculatedAccruedInterest ?? '',
+        DurationMacaulay: row.calculatedMacaulayDuration ?? '',
+        DurationModifiee: row.calculatedModifiedDuration ?? '',
+        Convexite: row.calculatedConvexity ?? '',
+        DV01: row.calculatedDv01 ?? '',
+        ZSpreadCalculePb: row.calculatedZSpreadBps ?? '',
+        BasePrixCalcule: row.priceBasis ?? '',
+        StatutZSpreadCalcule: row.zSpreadStatus ?? '',
+        StatutCalcul: row.calculationStatus ?? '',
         Source: this.sourceLabel(row),
         DateDonnees: this.sourceDateValue(row) ? new Date(`${this.sourceDateValue(row)}T00:00:00`) : '',
         Eligible: row.eligible ?? '',
@@ -1838,7 +1938,9 @@ export class BondComparablesComponent implements OnDestroy {
     const sheet = xlsx.utils.json_to_sheet(rows);
     sheet['!cols'] = [
       { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-      { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 38 }
+      { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 16 },       { wch: 12 }, { wch: 12 }, { wch: 38 },
+      { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 },
+      { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 28 }, { wch: 30 }, { wch: 44 }
     ];
     this.stylePanelSheet(xlsx, sheet);
     xlsx.utils.book_append_sheet(workbook, sheet, 'Panel');
@@ -1976,6 +2078,10 @@ export class BondComparablesComponent implements OnDestroy {
 
   private toPricingBond(bond: BondComparable): BondComparable {
     const pricingBond = { ...bond };
+    if (pricingBond.couponRate != null && Math.abs(pricingBond.couponRate) > 1) {
+      pricingBond.couponRate /= 100;
+    }
+    pricingBond.faceValue = bond.faceValue ?? 100;
     delete pricingBond.settlementDate;
     return pricingBond;
   }
@@ -2029,6 +2135,8 @@ export class BondComparablesComponent implements OnDestroy {
 
   private restorePricingResult(state: Partial<PersistedBondComparablesState>): void {
     const valuation = state.result?.valuation;
+    const hasPanelAnalytics = Array.isArray(state.result?.panel) &&
+      state.result.panel.every(item => item.analytics != null);
     const metrics = valuation && [
       valuation.ytm,
       valuation.macaulayDuration,
@@ -2036,7 +2144,7 @@ export class BondComparablesComponent implements OnDestroy {
       valuation.convexity,
       valuation.dv01
     ];
-    if (state.result && Array.isArray(state.result.panel) && metrics?.every(Number.isFinite)) {
+    if (state.result && hasPanelAnalytics && Array.isArray(state.result.panel) && metrics?.every(Number.isFinite)) {
       this.result = state.result;
     } else {
       this.result = null;
@@ -2110,13 +2218,27 @@ export class BondComparablesComponent implements OnDestroy {
     if (Array.isArray(state.bondGroupColumns)) {
       this.bondGroupColumns = [...new Set(state.bondGroupColumns.filter(column => this.bondColumns.includes(column)))];
     }
+    if (Array.isArray(state.collapsedPanels)) {
+      this.collapsedPanels = new Set(state.collapsedPanels.filter(panel =>
+        panel === 'targetPicker' || panel === 'targetInstrument' || panel === 'comparableUniverse'
+      ));
+    }
     if (typeof state.alternateBondRows === 'boolean') this.alternateBondRows = state.alternateBondRows;
     if (Array.isArray(state.bondColumnOrder)) {
       const restoredOrder = [...new Set(state.bondColumnOrder.filter(column => this.bondColumns.includes(column)))];
       this.bondColumnOrder = [...restoredOrder, ...this.bondColumnOrder.filter(column => !restoredOrder.includes(column))];
     }
     if (Array.isArray(state.bondVisibleColumns)) {
-      this.bondVisibleColumns = new Set(state.bondVisibleColumns.filter(column => this.bondColumns.includes(column)));
+      const restoredColumns = new Set(state.bondVisibleColumns.filter(column => this.bondColumns.includes(column)));
+      const previousDefaultColumns: BondColumn[] = [
+        'securityId', 'issuer', 'currency', 'issueDate', 'settlementDate',
+        'maturityDate', 'rating', 'yieldToMaturity', 'source', 'eligibility'
+      ];
+      const usedPreviousDefaults = restoredColumns.size === previousDefaultColumns.length &&
+        previousDefaultColumns.every(column => restoredColumns.has(column));
+      this.bondVisibleColumns = usedPreviousDefaults
+        ? new Set(this.defaultBondColumns)
+        : restoredColumns;
     }
   }
 
@@ -2162,7 +2284,8 @@ export class BondComparablesComponent implements OnDestroy {
       bondGroupColumns: this.bondGroupColumns,
       bondColumnOrder: this.bondColumnOrder,
       bondVisibleColumns: [...this.bondVisibleColumns],
-      alternateBondRows: this.alternateBondRows
+      alternateBondRows: this.alternateBondRows,
+      collapsedPanels: [...this.collapsedPanels]
     };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));
@@ -2518,6 +2641,20 @@ export class BondComparablesComponent implements OnDestroy {
     }
     const value = row[column];
     return value == null ? '' : String(value);
+  }
+
+  isTextFilterColumn(column: BondColumn): column is TextFilterColumn {
+    return Object.prototype.hasOwnProperty.call(this.filters, column);
+  }
+
+  textFilterValue(column: BondColumn): string {
+    return this.isTextFilterColumn(column) ? this.filters[column] : '';
+  }
+
+  setTextFilterValue(column: BondColumn, value: string): void {
+    if (!this.isTextFilterColumn(column)) return;
+    this.filters[column] = value;
+    this.persistState();
   }
 
   private matchesEligibilityFilter(row: BondComparableRow, filter: EligibilityFilter): boolean {

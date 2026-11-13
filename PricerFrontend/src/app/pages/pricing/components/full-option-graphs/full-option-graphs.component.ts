@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
 import { OptionImportRecord } from '../../../../models/option-import.model';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 Chart.register(
   BarController,
@@ -65,7 +66,7 @@ interface BondProjectionTerms {
 @Component({
   selector: 'app-full-option-graphs',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CollapsiblePanelDirective],
   templateUrl: './full-option-graphs.component.html',
   styleUrls: ['./full-option-graphs.component.scss']
 })

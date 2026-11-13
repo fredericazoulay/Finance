@@ -3,6 +3,7 @@ import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BondComparable } from '../../../../models/bond-comparables.model';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 interface BondMetrics {
   price: number;
@@ -28,7 +29,7 @@ interface AnalysisChecklistItem {
 @Component({
   selector: 'app-bond-analysis-guide',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, CollapsiblePanelDirective],
   templateUrl: './bond-analysis-guide.component.html',
   styleUrls: ['./bond-analysis-guide.component.scss']
 })

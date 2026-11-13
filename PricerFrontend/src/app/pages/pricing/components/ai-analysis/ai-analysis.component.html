@@ -1,4 +1,4 @@
-<section class="ai-analysis-section">
+<section class="ai-analysis-section" appCollapsiblePanel="Analyse IA" [appCollapsiblePanelHeader]="'.section-heading'">
   <div class="section-heading">
     <div>
       <p class="eyebrow">03 / Assistant de valorisation</p>
@@ -17,7 +17,7 @@
     </button>
   </div>
   <p class="message error" role="alert" *ngIf="error">{{ error }}</p>
-  <section class="answer-panel" aria-live="polite" *ngIf="answer">
+  <section class="answer-panel" aria-live="polite" *ngIf="answer" appCollapsiblePanel="Réponse IA" [appCollapsiblePanelHeader]="'h3'">
     <h3>Réponse</h3>
     <p>{{ answer }}</p>
   </section>

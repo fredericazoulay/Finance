@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, OnDestroy, OnInit, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 import { Chart, Legend, LineController, LineElement, LinearScale, PointElement, Title, Tooltip } from 'chart.js';
 import { Subscription } from 'rxjs';
 import {
@@ -18,7 +19,7 @@ Chart.register(LineController, LineElement, LinearScale, PointElement, Title, To
 @Component({
   selector: 'app-bond-market-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './bond-market-hub.component.html',
   styleUrls: ['./bond-market-hub.component.scss']
 })

@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 interface FinancialFormula {
   name: string;
@@ -10,7 +11,7 @@ interface FinancialFormula {
 @Component({
   selector: 'app-bond-formulas',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CollapsiblePanelDirective],
   templateUrl: './bond-formulas.component.html',
   styleUrls: ['./bond-formulas.component.scss']
 })

@@ -26,6 +26,7 @@ import {
 
 import { FinancialMathService, OptionGreeks } from '../../../../services/financial-math.service';
 import { ThemeService } from '../../../../services/theme.service';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 
 Chart.register(
   LineController,
@@ -41,7 +42,7 @@ Chart.register(
 @Component({
   selector: 'app-financial-chart',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './financial-chart.component.html',
   styleUrls: ['./financial-chart.component.scss']
 })

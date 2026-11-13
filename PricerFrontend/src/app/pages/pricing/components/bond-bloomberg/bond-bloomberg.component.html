@@ -57,7 +57,7 @@
   <section class="description-screen" *ngIf="activeScreen === 'DES'">
     <div class="security-banner"><div><p class="section-kicker">SECURITY DESCRIPTION · CORP</p><h2>{{ selectedSecurity.securityId }}</h2><p>{{ selectedSecurity.issuer }} · {{ selectedSecurity.currency }} · {{ selectedSecurity.rating }}</p></div><div class="banner-quote"><span>Ask price</span><strong>{{ selectedSecurity.price | number:'1.2-3' }}</strong><small>Source {{ selectedSecurity.source }} · capture historique</small></div></div>
     <div class="description-grid">
-      <section class="terminal-panel security-information">
+      <section class="terminal-panel security-information" appCollapsiblePanel="Informations sur le titre" [appCollapsiblePanelHeader]="'h3'">
         <h3>Security Information</h3>
         <dl class="terminal-fields">
           <div><dt>Nom</dt><dd>{{ selectedSecurity.issuer }}</dd></div>
@@ -71,7 +71,7 @@
           <div><dt>Prix d’émission</dt><dd>{{ selectedSecurity.issuePrice ? (selectedSecurity.issuePrice | number:'1.2-3') : '—' }}</dd></div>
         </dl>
       </section>
-      <section class="terminal-panel ratings-panel">
+      <section class="terminal-panel ratings-panel" appCollapsiblePanel="Notations et émission" [appCollapsiblePanelHeader]="'h3'">
         <h3>Bond Ratings</h3>
         <dl class="rating-fields"><div><dt>Moody’s</dt><dd>{{ selectedSecurity.ratingMoody || '—' }}</dd></div><div><dt>S&amp;P</dt><dd>{{ selectedSecurity.ratingSp || '—' }}</dd></div><div><dt>Fitch</dt><dd>{{ selectedSecurity.ratingFitch || '—' }}</dd></div><div class="composite-rating"><dt>Composite</dt><dd>{{ selectedSecurity.rating }}</dd></div></dl>
         <h3>Issuance &amp; Trading</h3>
@@ -114,7 +114,7 @@
     </div>
 
     <div class="yas-grid">
-      <section class="terminal-panel spread-panel">
+      <section class="terminal-panel spread-panel" appCollapsiblePanel="Spreads" [appCollapsiblePanelHeader]="'h3'">
         <h3>Spreads &amp; Relative Value</h3>
         <dl class="spread-list">
           <div><dt>G-Spread (vs Benchmark)</dt><dd>+{{ (selectedSecurity.spreadBps ?? calculatedMetrics.gSpreadBps) | number:'1.1-1' }} bp</dd></div>
@@ -125,7 +125,7 @@
           <div><dt>Statut RV</dt><dd><strong>{{ calculatedMetrics.relativeValueStatus }}</strong> ({{ calculatedMetrics.relativeValueSpreadResidueBps > 0 ? '+' : '' }}{{ calculatedMetrics.relativeValueSpreadResidueBps }} bp)</dd></div>
         </dl>
       </section>
-      <section class="terminal-panel risk-panel">
+      <section class="terminal-panel risk-panel" appCollapsiblePanel="Risques" [appCollapsiblePanelHeader]="'h3'">
         <h3>Risk · Workout &amp; Sensitivity</h3>
         <dl class="spread-list">
           <div><dt>Duration modifiée</dt><dd>{{ (selectedSecurity.modifiedDuration ?? calculatedMetrics.modifiedDuration) | number:'1.3-3' }} ans</dd></div>
@@ -140,7 +140,7 @@
     <div class="yas-footnote">Données dynamiques calculées en temps réel sur la courbe de taux souveraine de référence.</div>
   </section>
 
-  <section class="debt-screen" *ngIf="activeScreen === 'DEBT'">
+  <section class="debt-screen" *ngIf="activeScreen === 'DEBT'" appCollapsiblePanel="Structure de la dette" [appCollapsiblePanelHeader]="'.debt-heading'">
     <div class="debt-heading">
       <div>
         <p class="section-kicker">ISSUER CAPITAL STRUCTURE · EUR (MM)</p>

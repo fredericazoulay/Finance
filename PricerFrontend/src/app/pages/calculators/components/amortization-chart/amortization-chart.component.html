@@ -1,4 +1,5 @@
-<div class="amortization-chart-panel" *ngIf="schedule.length">
+<div class="amortization-chart-panel" *ngIf="schedule.length" appCollapsiblePanel="Graphique d'amortissement" [appCollapsiblePanelHeader]="'.app-collapsible-panel-heading'">
+  <header class="app-collapsible-panel-heading"><h3>Graphique d'amortissement</h3></header>
   <div class="totals-bar">
     <div class="total-badge principal">
       <span class="label">Total Principal</span>

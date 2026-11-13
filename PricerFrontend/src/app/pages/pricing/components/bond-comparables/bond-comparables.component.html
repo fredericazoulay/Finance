@@ -29,36 +29,48 @@
     <button type="button" role="tab" [attr.aria-selected]="activeMode === 'ai-analysis'" [class.active]="activeMode === 'ai-analysis'" (click)="setMode('ai-analysis')">Analyse IA</button>
   </div>
 
-  <section class="active-target-context" *ngIf="panel.length > 0 || target.securityId || target.name" aria-label="Obligation analysée">
-    <div class="target-picker-controls">
-      <label for="target-bond-search">
-        Obligation cible
-        <input id="target-bond-search" type="search" aria-describedby="target-bond-count"
-          [ngModel]="targetBondSearch" (ngModelChange)="searchTargetBonds($event)"
-          placeholder="Rechercher par identifiant, nom, émetteur, ISIN…" [disabled]="!panel.length" />
-      </label>
-      <select id="target-bond-select" [ngModel]="target.securityId" (ngModelChange)="selectTarget($event)"
-        aria-label="Sélectionner une obligation cible" [disabled]="!panel.length">
-        <option value="">Sélectionner une obligation</option>
-        <option *ngIf="targetPanelBondOutsideSearch" [value]="targetPanelBond?.securityId">{{ targetPanelBond?.securityId }} · cible actuelle</option>
-        <option *ngIf="target.securityId && !targetPanelBond" [value]="target.securityId">{{ target.securityId }} · saisie manuelle</option>
-        <option *ngFor="let bond of searchedTargetBonds" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option>
-      </select>
-      <small id="target-bond-count">{{ targetBondSearch ? searchedTargetBonds.length + ' résultat(s)' : panel.length + ' obligation(s)' }}</small>
-    </div>
-    <div class="active-target-details" *ngIf="targetPanelBond as selectedBond; else manualTargetDetails">
-      <strong>{{ selectedBond.securityId }} · {{ selectedBond.name }}</strong>
-      <span>{{ selectedBond.currency }} · Échéance {{ selectedBond.maturityDate }} · Coupon {{ selectedBond.couponRate == null ? '—' : (selectedBond.couponRate | percent:'1.2-2') }} · YTM {{ selectedBond.yieldToMaturity | percent:'1.2-2' }}</span>
-    </div>
-    <ng-template #manualTargetDetails>
-      <div class="active-target-details">
-        <strong>{{ target.name || 'Cible saisie manuellement' }}</strong>
-        <span>{{ target.securityId || 'Identifiant non renseigné' }} · {{ target.currency }} · Échéance {{ target.maturityDate || '—' }} · Coupon {{ target.couponRate | number:'1.2-2' }} %</span>
+  <section class="active-target-context" *ngIf="activeMode !== 'comparables-full-graphs' && (panel.length > 0 || target.securityId || target.name)" aria-label="Obligation analysée">
+    <div id="target-picker-content" class="active-target-picker-body">
+      <div class="active-target-content" *ngIf="!isSectionCollapsed('targetPicker')">
+        <div class="target-picker-controls">
+        <label for="target-bond-search">
+          Obligation cible
+          <input id="target-bond-search" type="search" aria-describedby="target-bond-count"
+            [ngModel]="targetBondSearch" (ngModelChange)="searchTargetBonds($event)"
+            placeholder="Rechercher par identifiant, nom, émetteur, ISIN…" [disabled]="!panel.length" />
+        </label>
+        <select id="target-bond-select" [ngModel]="target.securityId" (ngModelChange)="selectTarget($event)"
+          aria-label="Sélectionner une obligation cible" [disabled]="!panel.length">
+          <option value="">Sélectionner une obligation</option>
+          <option *ngIf="targetPanelBondOutsideSearch" [value]="targetPanelBond?.securityId">{{ targetPanelBond?.securityId }} · cible actuelle</option>
+          <option *ngIf="target.securityId && !targetPanelBond" [value]="target.securityId">{{ target.securityId }} · saisie manuelle</option>
+          <option *ngFor="let bond of searchedTargetBonds" [value]="bond.securityId">{{ bond.securityId }} · {{ bond.name }} · {{ bond.currency }} · {{ bond.maturityDate }}</option>
+        </select>
+        <small id="target-bond-count">{{ targetBondSearch ? searchedTargetBonds.length + ' résultat(s)' : panel.length + ' obligation(s)' }}</small>
+        </div>
+        <div class="active-target-details" *ngIf="targetPanelBond as selectedBond; else manualTargetDetails">
+          <strong>{{ selectedBond.securityId }} · {{ selectedBond.name }}</strong>
+          <span>{{ selectedBond.currency }} · Échéance {{ selectedBond.maturityDate }} · Coupon {{ selectedBond.couponRate == null ? '—' : (selectedBond.couponRate | percent:'1.2-2') }} · YTM {{ selectedBond.yieldToMaturity | percent:'1.2-2' }}</span>
+        </div>
+        <ng-template #manualTargetDetails>
+          <div class="active-target-details">
+            <strong>{{ target.name || 'Cible saisie manuellement' }}</strong>
+            <span>{{ target.securityId || 'Identifiant non renseigné' }} · {{ target.currency }} · Échéance {{ target.maturityDate || '—' }} · Coupon {{ target.couponRate | number:'1.2-2' }} %</span>
+          </div>
+        </ng-template>
       </div>
-    </ng-template>
+      <div class="active-target-summary" *ngIf="isSectionCollapsed('targetPicker')">
+        <strong>{{ target.name || target.securityId || 'Obligation cible' }}</strong>
+        <span>{{ target.currency }} · {{ target.maturityDate || 'Échéance non renseignée' }}</span>
+      </div>
+    </div>
+    <button type="button" class="panel-collapse-toggle" [attr.aria-expanded]="!isSectionCollapsed('targetPicker')" aria-controls="target-picker-content" (click)="toggleSection('targetPicker')">
+      <span aria-hidden="true">{{ isSectionCollapsed('targetPicker') ? '▸' : '▾' }}</span>
+      {{ isSectionCollapsed('targetPicker') ? 'Développer' : 'Réduire' }}
+    </button>
   </section>
 
-  <section class="calculator-section" *ngIf="activeMode === 'basic'">
+  <section class="calculator-section" *ngIf="activeMode === 'basic'" appCollapsiblePanel="Calculatrice d'obligations" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading">
       <div><p class="eyebrow">01 / Calcul direct</p><h2>Calculatrice d’obligations</h2></div>
       <span class="currency-tag">{{ directCurrency }}</span>
@@ -79,7 +91,7 @@
       <button type="button" class="secondary-button" (click)="resetBasic()">Effacer</button>
     </div>
     <p class="message error" *ngIf="directError">{{ directError }}</p>
-    <div class="direct-result" *ngIf="directResult as result">
+    <div class="direct-result" *ngIf="directResult as result" appCollapsiblePanel="Résultat du calcul" [appCollapsiblePanelHeader]="'.result-lead'">
       <div class="result-lead"><p class="eyebrow">Résultat</p><h2>{{ result.solveFor === 'PRICE' ? 'Prix estimé' : result.solveFor === 'YTM' ? 'Rendement à l’échéance' : 'Temps jusqu’à l’échéance' }}</h2></div>
       <div class="result-value" *ngIf="result.solveFor === 'PRICE'"><span>Prix théorique</span><strong>{{ result.price | number:'1.2-4' }} {{ directCurrency }}</strong></div>
       <div class="result-value" *ngIf="result.solveFor === 'YTM'"><span>YTM</span><strong>{{ result.ytm | percent:'1.2-4' }}</strong></div>
@@ -113,7 +125,7 @@
     <app-bond-analysis-guide [currency]="target.currency || 'EUR'" [targetBond]="targetPanelBond"></app-bond-analysis-guide>
   </ng-container>
 
-  <section class="calculator-section" *ngIf="activeMode === 'advanced'">
+  <section class="calculator-section" *ngIf="activeMode === 'advanced'" appCollapsiblePanel="Tarification détaillée" [appCollapsiblePanelHeader]="'.section-heading'">
     <div class="section-heading advanced-section-heading">
       <div><p class="eyebrow">02 / Valorisation datée</p><h2>Tarification des obligations</h2></div>
       <span class="currency-tag">{{ directCurrency }}</span>
@@ -136,7 +148,7 @@
       <button type="button" class="secondary-button" (click)="resetAdvanced()">Effacer</button>
     </div>
     <p class="message error" *ngIf="directError">{{ directError }}</p>
-    <div class="direct-result detailed-result" *ngIf="directResult as result">
+    <div class="direct-result detailed-result" *ngIf="directResult as result" appCollapsiblePanel="Résultat de tarification" [appCollapsiblePanelHeader]="'.result-lead'">
       <div class="result-lead"><p class="eyebrow">Résultat</p><h2>Valorisation au {{ advancedForm.settlementDate | date:'dd/MM/yyyy' }}</h2></div>
       <div class="result-value"><span>Prix clean</span><strong>{{ result.price | number:'1.2-4' }} {{ directCurrency }}</strong></div>
       <div class="result-value"><span>Prix dirty</span><strong>{{ result.dirtyPrice | number:'1.2-4' }} {{ directCurrency }}</strong></div>
@@ -179,8 +191,16 @@
         <p class="eyebrow">01 / Instrument</p>
         <h2>Obligation cible</h2>
       </div>
-      <span class="currency-tag">{{ target.currency || 'Devise' }}</span>
+      <div class="panel-heading-tools">
+        <span class="currency-tag">{{ target.currency || 'Devise' }}</span>
+        <button type="button" class="panel-collapse-toggle" [attr.aria-expanded]="!isSectionCollapsed('targetInstrument')" aria-controls="target-instrument-content" (click)="toggleSection('targetInstrument')">
+          <span aria-hidden="true">{{ isSectionCollapsed('targetInstrument') ? '▸' : '▾' }}</span>
+          {{ isSectionCollapsed('targetInstrument') ? 'Développer' : 'Réduire' }}
+        </button>
+      </div>
     </div>
+    <div id="target-instrument-content" class="collapsible-panel-content">
+    <div *ngIf="!isSectionCollapsed('targetInstrument')">
     <div class="target-extraction">
       <label for="target-description">Description de l’obligation cible</label>
       <textarea id="target-description" [(ngModel)]="targetDescription" maxlength="5000" rows="3" placeholder="Ex. Obligation EUR de nominal 100, coupon annuel 4 %, échéance 2032-06-30..."></textarea>
@@ -236,6 +256,8 @@
       </button>
       <small *ngIf="selectedBondIdsForCompare.size >= 5 && !isSelectedForCompare(referenceBond.securityId)">Le comparateur est limité à 5 obligations.</small>
     </div>
+    </div>
+    </div>
   </section>
 
   <section class="panel-section">
@@ -244,6 +266,7 @@
         <p class="eyebrow">02 / Univers comparable</p>
         <h2>Panel de marché <span class="count">{{ panel.length }}</span></h2>
       </div>
+      <div class="panel-heading-tools panel-heading-actions">
       <div class="panel-action-area">
         <span class="actions-label">Actions</span>
         <div class="panel-actions">
@@ -271,12 +294,19 @@
             </div>
           </details>
           <button type="submit" class="primary-button" [disabled]="isLoading || !panel.length">
-            {{ isLoading ? 'Calcul…' : 'Calculer le prix' }}
+            {{ isLoading ? 'Calcul…' : 'Calculer le prix et les métriques' }}
           </button>
         </div>
       </div>
+      <button type="button" class="panel-collapse-toggle" [attr.aria-expanded]="!isSectionCollapsed('comparableUniverse')" aria-controls="comparable-universe-content" (click)="toggleSection('comparableUniverse')">
+        <span aria-hidden="true">{{ isSectionCollapsed('comparableUniverse') ? '▸' : '▾' }}</span>
+        {{ isSectionCollapsed('comparableUniverse') ? 'Développer' : 'Réduire' }}
+      </button>
+      </div>
     </div>
-    <p class="import-hint">Colonnes requises : securityId, currency, maturityDate (AAAA-MM-JJ), yieldToMaturity, emissionDate, issuer, rating, source et settlementDate. Les spreads importables comprennent spreadBps, assetSwapSpreadBps, cdsSpreadBps, gSpreadBps, iSpreadBps, nominalSpreadBps, oasBps, tedSpreadBps et zSpreadBps; ajoutez le champ DataStatus correspondant pour indiquer leur provenance. Le Z-spread importé reste distinct du Z-spread calculé avec une courbe zéro. Les taux peuvent être saisis en décimal ou avec « % ».</p>
+    <div id="comparable-universe-content" class="collapsible-panel-content">
+    <div *ngIf="!isSectionCollapsed('comparableUniverse')">
+    <p class="import-hint">Après « Calculer le prix », les prix clean/dirty, intérêts courus, YTM, durations, convexité, DV01 et Z-spread sont calculés pour chaque ligne lorsque coupon et fréquence sont renseignés. Le Z-spread nécessite une courbe zéro; sans prix importé, il est indicatif et basé sur le prix déduit du YTM. Les spreads de marché, la notation et la liquidité restent des données importées, car ils nécessitent des références de marché.</p>
     <p class="message error" *ngIf="importError">{{ importError }}</p>
     <p class="message error" role="alert" *ngIf="marketSearchError">{{ marketSearchError }}</p>
     <output class="message success" *ngIf="marketSearchMessage">{{ marketSearchMessage }}</output>
@@ -297,14 +327,14 @@
               <button type="button" (click)="applyDefaultBondColumns()">Défaut</button>
             </div>
             <ol class="column-picker-list">
-              <li *ngFor="let column of bondColumnOrder">
+              <li *ngFor="let column of availableBondColumns">
                 <label class="column-picker-option">
                   <input type="checkbox" [checked]="bondVisibleColumns.has(column)" (change)="setBondColumnVisibility(column, $event)" />
                   <span>{{ bondColumnLabel(column) }}</span>
                 </label>
                 <span class="column-picker-order">
-                  <button type="button" [disabled]="bondColumnOrder[0] === column" [attr.aria-label]="'Monter ' + bondColumnLabel(column)" (click)="moveBondColumn(column, -1)">↑</button>
-                  <button type="button" [disabled]="bondColumnOrder[bondColumnOrder.length - 1] === column" [attr.aria-label]="'Descendre ' + bondColumnLabel(column)" (click)="moveBondColumn(column, 1)">↓</button>
+                  <button type="button" [disabled]="availableBondColumns[0] === column" [attr.aria-label]="'Monter ' + bondColumnLabel(column)" (click)="moveBondColumn(column, -1)">↑</button>
+                  <button type="button" [disabled]="availableBondColumns[availableBondColumns.length - 1] === column" [attr.aria-label]="'Descendre ' + bondColumnLabel(column)" (click)="moveBondColumn(column, 1)">↓</button>
                 </span>
               </li>
             </ol>
@@ -394,6 +424,13 @@
               <input *ngSwitchCase="'securityId'" [(ngModel)]="filters.securityId" (ngModelChange)="persistState()" aria-label="Filtrer les obligations" placeholder="Filtrer" />
               <input *ngSwitchCase="'issuer'" [(ngModel)]="filters.issuer" (ngModelChange)="persistState()" aria-label="Filtrer les émetteurs" placeholder="Filtrer" />
               <input *ngSwitchCase="'source'" [(ngModel)]="filters.source" (ngModelChange)="persistState()" aria-label="Filtrer source et date" placeholder="Filtrer" />
+              <ng-container *ngSwitchDefault>
+                <input *ngIf="isTextFilterColumn(column)"
+                  [ngModel]="textFilterValue(column)"
+                  (ngModelChange)="setTextFilterValue(column, $event)"
+                  [attr.aria-label]="'Filtrer ' + bondColumnLabel(column)"
+                  placeholder="Filtrer" />
+              </ng-container>
             </td>
           </tr>
         </thead>
@@ -436,6 +473,18 @@
               <ng-container *ngSwitchCase="'tedSpreadDataStatus'">{{ row.tedSpreadDataStatus || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'zSpread'"><span [title]="row.zSpreadDataStatus || ''">{{ row.zSpread == null ? '—' : (row.zSpread | number:'1.1-2') + ' pb' }}</span></ng-container>
               <ng-container *ngSwitchCase="'zSpreadDataStatus'">{{ row.zSpreadDataStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedCleanPrice'">{{ row.calculatedCleanPrice == null ? '—' : (row.calculatedCleanPrice | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedDirtyPrice'">{{ row.calculatedDirtyPrice == null ? '—' : (row.calculatedDirtyPrice | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedAccruedInterest'">{{ row.calculatedAccruedInterest == null ? '—' : (row.calculatedAccruedInterest | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedYtm'">{{ row.calculatedYtm == null ? '—' : (row.calculatedYtm | percent:'1.2-3') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedMacaulayDuration'">{{ row.calculatedMacaulayDuration == null ? '—' : (row.calculatedMacaulayDuration | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedModifiedDuration'">{{ row.calculatedModifiedDuration == null ? '—' : (row.calculatedModifiedDuration | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedConvexity'">{{ row.calculatedConvexity == null ? '—' : (row.calculatedConvexity | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedDv01'">{{ row.calculatedDv01 == null ? '—' : (row.calculatedDv01 | number:'1.2-4') }}</ng-container>
+              <ng-container *ngSwitchCase="'calculatedZSpreadBps'"><span [title]="row.zSpreadStatus || ''">{{ row.calculatedZSpreadBps == null ? '—' : (row.calculatedZSpreadBps | number:'1.1-2') + ' pb' }}</span></ng-container>
+              <ng-container *ngSwitchCase="'priceBasis'">{{ row.priceBasis || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'zSpreadStatus'">{{ row.zSpreadStatus || '—' }}</ng-container>
+              <ng-container *ngSwitchCase="'calculationStatus'">{{ row.calculationStatus || '—' }}</ng-container>
               <ng-container *ngSwitchCase="'source'">{{ sourceLabel(row) || '—' }}<small>{{ sourceDate(row) }}</small></ng-container>
               <ng-container *ngSwitchCase="'eligibility'"><span *ngIf="row.selected" class="status best">Retenu · rang {{ row.rank || 1 }}</span><span *ngIf="row.eligible && !row.selected" class="status eligible">Comparable<span *ngIf="row.rank"> · rang {{ row.rank }}</span></span><span *ngIf="row.eligible === false" class="status excluded">{{ row.exclusionReason }}</span><span *ngIf="row.eligible === null" class="status pending">À analyser</span><small *ngIf="row.rankingReasons?.length">{{ row.rankingReasons?.join(' · ') }}</small></ng-container>
             </ng-container>
@@ -487,9 +536,11 @@
       </div>
     </div>
     <ng-template #emptyPanel><div class="empty-state"><span class="empty-mark">+</span><strong>Aucune obligation chargée</strong><span>Importez un fichier CSV ou Excel pour constituer le panel.</span></div></ng-template>
+    </div>
+    </div>
   </section>
 
-  <section class="result-section" *ngIf="result as pricing">
+  <section class="result-section" *ngIf="result as pricing" appCollapsiblePanel="Estimation du prix cible" [appCollapsiblePanelHeader]="'.result-lead'">
     <div class="result-lead">
       <p class="eyebrow">03 / Estimation</p>
       <h2>Prix estimé de la cible</h2>
@@ -520,7 +571,7 @@
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'comparables-full'">
-    <section class="panel-section full-options-section">
+    <section class="panel-section full-options-section" appCollapsiblePanel="Panel des options complètes" [appCollapsiblePanelHeader]="'.section-heading'">
       <div class="section-heading">
         <div>
           <p class="eyebrow">01 / Univers complet</p>
@@ -633,7 +684,7 @@
   </ng-container>
 
   <ng-container *ngIf="activeMode === 'comparables-full-graphs'">
-    <section class="panel-section full-option-graphs-section">
+    <section class="panel-section full-option-graphs-section" appCollapsiblePanel="Analyse détaillée" [appCollapsiblePanelHeader]="'.section-heading'">
       <div class="section-heading">
         <div>
           <p class="eyebrow">02 / Analyse détaillée</p>

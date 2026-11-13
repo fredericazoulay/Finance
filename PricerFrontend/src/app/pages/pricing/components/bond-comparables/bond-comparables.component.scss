@@ -22,7 +22,12 @@
 .workspace-context span { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .workspace-context strong { color: var(--green); font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; }
 .mode-tabs { display: flex; width: 100%; max-width: 100%; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
-.active-target-context { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr); align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--green); background: var(--surface); }
+.active-target-context { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--green); background: var(--surface); }
+.active-target-picker-body { min-width: 0; }
+.active-target-content { display: grid; min-width: 0; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr); align-items: center; gap: 14px; }
+.active-target-summary { display: grid; min-width: 0; gap: 3px; }
+.active-target-summary strong { overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.active-target-summary span { color: var(--muted); font-size: 10px; }
 .target-picker-controls { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 8px; }
 .target-picker-controls small { color: var(--muted); font-size: 10px; }
 .active-target-details { display: grid; min-width: 0; gap: 4px; }
@@ -43,12 +48,17 @@ h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .calculator-section > .import-hint { margin: 8px 0 12px; }
 .input-with-unit { display: grid; grid-template-columns: minmax(0, 1fr) 108px; gap: 6px; }
 .calculator-actions { display: flex; gap: 8px; margin-top: 16px; }
-.direct-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: center; gap: 14px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.direct-result { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: center; gap: 14px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 .result-value { display: flex; flex-direction: column; gap: 5px; }
 .result-value span { color: var(--muted); font-size: 11px; }
 .result-value strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .direct-result .analytics-grid { grid-column: 1 / -1; }
 .target-section .section-heading, .panel-section .section-heading { margin-bottom: 18px; }
+.panel-heading-tools { display: flex; align-items: center; gap: 10px; }
+.panel-heading-actions { align-items: flex-start; }
+.panel-collapse-toggle { display: inline-flex; min-height: 30px; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.panel-collapse-toggle:hover { color: var(--ink); border-color: var(--green); }
+.collapsible-panel-content { min-width: 0; }
 .panel-action-area { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .actions-label { color: var(--muted); font-size: 12px; font-weight: 700; text-align: center; text-transform: uppercase; }
 .currency-tag, .count { color: var(--green); font-size: 12px; }
@@ -129,7 +139,9 @@ button:disabled { opacity: 0.55; cursor: wait; }
 .group-row-count { margin-left: 4px; padding: 2px 6px; border-radius: 3px; background: rgba(58, 227, 116, 0.12); color: var(--green); font-size: 10px; font-weight: 700; text-transform: none; }
 .table-wrap { max-width: 100%; overflow-x: auto; }
 .bond-comparable-table {
-  overflow-x: scroll;
+  max-height: 65vh;
+  overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-color: var(--green) var(--ui-raised, rgba(124, 181, 255, 0.12));
   scrollbar-width: auto;
 }
@@ -145,6 +157,7 @@ button:disabled { opacity: 0.55; cursor: wait; }
 :host-context(body:not(.light-theme):not(.pop-theme)) .bond-comparable-table .alternate-row { background: #18394a; }
 .full-option-selector { display: flex; width: min(420px, 100%); flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
 .full-option-selector input, .full-option-selector select { width: 100%; }
+.full-option-graphs-section .app-collapsible-panel-toggle { flex: 0 0 auto; }
 .full-option-search-count { font-size: 11px; }
 .full-option-characteristics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; margin-top: 18px; border: 1px solid var(--line); background: var(--line); }
 .full-option-characteristic { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; background: var(--surface); }
@@ -182,7 +195,7 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 .error { color: #ff9b87; }
 .stale-result { color: #ff9b87; font-weight: 600; }
 .success { color: var(--green); }
-.result-section { display: grid; grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(130px, 1fr)); padding: 18px; align-items: center; }
+.result-section { position: relative; display: grid; grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(130px, 1fr)); padding: 18px; align-items: center; }
 .result-lead p:last-child { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .price-block, .winner-block { min-height: 64px; padding-left: 16px; border-left: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; gap: 5px; }
 .price-block span, .winner-block span { color: var(--muted); font-size: 10px; }
@@ -240,6 +253,9 @@ td small { color: var(--muted); margin-top: 4px; font-size: 12px; }
 
 @media (max-width: 680px) {
   .active-target-context { grid-template-columns: 1fr; gap: 8px; }
+  .active-target-content { grid-template-columns: 1fr; }
+  .panel-heading-tools { flex-wrap: wrap; justify-content: flex-end; }
+  .panel-heading-actions { max-width: 100%; }
   .active-target-details strong, .active-target-details span { white-space: normal; }
   .sticky-compare-bar { flex-direction: column; align-items: flex-start; }
 }

@@ -18,6 +18,7 @@ import {
   Tooltip
 } from 'chart.js';
 import { BondComparable } from '../../../../models/bond-comparables.model';
+import { CollapsiblePanelDirective } from '../../../../shared/directives/collapsible-panel.directive';
 import {
   BondScenarioInput,
   BondScenarioMetrics,
@@ -50,7 +51,7 @@ interface ScenarioCurveMetricOption {
 @Component({
   selector: 'app-bond-analytics-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CollapsiblePanelDirective],
   templateUrl: './bond-analytics-dashboard.component.html',
   styleUrls: ['./bond-analytics-dashboard.component.scss']
 })

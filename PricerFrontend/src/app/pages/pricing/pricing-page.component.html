@@ -1,7 +1,7 @@
 <app-bond-comparables *ngIf="selectedProduct === 'BOND'"></app-bond-comparables>
 
 <div class="pricing-layout" *ngIf="selectedProduct !== 'BOND'">
-  <section class="panel form-panel">
+  <section class="panel form-panel" appCollapsiblePanel="Formulaire de pricing" [appCollapsiblePanelHeader]="'.panel-header'">
     <div class="panel-header">{{ selectedProductLabel }}</div>
     <app-pricing-form
       [product]="selectedProduct"
@@ -14,7 +14,7 @@
     ></app-pricing-form>
   </section>
 
-  <section class="panel quote-panel">
+  <section class="panel quote-panel" appCollapsiblePanel="Suivi des cotations" [appCollapsiblePanelHeader]="'.panel-header'">
     <div class="panel-header">{{ 'quote_monitor' | translate }}</div>
     <app-quote-monitor
       [lastResponse]="lastResponse"

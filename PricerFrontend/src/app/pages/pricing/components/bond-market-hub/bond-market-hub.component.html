@@ -23,7 +23,7 @@
   <p class="message success-banner" *ngIf="appliedSuccessMessage">{{ appliedSuccessMessage }}</p>
 
   <!-- 1. LIVE MACRO BAROMETER -->
-  <div class="hub-card">
+  <div class="hub-card" appCollapsiblePanel="Indicateurs macroéconomiques" [appCollapsiblePanelHeader]="'.hub-card-header'">
     <div class="hub-card-header">
       <div class="header-titles">
         <h3>1. Baromètre macroéconomique &amp; Primes de risque</h3>
@@ -57,7 +57,7 @@
   </div>
 
   <!-- 2. YIELD CURVES COMPARISON & SLOPES -->
-  <div class="hub-card">
+  <div class="hub-card" appCollapsiblePanel="Courbes souveraines" [appCollapsiblePanelHeader]="'.hub-card-header'">
     <div class="hub-card-header">
       <div class="header-titles">
         <h3>2. Courbes souveraines de référence (Yield Curves)</h3>
@@ -127,7 +127,7 @@
   </div>
 
   <!-- 3. INDICES AND BOND ETF REFERENCES -->
-  <div class="hub-card">
+  <div class="hub-card" appCollapsiblePanel="Indices de taux et ETF obligataires" [appCollapsiblePanelHeader]="'.hub-card-header'">
     <div class="hub-card-header">
       <div class="header-titles">
         <h3>3. Indices de taux &amp; ETF obligataires de référence</h3>

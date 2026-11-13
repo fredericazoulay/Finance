@@ -1,4 +1,4 @@
-<div class="schedule" *ngIf="schedule.length">
+<div class="schedule" *ngIf="schedule.length" appCollapsiblePanel="Échéancier d'amortissement" [appCollapsiblePanelHeader]="'.schedule-heading'">
   <div class="schedule-heading">
     <h3>{{ 'amortization_schedule' | translate }}</h3>
     <button type="button" class="export-button" (click)="exportToExcel()">

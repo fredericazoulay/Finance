@@ -13,6 +13,7 @@ import { CalculatorFormComponent } from './components/calculator-form/calculator
 import { CalculatorResultsComponent } from './components/calculator-results/calculator-results.component';
 import { AmortizationScheduleComponent } from './components/amortization-schedule/amortization-schedule.component';
 import { AmortizationChartComponent } from './components/amortization-chart/amortization-chart.component';
+import { CollapsiblePanelDirective } from '../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-calculators-page',
@@ -23,7 +24,8 @@ import { AmortizationChartComponent } from './components/amortization-chart/amor
     CalculatorFormComponent,
     CalculatorResultsComponent,
     AmortizationScheduleComponent,
-    AmortizationChartComponent
+    AmortizationChartComponent,
+    CollapsiblePanelDirective
   ],
   templateUrl: './calculators-page.component.html',
   styleUrls: ['./calculators-page.component.scss']

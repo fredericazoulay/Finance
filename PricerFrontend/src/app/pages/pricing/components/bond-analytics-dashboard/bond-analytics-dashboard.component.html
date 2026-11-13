@@ -1,5 +1,5 @@
-<section class="dashboard-section">
-  <section class="scenario-section" aria-labelledby="scenario-heading">
+<section class="dashboard-section" appCollapsiblePanel="Graphiques obligataires" [appCollapsiblePanelHeader]="':scope > .dashboard-heading'">
+  <section class="scenario-section" aria-labelledby="scenario-heading" appCollapsiblePanel="Scénarios de taux" [appCollapsiblePanelHeader]="'.dashboard-heading'">
     <header class="dashboard-heading">
       <div><p class="eyebrow">01 / Sensibilité de l’obligation</p><h2 id="scenario-heading">Prix, duration et scénarios de taux</h2></div>
       <div class="scenario-context">

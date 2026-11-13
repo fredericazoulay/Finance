@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { WorkGroup, WorkGroupService } from '../../services/work-group.service';
+import { CollapsiblePanelDirective } from '../../shared/directives/collapsible-panel.directive';
 
 @Component({
   selector: 'app-group-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, CollapsiblePanelDirective],
   templateUrl: './group-page.component.html',
   styleUrls: ['./group-page.component.scss']
 })
