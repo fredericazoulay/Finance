@@ -15,6 +15,10 @@ mvn -Dmaven.test.skip=true spring-boot:run
 
 The application listens on port 9092 by default.
 
+The backend runs without a database connection. PostgreSQL and `POSTGRES_*`
+environment variables are not required. The Actuator health endpoint
+(`/actuator/health`) does not perform a database connection check.
+
 Swagger UI:
 
 ```text
