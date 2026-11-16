@@ -1,3 +1,11 @@
+
+
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+C:\Users\fazoulay\VSCode\Finance\PricerPython\.venv\Scripts\python.exe -m pip install --upgrade pip
+
+.venv\Scripts\python.exe -m streamlit run streamlit_app.py
+
 # API de pricing obligataire
 
 API Python de prototype pour calculer un spread pondéré, un rendement
@@ -36,12 +44,12 @@ confiance. Aucune source de marché n'est interrogée.
 
 Tous les endpoints utilisent `POST` et des corps JSON.
 
-| Endpoint | Corps de requête | Résultat |
-|---|---|---|
-| `/pricing/spread` | `panel`: liste de `{spread_bps, similarity_score}` | `weighted_spread_bps` |
-| `/pricing/yield` | `risk_free_rate`, `spread_bps` | `theoretical_yield` |
-| `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity` | `confidence_score` entre 0 et 1 |
-| `/pricing/price` | `coupon`, `ytm`, `settlement_date`, `maturity_date`, `nominal`, `frequency`, `day_count` | prix clean, prix dirty et intérêts courus |
+| Endpoint                | Corps de requête                                                                                      | Résultat                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `/pricing/spread`     | `panel`: liste de `{spread_bps, similarity_score}`                                                 | `weighted_spread_bps`                     |
+| `/pricing/yield`      | `risk_free_rate`, `spread_bps`                                                                     | `theoretical_yield`                       |
+| `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity`                                | `confidence_score` entre 0 et 1           |
+| `/pricing/price`      | `coupon`, `ytm`, `settlement_date`, `maturity_date`, `nominal`, `frequency`, `day_count` | prix clean, prix dirty et intérêts courus |
 
 Les taux (`coupon`, `ytm`, `risk_free_rate`) sont des nombres décimaux
 annuels : `0.04` représente 4 %. Les spreads sont en points de base.
