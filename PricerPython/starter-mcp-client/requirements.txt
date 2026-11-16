@@ -1,0 +1,10 @@
+# Exemple 1 (connexion_simple.py) : le client MCP.
+fastmcp>=4.0,<5.0
+
+# Lecture du fichier .env.
+python-dotenv>=1.0
+
+# Exemple 2 (agent_langchain.py) : le mini-agent ReAct et le modèle Mistral.
+langchain>=1.0,<2.0
+langchain-mistralai>=1.0,<2.0
+langgraph>=1.0,<2.0
