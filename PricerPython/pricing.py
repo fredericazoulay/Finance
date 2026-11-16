@@ -111,7 +111,7 @@ def _coupon_dates_around(
     months_per_period = 12 // frequency
     coupon_dates = [maturity_date]
     while coupon_dates[-1] > settlement_date:
-        coupon_dates.append(_add_months(coupon_dates[-1], -months_per_period))
+        coupon_dates.append(_add_months(maturity_date, -months_per_period * len(coupon_dates)))
 
     previous_coupon = coupon_dates[-1]
     next_coupon = coupon_dates[-2] if len(coupon_dates) > 1 else maturity_date
@@ -162,18 +162,24 @@ def bond_price(
     nominal: float = 100.0,
     frequency: int = 2,
     day_count: DayCount = "ACT/ACT",
+    redemption_percent: float = 100.0,
 ) -> dict[str, float]:
     """Calculer les prix dirty/clean avec actualisation fractionnée entre coupons.
 
     Le coupon et le YTM sont des taux annuels décimaux. Le prix est exprimé
     pour le nominal fourni. Le YTM est composé à la fréquence des coupons.
     """
-    for name, value in (("coupon", coupon), ("ytm", ytm), ("nominal", nominal)):
+    for name, value in (
+        ("coupon", coupon), ("ytm", ytm), ("nominal", nominal),
+        ("redemption_percent", redemption_percent),
+    ):
         _validate_finite(name, value)
     if coupon < 0:
         raise ValueError("Le coupon doit être positif ou nul.")
     if nominal <= 0:
         raise ValueError("Le nominal doit être strictement positif.")
+    if redemption_percent <= 0:
+        raise ValueError("Le prix de remboursement doit être strictement positif.")
     if frequency not in (1, 2, 4, 12):
         raise ValueError("La fréquence doit être 1, 2, 4 ou 12 coupons par an.")
     if settlement_date >= maturity_date:
@@ -199,7 +205,7 @@ def bond_price(
         periods = fraction_to_next_coupon + index
         cashflow = coupon_amount
         if payment_date == maturity_date:
-            cashflow += nominal
+            cashflow += nominal * redemption_percent / 100
         dirty_price += cashflow / ((1 + periodic_rate) ** periods)
 
     accrued_interest = nominal * coupon * _year_fraction(

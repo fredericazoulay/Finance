@@ -63,6 +63,9 @@ class PriceRequest(BaseModel):
     settlement_date: date
     maturity_date: date
     nominal: float = Field(default=100, gt=0)
+    redemption_percent: float = Field(
+        default=100, gt=0, description="Prix de remboursement en pourcentage du nominal."
+    )
     frequency: int = Field(default=2, description="1, 2, 4 ou 12 coupons par an.")
     day_count: DayCount = Field(
         default="ACT/ACT",
@@ -129,4 +132,5 @@ def calculate_price(request: PriceRequest) -> dict[str, float]:
         request.nominal,
         request.frequency,
         request.day_count,
+        request.redemption_percent,
     )

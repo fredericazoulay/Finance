@@ -86,3 +86,18 @@ def test_price_endpoint_rejects_invalid_frequency():
         },
     )
     assert response.status_code == 422
+
+
+def test_price_endpoint_respects_redemption_percent():
+    response = client.post(
+        "/pricing/price",
+        json={
+            "coupon": 0,
+            "ytm": 0,
+            "settlement_date": "2025-01-01",
+            "maturity_date": "2026-01-01",
+            "redemption_percent": 105,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["dirty_price"] == 105

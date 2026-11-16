@@ -14,6 +14,7 @@ from pricing import (
     theoretical_yield,
     weighted_spread,
 )
+from valuation_ui import render_history, render_valuation
 
 DAY_COUNTS: tuple[DayCount, ...] = DAY_COUNT_CONVENTIONS
 PANEL_NAME_COLUMN = "Obligation"
@@ -48,6 +49,9 @@ def _render_bond_pricing() -> None:
             )
             nominal = st.number_input(
                 "Nominal", min_value=0.01, value=100.0, step=100.0
+            )
+            redemption_percent = st.number_input(
+                "Prix de remboursement (% du nominal)", min_value=0.01, value=100.0
             )
             frequency = st.selectbox(
                 "Fréquence des coupons",
@@ -86,6 +90,7 @@ def _render_bond_pricing() -> None:
             nominal=nominal,
             frequency=frequency,
             day_count=day_count,
+            redemption_percent=redemption_percent,
         )
     except ValueError as exc:
         st.error(str(exc))
@@ -261,9 +266,19 @@ def main() -> None:
         "à une source de marché."
     )
 
-    pricing_tab, comparables_tab, confidence_tab = st.tabs(
-        ("Valoriser une obligation", "Comparables & rendement", "Confiance")
+    workflow_tab, history_tab, pricing_tab, comparables_tab, confidence_tab = st.tabs(
+        (
+            "Valorisation par Z-spread",
+            "Historique",
+            "Calcul direct",
+            "Spread simple & rendement",
+            "Confiance indicative",
+        )
     )
+    with workflow_tab:
+        render_valuation()
+    with history_tab:
+        render_history()
     with pricing_tab:
         _render_bond_pricing()
     with comparables_tab:
