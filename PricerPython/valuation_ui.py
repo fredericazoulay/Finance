@@ -9,8 +9,10 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
+import psycopg
 import streamlit as st
 
+from database import DatabaseConfigurationError, search_obligations
 from pricing import DAY_COUNT_CONVENTIONS
 from valuation import (
     Comparable,
@@ -31,6 +33,52 @@ SIMILARITY_COLUMN = "Similarité (%)"
 MATURITY_COLUMN = "Maturité (années)"
 ZERO_RATE_COLUMN = "Taux zéro (%)"
 JSON_MIME = "application/json"
+
+
+def render_obligation_catalogue() -> None:
+    st.subheader("Catalogue PostgreSQL")
+    st.caption(
+        "Recherche en lecture seule par ISIN, émetteur ou nom d'obligation."
+    )
+    with st.form("obligation_catalogue_form"):
+        search = st.text_input(
+            "ISIN, émetteur ou obligation",
+            key="obligation_catalogue_search",
+        )
+        submitted = st.form_submit_button("Rechercher")
+
+    if not submitted:
+        return
+
+    try:
+        obligations = search_obligations(search, limit=100)
+    except DatabaseConfigurationError as exc:
+        st.error(f"Configuration PostgreSQL invalide : {exc}")
+        return
+    except psycopg.Error as exc:
+        st.error(f"Connexion PostgreSQL impossible : {exc}")
+        return
+
+    if not obligations:
+        st.info("Aucune obligation ne correspond à cette recherche.")
+        return
+
+    st.caption(f"{len(obligations)} obligation(s) affichée(s), au maximum 100.")
+    columns = [
+        "isin",
+        "emetteur",
+        "type_obl",
+        "famille",
+        "sousfamille",
+        "secteur",
+        "date_maturite",
+        "devise",
+    ]
+    st.dataframe(
+        pd.DataFrame(obligations)[columns],
+        hide_index=True,
+        alt="Résultats de la recherche dans le catalogue PostgreSQL",
+    )
 
 
 def _number_or_none(value: object) -> float | None:

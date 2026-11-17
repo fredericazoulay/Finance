@@ -62,7 +62,7 @@ def test_price_endpoint_and_coupon_fraction():
     assert result["accrued_interest"] > 0
 
 
-def test_openapi_documents_all_pricing_endpoints():
+def test_openapi_documents_all_endpoints():
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
@@ -71,7 +71,44 @@ def test_openapi_documents_all_pricing_endpoints():
         "/pricing/yield",
         "/pricing/spread",
         "/pricing/confidence",
+        "/obligations",
     }.issubset(paths)
+
+
+def test_obligations_endpoint_passes_search_and_limit(monkeypatch):
+    import app as app_module
+
+    monkeypatch.setattr(
+        app_module,
+        "search_obligations",
+        lambda search, limit: [{"isin": search, "devise": "EUR"}],
+    )
+
+    response = client.get("/obligations", params={"search": "XS1000000002", "limit": 5})
+
+    assert response.status_code == 200
+    assert response.json() == [{"isin": "XS1000000002", "devise": "EUR"}]
+
+
+def test_obligations_endpoint_limits_result_size():
+    response = client.get("/obligations", params={"limit": 501})
+
+    assert response.status_code == 422
+
+
+def test_obligations_endpoint_reports_database_unavailability(monkeypatch):
+    import psycopg
+    import app as app_module
+
+    def fail_search(search, *, limit):
+        raise psycopg.OperationalError("database unavailable")
+
+    monkeypatch.setattr(app_module, "search_obligations", fail_search)
+
+    response = client.get("/obligations")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "La base PostgreSQL est indisponible."
 
 
 def test_price_endpoint_rejects_invalid_frequency():

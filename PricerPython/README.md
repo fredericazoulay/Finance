@@ -1,3 +1,4 @@
+py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 
 C:\Users\fazoulay\VSCode\Finance\PricerPython\.venv\Scripts\python.exe -m pip install --upgrade pip
@@ -5,6 +6,8 @@ C:\Users\fazoulay\VSCode\Finance\PricerPython\.venv\Scripts\python.exe -m pip in
 .venv\Scripts\python.exe -m streamlit run streamlit_app.py
 
 http://localhost:8501
+
+docker compose --env-file "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\.env" -f "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\docker-compose.yml" exec -T postgres psql -U finance_pricer -d finance_pricer -c "SELECT * FROM bp2s.obligation LIMIT 10;"
 
 # API de pricing obligataire
 
@@ -25,6 +28,29 @@ uvicorn app:app --reload
 
 Ouvrir ensuite `http://127.0.0.1:8000/docs` pour la documentation
 interactive ou `http://127.0.0.1:8000/openapi.json` pour le schéma OpenAPI.
+
+### Connexion PostgreSQL
+
+L'API et Streamlit lisent le catalogue `bp2s.obligation` en lecture seule.
+Par défaut, la configuration est chargée depuis `PricerPython\.env`, puis
+depuis `FinanceCalculatorBackend\.env` si le premier fichier n'existe pas.
+Les variables `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`,
+`POSTGRES_USER` et `POSTGRES_PASSWORD` déjà utilisées par Docker Compose sont
+réutilisées. L'hôte par défaut est `127.0.0.1`, car Python s'exécute sur
+Windows et PostgreSQL publie le port `5432`.
+
+Démarrez d'abord PostgreSQL depuis le projet backend :
+
+```powershell
+Set-Location "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend"
+docker compose --env-file .env up -d
+```
+
+Le catalogue apparaît dans l'onglet « Catalogue PostgreSQL » de Streamlit.
+L'API propose également `GET /obligations?search=XS1000000002&limit=10`.
+Si le fichier `.env` se trouve ailleurs, définissez `POSTGRES_ENV_FILE` avec
+son chemin complet avant de lancer l'API ou Streamlit. Ne versionnez jamais
+ces fichiers de configuration locaux.
 
 ## Interface Streamlit
 
@@ -67,12 +93,13 @@ Le formulaire permet de saisir les 24 champs du schéma `OBLIGATION` :
 `montant_emission`, `type_conversion`, `calendrier`, `coupon_hybride`,
 `convention_calc`, `devise`, `prix_emission` et `lei`.
 
-Le bouton « Enregistrer la fiche seule » conserve ces champs même lorsque
-l'instrument n'est pas valorisable ; aucun prix n'est alors calculé. Les
-fiches sont visibles et téléchargeables depuis l'historique. Une valorisation
-réussie inclut également les 24 champs dans la section `obligation` du rapport.
-Les fiches ne constituent pas une connexion à la table PostgreSQL officielle
-et leur enregistrement seul ne valide pas leur compatibilité financière.
+Le bouton « Enregistrer la fiche seule » conserve ces champs dans l'historique
+SQLite local, même lorsque l'instrument n'est pas valorisable ; aucun prix
+n'est alors calculé. Les fiches sont visibles et téléchargeables depuis
+l'historique. Une valorisation réussie inclut également les 24 champs dans la
+section `obligation` du rapport. L'onglet « Catalogue PostgreSQL » consulte
+la table `bp2s.obligation` en lecture seule ; il ne modifie pas cette table.
+L'enregistrement d'une fiche ne valide pas sa compatibilité financière.
 
 Pour les titres pris en charge, `prix_remboursement` est un pourcentage du
 nominal (100 par défaut), utilisé dans le dernier flux et dans le calcul du
@@ -99,7 +126,8 @@ Cette base locale n'est ni chiffrée, ni authentifiée, ni infalsifiable : elle
 ne constitue pas un registre d'audit réglementaire. Ne pas l'utiliser pour
 des données sensibles sur un poste partagé sans protections complémentaires.
 
-**Limites** : aucune connexion aux données officielles, extraction IA,
+**Limites** : le catalogue PostgreSQL fourni est un jeu de démonstration
+synthétique et non des données de marché officielles. Aucune extraction IA,
 sélection automatique, reconstruction de courbe swap, contrôle par un second
 agent ou envoi de courriel d'audit n'est implémenté. Le calcul ne traite pas
 les options, coupons irréguliers, amortissements ni les calendriers de jours
@@ -109,7 +137,8 @@ doivent être validées par un spécialiste avant toute utilisation en productio
 
 ## Endpoints
 
-Tous les endpoints utilisent `POST` et des corps JSON.
+Les routes de pricing utilisent `POST` et des corps JSON. Le catalogue
+d'obligations est exposé en `GET`.
 
 | Endpoint                | Corps de requête                                                                                      | Résultat                                   |
 | ----------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -117,6 +146,7 @@ Tous les endpoints utilisent `POST` et des corps JSON.
 | `/pricing/yield`      | `risk_free_rate`, `spread_bps`                                                                     | `theoretical_yield`                       |
 | `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity`                                | `confidence_score` entre 0 et 1           |
 | `/pricing/price`      | `coupon`, `ytm`, `settlement_date`, `maturity_date`, `nominal`, `frequency`, `day_count`, `redemption_percent` | prix clean, prix dirty et intérêts courus |
+| `GET /obligations` | Paramètres facultatifs `search` (ISIN, émetteur ou nom) et `limit` (1 à 500, défaut 100) | Fiches du catalogue PostgreSQL |
 
 Les taux (`coupon`, `ytm`, `risk_free_rate`) sont des nombres décimaux
 annuels : `0.04` représente 4 %. Les spreads sont en points de base.

@@ -14,7 +14,11 @@ from pricing import (
     theoretical_yield,
     weighted_spread,
 )
-from valuation_ui import render_history, render_valuation
+from valuation_ui import (
+    render_history,
+    render_obligation_catalogue,
+    render_valuation,
+)
 
 DAY_COUNTS: tuple[DayCount, ...] = DAY_COUNT_CONVENTIONS
 PANEL_NAME_COLUMN = "Obligation"
@@ -262,17 +266,25 @@ def main() -> None:
     )
     st.title("Pricing obligataire")
     st.caption(
-        "Prototype d'aide à la valorisation par comparables — sans connexion "
-        "à une source de marché."
+        "Catalogue PostgreSQL de démonstration ; les données de marché et "
+        "comparables restent saisis manuellement."
     )
 
-    workflow_tab, history_tab, pricing_tab, comparables_tab, confidence_tab = st.tabs(
+    (
+        workflow_tab,
+        history_tab,
+        pricing_tab,
+        comparables_tab,
+        confidence_tab,
+        catalogue_tab,
+    ) = st.tabs(
         (
             "Valorisation par Z-spread",
             "Historique",
             "Calcul direct",
             "Spread simple & rendement",
             "Confiance indicative",
+            "Catalogue PostgreSQL",
         )
     )
     with workflow_tab:
@@ -285,6 +297,8 @@ def main() -> None:
         _render_comparables()
     with confidence_tab:
         _render_confidence()
+    with catalogue_tab:
+        render_obligation_catalogue()
 
 
 if __name__ == "__main__":

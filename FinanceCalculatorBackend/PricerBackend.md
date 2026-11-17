@@ -50,6 +50,13 @@ La configuration expose également Actuator `health` et `info` sous `/actuator`.
 
 PostgreSQL est lancé séparément avec Docker Compose depuis `Finance/FinanceCalculatorBackend`. Le backend reste l'unique application et se connecte à la base `finance_pricer` sur `localhost:5432` par défaut. Les données restent dans le volume Docker `postgres_data` après l'arrêt du conteneur.
 
+Lors de la première création du volume, Docker initialise le schéma `bp2s`, crée `bp2s.obligation`, puis importe 1 000 obligations depuis `Input_files/Universal_Bond_Pricer_Dataset_1000(Bonds_1000).csv`. Ce fichier est un jeu de démonstration synthétique, pas une source de cotations réelles. Les caractéristiques sans colonne dédiée sont conservées dans le champ descriptif `obligation`; les informations absentes de la source (comme CUSIP et LEI) restent à `NULL`. Les scripts ne sont pas rejoués si le volume `postgres_data` existe déjà. Pour appliquer la création et l'import à une base existante :
+
+```powershell
+Get-Content .\db\init\01-create-obligation.sql | docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+Get-Content .\db\init\02-seed-obligation.sql | docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
 Depuis PowerShell, créez votre fichier local de configuration et renseignez un mot de passe réservé au développement local :
 
 ```powershell

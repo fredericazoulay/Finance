@@ -73,3 +73,35 @@ def test_streamlit_can_save_unsupported_instrument_as_draft(tmp_path, monkeypatc
     assert valuation_ui.list_obligations(tmp_path / "valuations.sqlite3")[0]["obligation"][
         "type_conversion"
     ] == "convertible"
+
+
+def test_streamlit_searches_postgres_catalogue(monkeypatch):
+    import valuation_ui
+
+    searches = []
+    obligation = {
+        "isin": "XS1000000002",
+        "emetteur": "Issuer 1",
+        "type_obl": "Fixed",
+        "famille": "Government",
+        "sousfamille": "Subordinated",
+        "secteur": "Sovereign",
+        "date_maturite": None,
+        "devise": "EUR",
+    }
+    monkeypatch.setattr(
+        valuation_ui,
+        "search_obligations",
+        lambda search, limit: searches.append((search, limit))
+        or [obligation],
+    )
+    app_path = Path(__file__).parents[1] / "streamlit_app.py"
+    app = AppTest.from_file(str(app_path), default_timeout=20).run()
+    app.text_input(key="obligation_catalogue_search").set_value("XS1000000002")
+    app.button(
+        key="FormSubmitter:obligation_catalogue_form-Rechercher"
+    ).click().run()
+
+    assert not app.exception
+    assert not app.error
+    assert searches == [("XS1000000002", 100)]

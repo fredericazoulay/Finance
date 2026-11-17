@@ -1,10 +1,13 @@
 """API FastAPI du prototype de pricing obligataire."""
 
 from datetime import date
+from typing import Any
 
-from fastapi import FastAPI, HTTPException
+import psycopg
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from database import DatabaseConfigurationError, search_obligations
 from pricing import (
     DayCount,
     SpreadObservation,
@@ -86,6 +89,21 @@ def _run_calculation(calculation, *args):
         return calculation(*args)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/obligations", summary="Rechercher dans le catalogue d'obligations")
+def get_obligations(
+    search: str | None = Query(default=None, max_length=100),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    try:
+        return search_obligations(search, limit=limit)
+    except DatabaseConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except psycopg.Error as exc:
+        raise HTTPException(
+            status_code=503, detail="La base PostgreSQL est indisponible."
+        ) from exc
 
 
 @app.post("/pricing/spread", summary="Calculer le spread pondéré")
