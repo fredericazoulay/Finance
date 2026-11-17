@@ -1003,6 +1003,15 @@ def main() -> None:
                     "Rank and explain comparables from the market reference.",
                 ),
             ),
+            st.Page(
+                "pages/pipeline_cas3.py",
+                title=text("Z-spread à deux dates", "Z-spread at two dates"),
+                icon=":material/timeline:",
+                help=text(
+                    "Estimer le Z-spread et le yield d'une nouvelle obligation à deux dates d'observation.",
+                    "Estimate a new bond's Z-spread and yield at two observation dates.",
+                ),
+            ),
         ],
         text("ANALYSE", "ANALYSIS"): [
             st.Page(

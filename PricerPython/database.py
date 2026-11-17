@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any
 
+from curve import SwapPoint
 import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
@@ -74,6 +76,7 @@ MARKET_OBSERVATION_COLUMNS = (
     "market_date",
     "source_name",
     "data_status",
+    "clean_price",
 )
 
 
@@ -179,3 +182,22 @@ def list_market_observations(*, limit: int = 5000) -> list[dict[str, Any]]:
             (limit,),
         ).fetchall()
     return list(rows)
+
+
+
+def list_swap_curves(*, source_name: str | None = None) -> dict[date, list[SwapPoint]]:
+    """Lire les taux swap EUR au pair par date d'observation (courbe EUR 6M)."""
+    query = "SELECT curve_date, years, par_rate FROM bp2s.swap_curve"
+    parameters: tuple[str, ...] = ()
+    if source_name:
+        query += " WHERE source_name = %s"
+        parameters = (source_name,)
+    query += " ORDER BY curve_date, years"
+    with _connect() as connection:
+        rows = connection.execute(query, parameters).fetchall()
+    curves: dict[date, list[SwapPoint]] = {}
+    for row in rows:
+        curves.setdefault(row["curve_date"], []).append(
+            SwapPoint(float(row["years"]), float(row["par_rate"]))
+        )
+    return curves

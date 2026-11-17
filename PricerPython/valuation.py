@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from curve import CurveNode
 from pricing import (
     DayCount,
     SpreadObservation,
@@ -26,12 +27,6 @@ class Comparable:
     included: bool
     reason: str
     source: str
-
-
-@dataclass(frozen=True)
-class CurveNode:
-    years: float
-    zero_rate: float
 
 
 @dataclass(frozen=True)

@@ -7,6 +7,7 @@ import psycopg
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from curve import CurveNode, SwapPoint, bootstrap_zero_curve, zero_rate_function
 from database import DatabaseConfigurationError, search_obligations
 from pricing import (
     DayCount,
@@ -16,6 +17,9 @@ from pricing import (
     theoretical_yield,
     weighted_spread,
 )
+from pipeline import PipelineTarget, run_pricing_pipeline
+from request_extraction import extract_target
+from zspread import z_spread_from_price
 
 app = FastAPI(
     title="API de pricing obligataire",
@@ -82,6 +86,89 @@ class PriceRequest(BaseModel):
         if self.frequency not in (1, 2, 4, 12):
             raise ValueError("La fréquence doit être 1, 2, 4 ou 12.")
         return self
+
+
+
+class CurveNodeInput(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    years: float = Field(gt=0, le=100, description="Maturité en années.")
+    zero_rate: float = Field(ge=-0.5, le=1, description="Taux zéro décimal annuel.")
+
+
+class CashFlowInput(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    years: float = Field(gt=0, description="Maturité du flux en années ACT/365.")
+    amount: float = Field(description="Montant du flux.")
+
+
+class ZSpreadRequest(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    cashflows: list[CashFlowInput] = Field(min_length=1)
+    curve: list[CurveNodeInput] = Field(min_length=1)
+    price: float = Field(gt=0, description="Prix de marché (dirty) de l'obligation.")
+    frequency: int = Field(default=1, description="Capitalisation de la courbe zéro : 1, 2, 4 ou 12.")
+
+
+class SwapPointInput(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    years: float = Field(gt=0, le=100, description="Maturité du swap en années.")
+    par_rate: float = Field(ge=-0.5, le=1, description="Taux swap au pair, décimal annuel.")
+
+
+class BootstrapRequest(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    swaps: list[SwapPointInput] = Field(min_length=1)
+    frequency: int = Field(default=2, description="Paiements par an des swaps (2 = EUR 6M).")
+
+
+class PipelineTargetInput(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    isin: str = ""
+    issuer: str
+    sector: str = ""
+    rating: str = ""
+    seniority: str = ""
+    currency: str = "EUR"
+    maturity_date: date
+    coupon: float = Field(ge=0, description="Taux de coupon annuel décimal.")
+    nominal: float = Field(default=100, gt=0)
+    frequency: int = Field(default=2, description="1, 2, 4 ou 12 coupons par an.")
+    day_count: DayCount = DayCount.ACT_ACT
+    settlement_date: date | None = None
+
+
+class PipelineRequest(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: PipelineTargetInput
+    comparables: list[dict[str, Any]] = Field(default_factory=list)
+    curves: dict[str, list[CurveNodeInput]] = Field(
+        description="Courbes zéro par date d'observation (clé ISO AAAA-MM-JJ)."
+    )
+    observation_dates: list[date] = Field(min_length=2, max_length=2)
+
+
+class ExtractRequest(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: str = Field(
+        min_length=3,
+        description="Demande de pricing en langage naturel (cas #3, étape 01)."
+    )
 
 
 def _run_calculation(calculation, *args):
@@ -157,3 +244,81 @@ def calculate_price(request: PriceRequest) -> dict[str, float]:
         request.day_count,
         request.redemption_percent,
     )
+
+
+
+def _parse_candidate_dates(candidate: dict[str, Any]) -> dict[str, Any]:
+    parsed = dict(candidate)
+    for key in ("issue_date", "maturity_date", "market_date"):
+        value = parsed.get(key)
+        if isinstance(value, str) and value:
+            parsed[key] = date.fromisoformat(value)
+    return parsed
+
+
+@app.post("/pricing/z-spread", summary="Calculer le Z-spread depuis un prix de marché")
+def calculate_z_spread(request: ZSpreadRequest) -> dict[str, float]:
+    nodes = [CurveNode(item.years, item.zero_rate) for item in request.curve]
+    flows = [(item.years, item.amount) for item in request.cashflows]
+    try:
+        z_spread = z_spread_from_price(
+            flows,
+            zero_rate_function(nodes),
+            request.price,
+            frequency=request.frequency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"z_spread": z_spread, "z_spread_bps": z_spread * 10_000}
+
+
+@app.post("/curve/bootstrap", summary="Bootstrapper une courbe zéro depuis des swaps EUR au pair")
+def bootstrap_curve(request: BootstrapRequest) -> dict[str, list[dict[str, float]]]:
+    try:
+        nodes = bootstrap_zero_curve(
+            [SwapPoint(item.years, item.par_rate) for item in request.swaps],
+            frequency=request.frequency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"curve": [{"years": node.years, "zero_rate": node.zero_rate} for node in nodes]}
+
+
+@app.post("/pricing/panel", summary="Pipeline cas #3 : Z-spread et yield à deux dates d'observation")
+def calculate_panel(request: PipelineRequest) -> dict[str, Any]:
+    target = PipelineTarget(
+        isin=request.target.isin,
+        issuer=request.target.issuer,
+        sector=request.target.sector,
+        rating=request.target.rating,
+        seniority=request.target.seniority,
+        currency=request.target.currency,
+        maturity_date=request.target.maturity_date,
+        coupon=request.target.coupon,
+        nominal=request.target.nominal,
+        frequency=request.target.frequency,
+        day_count=request.target.day_count,
+        settlement_date=request.target.settlement_date,
+    )
+    try:
+        comparables = [_parse_candidate_dates(c) for c in request.comparables]
+        curves = {
+            date.fromisoformat(key): [CurveNode(item.years, item.zero_rate) for item in nodes]
+            for key, nodes in request.curves.items()
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _run_calculation(
+        run_pricing_pipeline, target, comparables, curves, request.observation_dates
+    )
+
+
+@app.post(
+    "/pricing/extract-target",
+    summary="Extraire les caractéristiques d'une obligation depuis une demande en langage naturel",
+)
+def extract_target_endpoint(request: ExtractRequest) -> dict[str, Any]:
+    try:
+        return extract_target(request.request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
