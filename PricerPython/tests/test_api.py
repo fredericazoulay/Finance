@@ -72,7 +72,15 @@ def test_openapi_documents_all_endpoints():
         "/pricing/spread",
         "/pricing/confidence",
         "/obligations",
+        "/health",
     }.issubset(paths)
+
+
+def test_health_endpoint_reports_api_availability():
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_obligations_endpoint_passes_search_and_limit(monkeypatch):

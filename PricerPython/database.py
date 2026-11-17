@@ -111,3 +111,14 @@ def search_obligations(
     with _connect() as connection:
         rows = connection.execute(query, parameters).fetchall()
     return list(rows)
+
+
+def list_all_obligations() -> list[dict[str, Any]]:
+    """Lit toutes les obligations pour l'export, sans modifier la base."""
+    columns = ", ".join(OBLIGATION_COLUMNS)
+    with _connect() as connection:
+        rows = connection.execute(
+            f"SELECT {columns} FROM bp2s.obligation ORDER BY isin",
+            (),
+        ).fetchall()
+    return list(rows)

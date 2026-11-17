@@ -46,7 +46,14 @@ Set-Location "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend"
 docker compose --env-file .env up -d
 ```
 
-Le catalogue apparaît dans l'onglet « Catalogue PostgreSQL » de Streamlit.
+Le catalogue apparaît dans la page « Catalogue PostgreSQL », accessible depuis
+la barre latérale de Streamlit.
+Les 24 champs de chaque obligation sont affichés ; utilisez le menu « Colonnes »
+de la grille pour masquer ou réafficher les champs souhaités. Le sélecteur
+« Regrouper par » permet de choisir une ou plusieurs colonnes ; chaque groupe
+repliable affiche son nombre de lignes. Les commandes permettent de tout
+développer, tout réduire ou effacer le regroupement. Par défaut, les résultats
+sont regroupés par devise.
 L'API propose également `GET /obligations?search=XS1000000002&limit=10`.
 Si le fichier `.env` se trouve ailleurs, définissez `POSTGRES_ENV_FILE` avec
 son chemin complet avant de lancer l'API ou Streamlit. Ne versionnez jamais
@@ -66,9 +73,30 @@ calculer un prix clean/dirty, d'établir un spread pondéré et un rendement
 théorique à partir d'un panel saisi manuellement, et d'estimer un score de
 confiance. Aucune source de marché n'est interrogée.
 
+L'en-tête affiche la page active et l'état de l'API ; la barre latérale indique
+que le catalogue PostgreSQL est en lecture seule et regroupe la valorisation,
+le calcul direct, le catalogue, les analyses et l'historique. Un pied de page
+ancré en bas rappelle que l'application est un prototype utilisant des données
+de démonstration.
+
+La barre supérieure propose le profil local sans authentification, le groupe
+`BO_CASH`, les environnements `INT`, `REC`, `PREX` et `PROD`, le thème clair ou
+sombre et la langue française ou anglaise. Le profil, le groupe et
+l'environnement sont des indicateurs visuels : ils ne modifient ni les droits
+d'accès ni la connexion PostgreSQL, qui reste locale. Le statut « API » reflète
+le résultat de `GET /health` (actualisé au plus toutes les 10 secondes) ; pour
+le contrôler, démarrez l'API FastAPI séparément. `PRICER_API_URL` permet de
+changer l'adresse interrogée.
+
+Dans « Catalogue PostgreSQL », l'option « Alternate » alterne les couleurs des
+lignes. Le regroupement fonctionne sur une ou plusieurs colonnes et peut être
+développé, réduit ou effacé. Le bouton d'export Excel télécharge le catalogue
+complet depuis PostgreSQL avec ses 24 colonnes, indépendamment de la recherche
+qui limite l'affichage à 100 obligations.
+
 ### Valorisation par Z-spread
 
-L'onglet « Valorisation par Z-spread » relie le panel, la courbe zéro et le
+La page « Valorisation par Z-spread » relie le panel, la courbe zéro et le
 calcul du prix. Il s'appuie sur le cas d'usage n° 3 (pages 23-24) du document
 `Hackathon Gestion d'Actifs - Cas d'usages - 12nov26.pdf` : Z-spread,
 comparables, méthode explicable et courbe swap EUR 6 mois.
@@ -97,7 +125,7 @@ Le bouton « Enregistrer la fiche seule » conserve ces champs dans l'historique
 SQLite local, même lorsque l'instrument n'est pas valorisable ; aucun prix
 n'est alors calculé. Les fiches sont visibles et téléchargeables depuis
 l'historique. Une valorisation réussie inclut également les 24 champs dans la
-section `obligation` du rapport. L'onglet « Catalogue PostgreSQL » consulte
+section `obligation` du rapport. La page « Catalogue PostgreSQL » consulte
 la table `bp2s.obligation` en lecture seule ; il ne modifie pas cette table.
 L'enregistrement d'une fiche ne valide pas sa compatibilité financière.
 
@@ -147,6 +175,7 @@ d'obligations est exposé en `GET`.
 | `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity`                                | `confidence_score` entre 0 et 1           |
 | `/pricing/price`      | `coupon`, `ytm`, `settlement_date`, `maturity_date`, `nominal`, `frequency`, `day_count`, `redemption_percent` | prix clean, prix dirty et intérêts courus |
 | `GET /obligations` | Paramètres facultatifs `search` (ISIN, émetteur ou nom) et `limit` (1 à 500, défaut 100) | Fiches du catalogue PostgreSQL |
+| `GET /health` | Aucun | État de disponibilité de l'API |
 
 Les taux (`coupon`, `ytm`, `risk_free_rate`) sont des nombres décimaux
 annuels : `0.04` représente 4 %. Les spreads sont en points de base.

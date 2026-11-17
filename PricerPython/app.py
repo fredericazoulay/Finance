@@ -91,6 +91,11 @@ def _run_calculation(calculation, *args):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@app.get("/health", tags=["Health"], summary="Vérifier la disponibilité de l'API")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.get("/obligations", summary="Rechercher dans le catalogue d'obligations")
 def get_obligations(
     search: str | None = Query(default=None, max_length=100),
