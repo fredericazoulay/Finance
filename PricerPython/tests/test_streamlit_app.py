@@ -14,6 +14,10 @@ def test_topbar_language_environment_and_theme_controls():
     app_path = Path(__file__).parents[1] / "streamlit_app.py"
     app = AppTest.from_file(str(app_path), default_timeout=20).run()
 
+    assert any(
+        "Hackathon GDA 2026 JARVIS - Team PricerExMachina" in str(item.value)
+        for item in app.caption
+    )
     app.selectbox(key="app_environment").set_value("PROD").run()
     app.selectbox(key="app_language").set_value("EN").run()
     assert not app.exception
@@ -26,7 +30,7 @@ def test_topbar_language_environment_and_theme_controls():
     app.selectbox(key="app_theme").set_value("dark").run()
     assert not app.exception
     assert app.selectbox(key="app_theme").value == "dark"
-    assert any("#101820" in str(item.value) for item in app.html)
+    assert any("#07141d" in str(item.value) for item in app.html)
 
 
 def test_legacy_theme_label_is_migrated():
@@ -37,7 +41,31 @@ def test_legacy_theme_label_is_migrated():
 
     assert not app.exception
     assert app.selectbox(key="app_theme").value == "light"
-    assert any("#F8FAFC" in str(item.value) for item in app.html)
+    assert any("#f6f8fa" in str(item.value) for item in app.html)
+
+
+def test_angular_themes_are_available_and_applied():
+    app_path = Path(__file__).parents[1] / "streamlit_app.py"
+    app = AppTest.from_file(str(app_path), default_timeout=20).run()
+
+    theme_selector = app.selectbox(key="app_theme")
+    assert not app.exception
+    assert {"RAINBOW", "NEON", "POP", "BLOOMBERG"} <= set(theme_selector.options)
+    assert {
+        "COMPAGNY CDC INFORMATIQUE",
+        "MARVEL IRONMAN",
+        "DC-COMICS BATMAN",
+    } <= set(theme_selector.options)
+
+    theme_selector.set_value("neon").run()
+    assert not app.exception
+    assert any("#0a1820" in str(item.value) for item in app.html)
+    assert any("#40efdd" in str(item.value) for item in app.html)
+
+    app.selectbox(key="app_theme").set_value("compagny_cdc_informatique").run()
+    assert not app.exception
+    assert any("#57b78c" in str(item.value) for item in app.html)
+    assert app.session_state["app_theme_palette"]["primary"] == "#57b78c"
 
 
 def test_valuation_form_calculates_and_saves(tmp_path, monkeypatch):
@@ -88,6 +116,94 @@ def test_valuation_form_calculates_and_saves(tmp_path, monkeypatch):
     assert len(valuation_ui.list_reports(tmp_path / "valuations.sqlite3")) == 1
 
 
+def test_manual_valuation_judge_and_audit_require_explicit_consent(
+    tmp_path, monkeypatch
+):
+    import valuation_ui
+
+    monkeypatch.setattr(valuation_ui, "DATABASE_PATH", tmp_path / "valuations.sqlite3")
+    judge_calls = []
+    sent_reports = []
+    review = {
+        "verdict": "challenge",
+        "summary": "Vérifier la source des comparables.",
+        "critical_findings": [],
+        "other_findings": ["Données non vérifiées."],
+        "challenge_questions": ["Quelle est la source de marché ?"],
+    }
+    monkeypatch.setattr(
+        valuation_ui,
+        "audit_recipient_from_environment",
+        lambda: "audit-team@example.test",
+    )
+    monkeypatch.setattr(
+        valuation_ui,
+        "challenge_valuation_report",
+        lambda report: judge_calls.append(report) or review,
+    )
+    monkeypatch.setattr(
+        valuation_ui, "smtp_settings_from_environment", lambda: object()
+    )
+    monkeypatch.setattr(
+        valuation_ui,
+        "send_audit_email",
+        lambda report, settings: sent_reports.append(report),
+    )
+
+    app_path = Path(__file__).parents[1] / "streamlit_app.py"
+    app = AppTest.from_file(str(app_path), default_timeout=20).run()
+    app.text_input(key="valuation_issuer").set_value("Exemple")
+    app.text_input(key="valuation_curve_source").set_value("Courbe de test")
+    app.session_state["valuation_panel"] = {
+        "edited_rows": {
+            0: {
+                "Obligation / ISIN": "Titre A",
+                "Z-spread (pb)": 125.0,
+                "Similarité (%)": 80.0,
+                "Source": "Source A",
+            }
+        },
+        "added_rows": [],
+        "deleted_rows": [],
+    }
+    app.session_state["valuation_curve"] = {
+        "edited_rows": {
+            0: {"Taux zéro (%)": 2.0},
+            1: {"Taux zéro (%)": 2.5},
+            2: {"Taux zéro (%)": 3.0},
+        },
+        "added_rows": [],
+        "deleted_rows": [],
+    }
+    app.button(key="FormSubmitter:valuation_workflow-Calculer et enregistrer").click().run()
+
+    assert not app.exception
+    assert judge_calls == []
+    assert sent_reports == []
+    assert (
+        app.checkbox(key="valuation_audit_email_consent").label
+        == "Je confirme l'envoi du rapport à audit-team@example.test."
+    )
+
+    app.checkbox(key="valuation_mistral_consent").check().run()
+    app.button(key="valuation_run_judge").click().run()
+
+    assert not app.exception
+    assert len(judge_calls) == 1
+    assert app.session_state["latest_valuation_judge"] == review
+    assert (
+        app.session_state["latest_valuation_judge_report_id"]
+        == app.session_state["latest_valuation_id"]
+    )
+
+    app.checkbox(key="valuation_audit_email_consent").check().run()
+    app.button(key="valuation_send_audit").click().run()
+
+    assert not app.exception
+    assert len(sent_reports) == 1
+    assert sent_reports[0]["judge_review"] == review
+
+
 def test_streamlit_can_save_unsupported_instrument_as_draft(tmp_path, monkeypatch):
     import valuation_ui
 
@@ -110,6 +226,8 @@ def test_streamlit_searches_postgres_catalogue(monkeypatch):
     import valuation_ui
 
     searches = []
+    rendered_tables = []
+    render_dataframe = valuation_ui.st.dataframe
     obligation = {column: None for column in OBLIGATION_COLUMNS}
     obligation.update(
         {
@@ -134,8 +252,19 @@ def test_streamlit_searches_postgres_catalogue(monkeypatch):
         lambda search, limit: searches.append((search, limit))
         or [obligation, second_obligation],
     )
+
+    def capture_dataframe(dataframe, **kwargs):
+        rendered_tables.append(dataframe)
+        return render_dataframe(dataframe, **kwargs)
+
+    monkeypatch.setattr(
+        valuation_ui.st,
+        "dataframe",
+        capture_dataframe,
+    )
     app_path = Path(__file__).parents[1] / "streamlit_app.py"
     app = AppTest.from_file(str(app_path), default_timeout=20).run()
+    app.selectbox(key="app_theme").set_value("neon").run()
     app.switch_page("pages/catalogue.py").run()
     app.text_input(key="obligation_catalogue_search").set_value("XS1000000002")
     app.button(
@@ -186,6 +315,9 @@ def test_streamlit_searches_postgres_catalogue(monkeypatch):
     app.toggle(key="obligation_catalogue_alternate").set_value(True).run()
     assert not app.exception
     assert app.session_state["obligation_catalogue_alternate"]
+    table_html = rendered_tables[-1].to_html()
+    assert "#10252d" in table_html
+    assert "#15323a" in table_html
 
 
 def test_catalogue_exports_all_rows_to_xlsx(monkeypatch):

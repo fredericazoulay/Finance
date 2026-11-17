@@ -77,11 +77,18 @@ L'en-tête affiche la page active et l'état de l'API ; la barre latérale indiq
 que le catalogue PostgreSQL est en lecture seule et regroupe la valorisation,
 le calcul direct, le catalogue, les analyses et l'historique. Un pied de page
 ancré en bas rappelle que l'application est un prototype utilisant des données
-de démonstration.
+de démonstration. L'en-tête et le pied de page sont fixés sur toute la largeur
+de l'application, y compris au-dessus de la barre latérale. Les six thèmes
+standards (Light, Dark, Rainbow, Neon, Pop, Bloomberg) et les thèmes
+personnalisés du frontend Angular sont disponibles dans le sélecteur. Les
+palettes s'appliquent à l'en-tête, au pied de page, à la navigation, aux
+formulaires et aux tableaux. Le bandeau comprend aussi
+« Hackathon GDA 2026 JARVIS - Team PricerExMachina » et les logos locaux Caisse
+des Dépôts / CDC Informatique.
 
 La barre supérieure propose le profil local sans authentification, le groupe
-`BO_CASH`, les environnements `INT`, `REC`, `PREX` et `PROD`, le thème clair ou
-sombre et la langue française ou anglaise. Le profil, le groupe et
+`BO_CASH`, les environnements `INT`, `REC`, `PREX` et `PROD`, les thèmes du
+frontend Angular et la langue française ou anglaise. Le profil, le groupe et
 l'environnement sont des indicateurs visuels : ils ne modifient ni les droits
 d'accès ni la connexion PostgreSQL, qui reste locale. Le statut « API » reflète
 le résultat de `GET /health` (actualisé au plus toutes les 10 secondes) ; pour
@@ -93,6 +100,73 @@ lignes. Le regroupement fonctionne sur une ou plusieurs colonnes et peut être
 développé, réduit ou effacé. Le bouton d'export Excel télécharge le catalogue
 complet depuis PostgreSQL avec ses 24 colonnes, indépendamment de la recherche
 qui limite l'affichage à 100 obligations.
+
+### Panel automatique, agent juge et audit
+
+La page « Panel automatique » classe les candidats de
+`bp2s.market_observation` selon une méthode déterministe : devise exacte
+(filtre bloquant), puis maturité (20 %), notation (25 %), type d'émetteur
+(15 %), séniorité (15 %), type de coupon (10 %) et coupon (15 %). Les égalités
+catégorielles valent 100 points ; l'écart de maturité retire 20 points par an
+et l'écart de notation 25 points par cran. Le rapport détaille, pour chaque
+candidat, les critères concordants, les écarts, les exclusions, la source et
+les indicateurs de qualité pour les deux dates demandées.
+
+Le seed présent est explicitement `synthetic_demo`, non daté et non officiel.
+Ses `spread_bps` ne sont pas des Z-spreads ; la table ne contient pas non plus
+de prix bid/ask ni de courbe zéro EUR datée. L'application bloque donc toute
+valorisation de production à partir de ces données. La sélection est une
+démonstration du classement, pas une estimation financière. Il faut importer
+des observations licenciées et datées, les conventions/coupons, les prix et
+les courbes correspondantes avant de calculer une juste valeur.
+
+L'agent juge Mistral Large 4 peut challenger le panel automatique ou une
+valorisation manuelle. Il examine les comparables, leurs sources, les données
+de courbe et le résultat fourni, sans choisir les comparables ni modifier les
+calculs. Chaque appel externe à Mistral exige un consentement explicite ; les
+données affichées dans la confirmation sont transmises au service. La revue
+est associée au rapport correspondant et incluse dans son export JSON.
+L'envoi à la boîte d'audit n'a lieu qu'après confirmation explicite ; le
+destinataire configuré est affiché avant confirmation et un relais SMTP est
+nécessaire.
+
+Dans « Valorisation par Z-spread », les comparables restent saisis et choisis
+par l'utilisateur : l'application calcule une moyenne des Z-spreads pondérée
+par les scores de similarité saisis. Cette page ne prétend donc pas découvrir
+automatiquement les titres comparables. L'explication et les motifs de
+sélection/exclusion sont conservés dans le rapport. Le « Panel automatique »
+est la démonstration qui classe les observations du référentiel ; ses données
+synthétiques et non datées ne permettent pas une juste valeur de marché.
+
+Pour une base existante, appliquez une fois le script additif de création et
+de seed du référentiel :
+
+```powershell
+Set-Location "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend"
+docker compose --env-file .env exec -T postgres psql -v ON_ERROR_STOP=1 `
+  -U finance_pricer -d finance_pricer `
+  -f /docker-entrypoint-initdb.d/03-create-market-observations.sql
+```
+
+Le script est également exécuté automatiquement lors de l'initialisation d'une
+base neuve. Configurez les variables suivantes dans l'environnement ou le
+fichier `.env` local, sans versionner les secrets :
+
+```text
+MISTRAL_API_KEY=...
+MISTRAL_MODEL=mistral-large-4-0
+AUDIT_SMTP_HOST=...
+AUDIT_SMTP_PORT=587
+AUDIT_SMTP_USER=...
+AUDIT_SMTP_PASSWORD=...
+AUDIT_SMTP_STARTTLS=true
+AUDIT_EMAIL_FROM=...
+AUDIT_EMAIL_TO=audit@cdc.hackathon
+```
+
+`AUDIT_EMAIL_TO` est facultatif ; sans valeur, le destinataire est
+`audit@cdc.hackathon`. L'adresse effective est montrée dans la confirmation
+d'envoi.
 
 ### Valorisation par Z-spread
 
@@ -154,14 +228,17 @@ Cette base locale n'est ni chiffrée, ni authentifiée, ni infalsifiable : elle
 ne constitue pas un registre d'audit réglementaire. Ne pas l'utiliser pour
 des données sensibles sur un poste partagé sans protections complémentaires.
 
-**Limites** : le catalogue PostgreSQL fourni est un jeu de démonstration
-synthétique et non des données de marché officielles. Aucune extraction IA,
-sélection automatique, reconstruction de courbe swap, contrôle par un second
-agent ou envoi de courriel d'audit n'est implémenté. Le calcul ne traite pas
-les options, coupons irréguliers, amortissements ni les calendriers de jours
-ouvrés. ACT/ACT est ici une fraction par année civile, et la convention
-30/360 implémentée doit être vérifiée pour le titre concerné. Ces hypothèses
-doivent être validées par un spécialiste avant toute utilisation en production.
+**Limites** : le catalogue PostgreSQL et le nouveau référentiel sont des jeux
+de démonstration synthétiques, non des données de marché officielles. Le panel
+automatique explique son classement, mais ne calcule pas encore un Z-spread
+depuis des cotations et une courbe officielle à deux dates. Le juge IA est un
+challenge non décisionnel ; il ne remplace ni une validation humaine ni un
+contrôle indépendant des données. L'historique SQLite local n'est pas un
+registre d'audit réglementaire. Le calcul manuel ne traite pas les options,
+coupons irréguliers, amortissements ni les calendriers de jours ouvrés.
+ACT/ACT est ici une fraction par année civile, et la convention 30/360
+implémentée doit être vérifiée pour le titre concerné. Ces hypothèses doivent
+être validées par un spécialiste avant toute utilisation en production.
 
 ## Endpoints
 

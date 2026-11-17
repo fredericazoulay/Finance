@@ -37,13 +37,51 @@ OBLIGATION_COLUMNS = (
     "prix_emission",
     "lei",
 )
+MARKET_OBSERVATION_COLUMNS = (
+    "observation_id",
+    "isin",
+    "issuer",
+    "issuer_type",
+    "bond_type",
+    "currency",
+    "issue_date",
+    "maturity_date",
+    "coupon_type",
+    "coupon_rate_pct",
+    "day_count",
+    "payment_frequency",
+    "is_callable",
+    "is_putable",
+    "is_convertible",
+    "is_perpetual",
+    "is_inflation_linked",
+    "is_green_bond",
+    "is_social_bond",
+    "is_sustainability_bond",
+    "is_sustainability_linked",
+    "is_secured",
+    "seniority",
+    "rating_agency",
+    "rating",
+    "country",
+    "market",
+    "face_value",
+    "yield_to_maturity_pct",
+    "spread_bps",
+    "esg_score",
+    "provider_claim",
+    "reference_rate",
+    "market_date",
+    "source_name",
+    "data_status",
+)
 
 
 class DatabaseConfigurationError(RuntimeError):
     """Configuration PostgreSQL absente ou invalide."""
 
 
-def _load_database_environment() -> None:
+def load_local_environment() -> None:
     configured_env_file = os.environ.get("POSTGRES_ENV_FILE")
     if configured_env_file:
         env_file = Path(configured_env_file).expanduser()
@@ -64,7 +102,7 @@ def _load_database_environment() -> None:
 
 
 def _connect() -> psycopg.Connection[dict[str, Any]]:
-    _load_database_environment()
+    load_local_environment()
     password = os.environ.get("POSTGRES_PASSWORD")
     if not password:
         raise DatabaseConfigurationError(
@@ -120,5 +158,24 @@ def list_all_obligations() -> list[dict[str, Any]]:
         rows = connection.execute(
             f"SELECT {columns} FROM bp2s.obligation ORDER BY isin",
             (),
+        ).fetchall()
+    return list(rows)
+
+
+def list_market_observations(*, limit: int = 5000) -> list[dict[str, Any]]:
+    """Lit le référentiel de marché avec ses champs de provenance."""
+    if not 1 <= limit <= 10000:
+        raise ValueError("La limite doit être comprise entre 1 et 10 000.")
+
+    columns = ", ".join(MARKET_OBSERVATION_COLUMNS)
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT {columns}
+            FROM bp2s.market_observation
+            ORDER BY currency, maturity_date, isin
+            LIMIT %s
+            """,
+            (limit,),
         ).fetchall()
     return list(rows)

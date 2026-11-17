@@ -77,3 +77,22 @@ def test_list_all_obligations_reads_without_limit_or_writes(monkeypatch):
     assert "LIMIT" not in fake_connection.query
     assert fake_connection.parameters == ()
     assert connection_options["options"] == "-c default_transaction_read_only=on"
+
+
+def test_list_market_observations_reads_bounded_market_table(monkeypatch):
+    monkeypatch.delenv("POSTGRES_ENV_FILE", raising=False)
+    monkeypatch.setenv("POSTGRES_PASSWORD", "test-password")
+    fake_connection = FakeConnection()
+    monkeypatch.setattr(database.psycopg, "connect", lambda **options: fake_connection)
+
+    rows = database.list_market_observations(limit=42)
+
+    assert rows == [{"isin": "XS1000000002", "devise": "EUR"}]
+    assert "FROM bp2s.market_observation" in fake_connection.query
+    assert "ORDER BY currency, maturity_date, isin" in fake_connection.query
+    assert fake_connection.parameters == (42,)
+
+
+def test_list_market_observations_rejects_unbounded_limit():
+    with pytest.raises(ValueError, match="entre 1 et 10 000"):
+        database.list_market_observations(limit=10001)

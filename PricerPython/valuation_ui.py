@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import smtplib
 import sqlite3
 from dataclasses import replace
 from datetime import date, timedelta
@@ -14,6 +16,13 @@ import pandas as pd
 import psycopg
 import streamlit as st
 
+from audit_mail import (
+    AuditMailConfigurationError,
+    DEFAULT_AUDIT_RECIPIENT,
+    audit_recipient_from_environment,
+    send_audit_email,
+    smtp_settings_from_environment,
+)
 from database import (
     OBLIGATION_COLUMNS,
     DatabaseConfigurationError,
@@ -21,6 +30,11 @@ from database import (
     search_obligations,
 )
 from localization import current_language, error_text, obligation_column_label, text
+from mistral_judge import (
+    JudgeConfigurationError,
+    JudgeServiceError,
+    challenge_valuation_report,
+)
 from pricing import DAY_COUNT_CONVENTIONS
 from valuation import (
     Comparable,
@@ -71,10 +85,10 @@ def _render_obligation_table(
 ) -> None:
     display_frame = _obligation_display_frame(obligations)
     if alternate:
+        palette = st.session_state.get("app_theme_palette", {})
         colors = (
-            ("#FFFFFF", "#EAF3F8")
-            if st.session_state.get("app_theme", "light") == "light"
-            else ("#1B2835", "#243748")
+            palette.get("surface", "#ffffff"),
+            palette.get("raised", "#eaf3f8"),
         )
         display_frame = display_frame.reset_index(drop=True).style.apply(
             lambda row: [
@@ -387,6 +401,11 @@ def _parse_curve(curve: pd.DataFrame) -> list[CurveNode]:
 
 def _render_valuation_result(report: dict, report_id: int) -> None:
     result = report["result"]
+    review = (
+        st.session_state.get("latest_valuation_judge")
+        if st.session_state.get("latest_valuation_judge_report_id") == report_id
+        else None
+    )
     st.markdown(f"#### {text('Résultat', 'Result')}")
     a, b, c, d = st.columns(4)
     a.metric(
@@ -433,10 +452,107 @@ def _render_valuation_result(report: dict, report_id: int) -> None:
             st.write(error_text(description))
     st.download_button(
         text("Télécharger le rapport JSON", "Download JSON report"),
-        data=report_json(report),
+        data=report_json(
+            {
+                **report,
+                "judge_review": review,
+            }
+        ),
         file_name=f"valorisation_{report_id}.json",
         mime=JSON_MIME,
     )
+    with st.expander(
+        text("Agent juge indépendant", "Independent judge agent")
+    ):
+        st.caption(
+            text(
+                "Le juge challenge les hypothèses et le résultat sans recalculer "
+                "ni modifier les chiffres. L'appel transmet à Mistral la cible, "
+                "les comparables, les points de courbe, la méthode et les résultats.",
+                "The judge challenges assumptions and results without recalculating "
+                "or changing figures. The Mistral request sends the target, "
+                "comparables, curve points, methodology, and results.",
+            )
+        )
+        judge_consent = st.checkbox(
+            text(
+                "J'autorise l'envoi de ces données à Mistral.",
+                "I authorize sending this data to Mistral.",
+            ),
+            key="valuation_mistral_consent",
+        )
+        if st.button(
+            text("Lancer le challenge du pricing", "Challenge this valuation"),
+            key="valuation_run_judge",
+            disabled=not judge_consent,
+        ):
+            st.session_state.pop("latest_valuation_judge", None)
+            try:
+                review = challenge_valuation_report(report)
+            except (JudgeConfigurationError, JudgeServiceError) as exc:
+                st.error(str(exc))
+            else:
+                st.session_state["latest_valuation_judge"] = review
+                st.session_state["latest_valuation_judge_report_id"] = report_id
+
+        review = (
+            st.session_state.get("latest_valuation_judge")
+            if st.session_state.get("latest_valuation_judge_report_id")
+            == report_id
+            else None
+        )
+        if review:
+            st.info(f"**{review['verdict']}** · {review['summary']}")
+            for finding in review["critical_findings"]:
+                st.error(finding)
+            for finding in review["other_findings"]:
+                st.warning(finding)
+            for question in review["challenge_questions"]:
+                st.write(f"• {question}")
+
+    try:
+        recipient = audit_recipient_from_environment()
+    except AuditMailConfigurationError as exc:
+        st.error(str(exc))
+        recipient = DEFAULT_AUDIT_RECIPIENT
+        recipient_configured = False
+    else:
+        recipient_configured = True
+    email_consent = st.checkbox(
+        text(
+            f"Je confirme l'envoi du rapport à {recipient}.",
+            f"I confirm sending the report to {recipient}.",
+        ),
+        key="valuation_audit_email_consent",
+    )
+    if st.button(
+        text("Envoyer à la boîte d'audit", "Send to audit mailbox"),
+        key="valuation_send_audit",
+        disabled=not email_consent or not recipient_configured,
+    ):
+        audit_report = {
+            **report,
+            "judge_review": review,
+        }
+        try:
+            settings = smtp_settings_from_environment()
+            send_audit_email(audit_report, settings)
+        except AuditMailConfigurationError as exc:
+            st.error(str(exc))
+        except (OSError, smtplib.SMTPException) as exc:
+            st.error(
+                text(
+                    f"Envoi du rapport impossible : {exc}",
+                    f"Unable to send the report: {exc}",
+                )
+            )
+        else:
+            st.success(
+                text(
+                    "Rapport transmis à la boîte d'audit.",
+                    "Report sent to the audit mailbox.",
+                )
+            )
 
 
 def render_valuation() -> None:
@@ -706,7 +822,7 @@ def render_valuation() -> None:
                 "Source": text("Source", "Source"),
                 "Motif exclusion": text("Motif exclusion", "Exclusion reason"),
             },
-            use_container_width=True,
+            width="stretch",
         )
         st.markdown(
             f"#### {text('3 · Courbe zéro à la même date', '3 · Zero curve at the same date')}"
@@ -732,7 +848,7 @@ def render_valuation() -> None:
                     max_value=100.0,
                 ),
             },
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(
             text(
@@ -751,6 +867,10 @@ def render_valuation() -> None:
         if submitted:
             st.session_state.pop("latest_valuation", None)
             st.session_state.pop("latest_valuation_id", None)
+            st.session_state.pop("latest_valuation_judge", None)
+            st.session_state.pop("latest_valuation_judge_report_id", None)
+            st.session_state.pop("valuation_mistral_consent", None)
+            st.session_state.pop("valuation_audit_email_consent", None)
         try:
             request = ValuationRequest(
                 issuer=issuer.strip(), isin=isin.strip(), sector=sector.strip(),
@@ -865,7 +985,7 @@ def render_history() -> None:
         }
         for item in reports
     ]
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
     selected_id = st.selectbox(
         text("Afficher le rapport", "Select report"),
         [item["id"] for item in reports],
