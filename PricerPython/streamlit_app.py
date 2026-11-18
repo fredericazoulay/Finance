@@ -407,6 +407,9 @@ def _render_theme_styles(theme: str) -> None:
             color: var(--text-color);
             border-right: 1px solid var(--border-color);
         }}
+        [data-testid="stHeader"] {{
+            display: none;
+        }}
         [data-testid="stAppViewContainer"] [data-baseweb="select"] > div,
         [data-testid="stAppViewContainer"] input,
         [data-testid="stAppViewContainer"] textarea {{
@@ -440,7 +443,7 @@ def _render_theme_styles(theme: str) -> None:
             border-radius: 0;
         }}
         .st-key-global-header {{
-            top: 3.75rem;
+            top: 0;
             border-bottom: 1px solid var(--border-color);
             box-shadow: {palette["header_shadow"]};
         }}
@@ -841,7 +844,7 @@ def _render_header() -> None:
         )
         with brand:
             brand_text, caisse_logo, cdc_logo = st.columns(
-                [2.4, 0.35, 1.25],
+                [1.8, 0.35, 1.25],
                 gap="small",
                 vertical_alignment="center",
             )
@@ -1010,6 +1013,24 @@ def main() -> None:
                 help=text(
                     "Estimer le Z-spread et le yield d'une nouvelle obligation à deux dates d'observation.",
                     "Estimate a new bond's Z-spread and yield at two observation dates.",
+                ),
+            ),
+            st.Page(
+                "pages/comparateur.py",
+                title=text("Comparateur", "Comparator"),
+                icon=":material/compare_arrows:",
+                help=text(
+                    "Matrice comparative côte-à-côte, sensibilités et choc de taux.",
+                    "Side-by-side comparison matrix, sensitivities and rate shock.",
+                ),
+            ),
+            st.Page(
+                "pages/terminal_marche.py",
+                title=text("Terminal marché", "Market terminal"),
+                icon=":material/monitor:",
+                help=text(
+                    "Finder SECF, fiches DES/YAS et graphique Z-spread du référentiel.",
+                    "SECF finder, DES/YAS sheets and Z-spread chart of the reference panel.",
                 ),
             ),
         ],

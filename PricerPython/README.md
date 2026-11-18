@@ -9,6 +9,10 @@ http://localhost:8501
 
 docker compose --env-file "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\.env" -f "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\docker-compose.yml" exec -T postgres psql -U finance_pricer -d finance_pricer -c "SELECT * FROM bp2s.obligation LIMIT 10;"
 
+
+`& "$env:LOCALAPPDATA\FinancePricer\pgsql\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\FinancePricer\data" -l "$env:LOCALAPPDATA\FinancePricer\postgres.log" -o "-h 127.0.0.1 -p 5432" start`
+
+
 # API de pricing obligataire
 
 API Python de prototype pour calculer un spread pondéré, un rendement
@@ -100,6 +104,18 @@ lignes. Le regroupement fonctionne sur une ou plusieurs colonnes et peut être
 développé, réduit ou effacé. Le bouton d'export Excel télécharge le catalogue
 complet depuis PostgreSQL avec ses 24 colonnes, indépendamment de la recherche
 qui limite l'affichage à 100 obligations.
+
+Le comparateur affiche les titres sélectionnés côte à côte, y compris les
+titres échus dont les métriques et le choc de taux ne sont pas calculables.
+Le terminal marché propose les onglets SECF, DES, YAS et Graphique ; les
+filtres SECF s'appliquent au graphique. DES reste accessible pour les titres
+échus, tandis que YAS explique pourquoi un calcul est indisponible. Les
+spreads utilisant la courbe EUR ne sont calculés que pour les titres en EUR.
+L'écart YTM / taux zéro EUR utilise cette courbe swap et ne constitue pas un
+G-spread souverain.
+En l'absence de courbe enregistrée, une courbe de démonstration non datée est
+utilisée et signalée ; les résultats ne sont pas des données de marché.
+Les onglets dynamiques nécessitent Streamlit 1.55 ou plus.
 
 ### Panel automatique, agent juge et audit
 
@@ -245,14 +261,14 @@ implémentée doit être vérifiée pour le titre concerné. Ces hypothèses doi
 Les routes de pricing utilisent `POST` et des corps JSON. Le catalogue
 d'obligations est exposé en `GET`.
 
-| Endpoint                | Corps de requête                                                                                      | Résultat                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `/pricing/spread`     | `panel`: liste de `{spread_bps, similarity_score}`                                                 | `weighted_spread_bps`                     |
-| `/pricing/yield`      | `risk_free_rate`, `spread_bps`                                                                     | `theoretical_yield`                       |
-| `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity`                                | `confidence_score` entre 0 et 1           |
+| Endpoint                | Corps de requête                                                                                                              | Résultat                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `/pricing/spread`     | `panel`: liste de `{spread_bps, similarity_score}`                                                                         | `weighted_spread_bps`                     |
+| `/pricing/yield`      | `risk_free_rate`, `spread_bps`                                                                                             | `theoretical_yield`                       |
+| `/pricing/confidence` | `nb_comparables`, `avg_similarity`, `data_quality`, `liquidity`                                                        | `confidence_score` entre 0 et 1           |
 | `/pricing/price`      | `coupon`, `ytm`, `settlement_date`, `maturity_date`, `nominal`, `frequency`, `day_count`, `redemption_percent` | prix clean, prix dirty et intérêts courus |
-| `GET /obligations` | Paramètres facultatifs `search` (ISIN, émetteur ou nom) et `limit` (1 à 500, défaut 100) | Fiches du catalogue PostgreSQL |
-| `GET /health` | Aucun | État de disponibilité de l'API |
+| `GET /obligations`    | Paramètres facultatifs `search` (ISIN, émetteur ou nom) et `limit` (1 à 500, défaut 100)                               | Fiches du catalogue PostgreSQL              |
+| `GET /health`         | Aucun                                                                                                                          | État de disponibilité de l'API            |
 
 Les taux (`coupon`, `ytm`, `risk_free_rate`) sont des nombres décimaux
 annuels : `0.04` représente 4 %. Les spreads sont en points de base.
