@@ -184,6 +184,36 @@ AUDIT_EMAIL_TO=audit@cdc.hackathon
 `audit@cdc.hackathon`. L'adresse effective est montrée dans la confirmation
 d'envoi.
 
+### Tester les mails avec Mailpit
+
+La dépendance Python `mailpit-api-client` permet de consulter les messages
+capturés via l'API Mailpit. Elle n'installe ni ne démarre le serveur Mailpit,
+qui doit être lancé séparément.
+
+Pour un serveur Mailpit local utilisant ses ports par défaut, configurez le
+fichier `.env` local (sans modifier la configuration SMTP de production) :
+
+```text
+AUDIT_SMTP_HOST=127.0.0.1
+AUDIT_SMTP_PORT=1025
+AUDIT_SMTP_USER=
+AUDIT_SMTP_PASSWORD=
+AUDIT_SMTP_STARTTLS=false
+AUDIT_EMAIL_FROM=pricer@example.test
+AUDIT_EMAIL_TO=audit@example.test
+```
+
+Les mails sont capturés localement, pas distribués aux destinataires réels.
+L'interface Mailpit est accessible sur `http://127.0.0.1:8025`.
+Le consentement explicite à l'envoi reste nécessaire dans l'application.
+Pour consulter les messages depuis Python, avec Mailpit démarré :
+
+```python
+from mailpit.client.api import API
+
+messages = API("127.0.0.1:8025").get_messages()
+```
+
 ### Valorisation par Z-spread
 
 La page « Valorisation par Z-spread » relie le panel, la courbe zéro et le
