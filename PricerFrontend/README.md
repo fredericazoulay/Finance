@@ -1,3 +1,13 @@
+## Frontend toolchain
+
+Angular 22.1 requires TypeScript >=6.0 <6.1. Keep the TypeScript dependency on
+the 6.0.x line; TypeScript 7 does not provide the compiler API used by this
+Angular compiler and causes compilation initialization to fail.
+
+Run `npm ci` in this directory to install the locked dependencies, then
+`npm run build` to validate the frontend. Restart `npm start` after changing
+compiler dependencies.
+
 mvn.cmd -f "C:\Users\frede\VSCode\Finance\Pricer\pom.xml" spring-boot:run
 
 Government bond : Obligation d'État.Treasury bond (T-bond) : Obligation du Trésor américain (long terme).Corporate bond : Obligation d'entreprise.Municipal bond : Obligation municipale (aux États-Unis).Zero-coupon bond : Obligation zéro-coupon (sans versement d'intérêts périodiques).Convertible bond : Obligation convertible (en actions).High-yield bond : Obligation à haut rendement (ou junk bond / obligation pourrie).
