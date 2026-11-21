@@ -122,7 +122,12 @@ def _judge_evidence(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _render_date_result(iso_date: str, date_report: dict[str, Any]) -> None:
+def _render_date_result(
+    iso_date: str,
+    date_report: dict[str, Any],
+    currency: str,
+    nominal: float,
+) -> None:
     st.markdown(f"#### {text('Observation', 'Observation')} — {iso_date}")
     if date_report["valuation_allowed"]:
         st.success(
@@ -145,6 +150,7 @@ def _render_date_result(iso_date: str, date_report: dict[str, Any]) -> None:
 
     result = date_report["result"]
     if result:
+        st.markdown(f"**{text('Juste valeur de référence', 'Reference fair value')}**")
         cols = st.columns(3)
         cols[0].metric(
             text("Z-spread pondéré (pb)", "Weighted Z-spread (bps)"),
@@ -160,14 +166,86 @@ def _render_date_result(iso_date: str, date_report: dict[str, Any]) -> None:
         )
         cols = st.columns(3)
         cols[0].metric(
-            text("Prix dirty", "Dirty price"), f"{result['dirty_price']:.4f}"
+            text("Prix dirty", "Dirty price"),
+            f"{result['dirty_price']:.4f} {currency}",
         )
         cols[1].metric(
-            text("Prix clean", "Clean price"), f"{result['clean_price']:.4f}"
+            text("Prix clean", "Clean price"),
+            f"{result['clean_price']:.4f} {currency}",
         )
         cols[2].metric(
             text("YTM implicite", "Implied YTM"),
             f"{result['implied_ytm'] * 100:.4f} %",
+        )
+        st.caption(
+            text(
+                f"Prix exprimés pour un nominal de {nominal:g} {currency}.",
+                f"Prices are quoted for a face value of {nominal:g} {currency}.",
+            )
+        )
+
+        spread_range = result["observed_comparable_spread_range_bps"]
+        price_range = result["observed_panel_price_range"]
+        st.markdown(
+            f"**{text('Dispersion observée du panel', 'Observed panel dispersion')}**"
+        )
+        range_cols = st.columns(3)
+        range_cols[0].metric(
+            text("Z-spread min–max (pb)", "Z-spread min–max (bps)"),
+            f"{spread_range['minimum']:.2f} – {spread_range['maximum']:.2f}",
+        )
+        range_cols[1].metric(
+            text("Prix clean min–max", "Clean price min–max"),
+            f"{price_range['minimum_clean_price']:.4f} – "
+            f"{price_range['maximum_clean_price']:.4f} {currency}",
+        )
+        range_cols[2].metric(
+            text("Prix dirty min–max", "Dirty price min–max"),
+            f"{price_range['minimum_dirty_price']:.4f} – "
+            f"{price_range['maximum_dirty_price']:.4f} {currency}",
+        )
+        st.caption(
+            text(
+                "Enveloppe calculée aux spreads minimum et maximum des comparables utilisables ; "
+                "ce n'est pas un intervalle de confiance.",
+                "Range repriced at the minimum and maximum usable comparable spreads; "
+                "this is not a confidence interval.",
+            )
+        )
+
+        issue = result["issue_scenario"]
+        st.markdown(
+            f"**{text('Scénario de prix d’émission', 'Indicative issue-price scenario')}**"
+        )
+        issue_cols = st.columns(3)
+        issue_cols[0].metric(
+            text("Ajustement utilisateur (pb)", "User adjustment (bps)"),
+            f"{issue['spread_adjustment_bps']:+.2f}",
+        )
+        issue_cols[1].metric(
+            text("Z-spread du scénario (pb)", "Scenario Z-spread (bps)"),
+            f"{issue['z_spread_bps']:.2f}",
+        )
+        issue_cols[2].metric(
+            text("YTM implicite du scénario", "Scenario implied YTM"),
+            f"{issue['implied_ytm'] * 100:.4f} %",
+        )
+        issue_price_cols = st.columns(2)
+        issue_price_cols[0].metric(
+            text("Prix clean du scénario", "Scenario clean price"),
+            f"{issue['clean_price']:.4f} {currency}",
+        )
+        issue_price_cols[1].metric(
+            text("Prix dirty du scénario", "Scenario dirty price"),
+            f"{issue['dirty_price']:.4f} {currency}",
+        )
+        st.caption(
+            text(
+                "L'ajustement est saisi par l'utilisateur : positif, il élargit le spread ; "
+                "négatif, il le resserre. Il n'est pas déduit des données de marché.",
+                "The adjustment is user-entered: positive widens the spread; negative tightens it. "
+                "It is not inferred from market data.",
+            )
         )
         st.caption(
             text(
@@ -550,6 +628,20 @@ def render_pipeline() -> None:
                 step=0.05,
                 key="cas3_target_coupon_rate",
             )
+            issue_spread_adjustment_bps = st.number_input(
+                text(
+                    "Ajustement d'émission vs juste valeur (pb)",
+                    "Issue adjustment versus fair value (bps)",
+                ),
+                value=0.0,
+                step=1.0,
+                key="cas3_issue_spread_adjustment_bps",
+                help=text(
+                    "Hypothèse explicite de l'utilisateur. Une valeur positive élargit le Z-spread ; "
+                    "une valeur négative le resserre.",
+                    "Explicit user assumption. Positive values widen the Z-spread; negative values tighten it.",
+                ),
+            )
             nominal = st.number_input(
                 text("Nominal (%)", "Nominal (%)"),
                 min_value=0.01,
@@ -660,6 +752,7 @@ def render_pipeline() -> None:
                 curves,
                 [first_date, second_date],
                 limit=MAX_CANDIDATES,
+                issue_spread_adjustment_bps=issue_spread_adjustment_bps,
             )
         except ValueError as exc:
             st.error(str(exc))
@@ -681,7 +774,12 @@ def render_pipeline() -> None:
     )
     for tab, iso_date in zip(tabs, report["observation_dates"]):
         with tab:
-            _render_date_result(iso_date, report["dates"][iso_date])
+            _render_date_result(
+                iso_date,
+                report["dates"][iso_date],
+                report["target"]["currency"],
+                report["target"]["nominal"],
+            )
 
     _render_judge(report)
     _render_audit_delivery(report)

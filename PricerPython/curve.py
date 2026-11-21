@@ -1,4 +1,4 @@
-"""Construction d'une courbe de taux zéro continue à partir de taux swap EUR au pair."""
+"""Construction d'une courbe de taux zéro annuelle à partir de taux swap EUR au pair."""
 
 from __future__ import annotations
 
@@ -48,12 +48,12 @@ def _discount_at(years: float, known_years: list[float], known_discounts: list[f
 
 
 def bootstrap_zero_curve(swaps: list[SwapPoint], *, frequency: int = 2) -> list[CurveNode]:
-    """Bootstrapper les taux zéro continus depuis des taux swap au pair.
+    """Bootstrapper les taux zéro effectifs annuels depuis des taux swap au pair.
 
     Chaque swap paie un coupon fixe à la fréquence indiquée (2 = semestriel,
     standard EUR 6M). Les facteurs d'actualisation intermédiaires sont
     interpolés linéairement entre les maturités déjà bootstrappées, puis
-    convertis en taux zéro continus : r = -ln(DF) / T.
+    convertis en taux zéro annuels : r = DF^(-1/T) - 1.
     """
     if frequency not in (1, 2, 4, 12):
         raise ValueError("La fréquence doit être 1, 2, 4 ou 12 paiements par an.")
@@ -78,7 +78,7 @@ def bootstrap_zero_curve(swaps: list[SwapPoint], *, frequency: int = 2) -> list[
 
         known_years.append(maturity)
         known_discounts.append(discount)
-        nodes.append(CurveNode(maturity, -math.log(discount) / maturity))
+        nodes.append(CurveNode(maturity, discount ** (-1 / maturity) - 1))
     return nodes
 
 

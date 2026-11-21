@@ -59,6 +59,20 @@ def test_ytm_from_dirty_price_roundtrip():
     assert recovered == pytest.approx(0.035, abs=1e-6)
 
 
+def test_semiannual_duration_uses_semiannual_ytm_compounding():
+    metrics = bond_metrics(
+        settlement_date=SETTLEMENT,
+        maturity_date=MATURITY,
+        coupon=0.04,
+        ytm=0.04,
+        frequency=2,
+    )
+
+    assert metrics["macaulay_duration"] == pytest.approx(
+        metrics["modified_duration"] * (1 + 0.04 / 2), rel=1e-6
+    )
+
+
 def test_bond_metrics_computes_spreads_against_curves():
     zero_fn = _zero_fn()
     metrics = bond_metrics(
@@ -73,7 +87,8 @@ def test_bond_metrics_computes_spreads_against_curves():
 
     assert metrics["z_spread_bps"] is not None
     assert metrics["z_spread_bps"] > 0  # YTM 4,5 % au-dessus de la courbe ~3,3 %
-    expected_g = (0.045 - zero_fn(metrics["years_to_maturity"])) * 10000
+    effective_ytm = (1 + 0.045 / 2) ** 2 - 1
+    expected_g = (effective_ytm - zero_fn(metrics["years_to_maturity"])) * 10000
     assert metrics["g_spread_bps"] == pytest.approx(expected_g, abs=0.01)
     assert metrics["i_spread_bps"] == pytest.approx((0.045 - 0.033) * 10000, abs=0.01)
 

@@ -253,7 +253,10 @@ def _discounted_cashflows(
         amount = request.nominal * request.coupon / request.frequency
         if payment_date == request.maturity_date:
             amount += request.nominal * request.obligation_details.prix_remboursement / 100
-        discount_factor = math.exp(-(zero_rate + z_spread / 10000) * years)
+        discount_base = 1 + zero_rate + z_spread / 10000
+        if discount_base <= 0:
+            raise ValueError("Le taux zéro augmenté du Z-spread est incompatible avec la capitalisation annuelle.")
+        discount_factor = discount_base ** (-years)
         present_value = amount * discount_factor
         dirty_price += present_value
         cashflows.append(
@@ -298,8 +301,8 @@ def value_bond(request: ValuationRequest) -> dict:
         "obligation": obligation_snapshot(request),
         "methodology": {
             "spread": "Moyenne des Z-spreads pondérée par les similarités saisies.",
-            "curve": "Taux zéro continus, interpolation linéaire et extrapolation plate.",
-            "discount": "exp(-(taux zéro + Z-spread) * temps), temps ACT/365 fixe.",
+            "curve": "Taux zéro effectifs annuels, interpolation linéaire et extrapolation plate.",
+            "discount": "(1 + taux zéro + Z-spread)^(-temps), temps ACT/365 fixe.",
             "yield": "YTM implicite correspondant au prix dirty, avec capitalisation à la fréquence du coupon.",
             "accrual": "Convention renseignée, selon le moteur pricing.py.",
             "selection": "Sélection et scores renseignés par l'utilisateur, non automatisés.",

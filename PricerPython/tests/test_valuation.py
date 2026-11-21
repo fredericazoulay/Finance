@@ -47,10 +47,12 @@ def valuation_request():
 def test_valuation_uses_z_spread_curve_and_implied_yield(valuation_request):
     report = value_bond(valuation_request)
     result = report["result"]
-    expected_dirty = 4 * math.exp(-0.0375) + 104 * math.exp(-0.0475 * 2)
+    expected_dirty = 4 / (1 + 0.0375) + 104 / (1 + 0.0475) ** 2
     assert result["weighted_z_spread_bps"] == pytest.approx(175)
     assert result["dirty_price"] == pytest.approx(expected_dirty)
     assert result["selected_count"] == 2
+    assert report["methodology"]["curve"].startswith("Taux zéro effectifs annuels")
+    assert report["methodology"]["discount"].startswith("(1 + taux zéro + Z-spread)")
     assert bond_price(
         valuation_request.coupon,
         result["implied_ytm"],
@@ -67,7 +69,7 @@ def test_redemption_percent_changes_price_and_yield_consistently(valuation_reque
     details = ObligationDetails(prix_remboursement=105)
     request = replace(valuation_request, obligation_details=details)
     result = value_bond(request)["result"]
-    expected_dirty = 4 * math.exp(-0.0375) + 109 * math.exp(-0.0475 * 2)
+    expected_dirty = 4 / (1 + 0.0375) + 109 / (1 + 0.0475) ** 2
     assert result["dirty_price"] == pytest.approx(expected_dirty)
     assert bond_price(
         request.coupon, result["implied_ytm"], request.settlement_date,

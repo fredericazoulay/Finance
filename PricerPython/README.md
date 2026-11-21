@@ -3,15 +3,17 @@ py -m venv .venv
 
 C:\Users\fazoulay\VSCode\Finance\PricerPython\.venv\Scripts\python.exe -m pip install --upgrade pip
 
+.venv\Scripts\activate
+
 .venv\Scripts\python.exe -m streamlit run streamlit_app.py
 
 http://localhost:8501
 
 docker compose --env-file "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\.env" -f "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend\docker-compose.yml" exec -T postgres psql -U finance_pricer -d finance_pricer -c "SELECT * FROM bp2s.obligation LIMIT 10;"
 
+C:\Users\fazoulay\AppData\Local\`FinancePricer\pgsql\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\FinancePricer\data" -l "$env:LOCALAPPDATA\FinancePricer\postgres.log" -o "-h 127.0.0.1 -p 5432" start`
 
 `& "$env:LOCALAPPDATA\FinancePricer\pgsql\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\FinancePricer\data" -l "$env:LOCALAPPDATA\FinancePricer\postgres.log" -o "-h 127.0.0.1 -p 5432" start`
-
 
 # API de pricing obligataire
 
@@ -90,11 +92,12 @@ formulaires et aux tableaux. Le bandeau comprend aussi
 « Hackathon GDA 2026 JARVIS - Team PricerExMachina » et les logos locaux Caisse
 des Dépôts / CDC Informatique.
 
-La barre supérieure propose le profil local sans authentification, le groupe
-`BO_CASH`, les environnements `INT`, `REC`, `PREX` et `PROD`, les thèmes du
-frontend Angular et la langue française ou anglaise. Le profil, le groupe et
-l'environnement sont des indicateurs visuels : ils ne modifient ni les droits
-d'accès ni la connexion PostgreSQL, qui reste locale. Le statut « API » reflète
+La barre supérieure propose le profil local sans authentification, un sélecteur
+de groupe initialisé à `BO_CASH`, les environnements `INT`, `REC`, `PREX` et
+`PROD`, les thèmes du frontend Angular et la langue française ou anglaise. Le
+profil, le groupe sélectionné et l'environnement sont des indicateurs visuels :
+ils ne modifient ni les droits d'accès ni la connexion PostgreSQL, qui reste
+locale. Le statut « API » reflète
 le résultat de `GET /health` (actualisé au plus toutes les 10 secondes) ; pour
 le contrôler, démarrez l'API FastAPI séparément. `PRICER_API_URL` permet de
 changer l'adresse interrogée.
@@ -117,6 +120,20 @@ En l'absence de courbe enregistrée, une courbe de démonstration non datée est
 utilisée et signalée ; les résultats ne sont pas des données de marché.
 Les onglets dynamiques nécessitent Streamlit 1.55 ou plus.
 
+Le menu « Graphiques obligataires », dans la rubrique « GRAPHIQUES », permet
+de filtrer le référentiel par devise, notation, date de marché et statut, puis
+d'explorer les répartitions en pourcentage par devise, famille, notation et
+échéance. Les parts sont calculées en nombre d'obligations ; les familles sont
+rapprochées du catalogue par ISIN et les titres sans correspondance sont
+identifiés comme non renseignés. La page affiche aussi le YTM par échéance
+ou coupon, les spreads source et les scores ESG lorsqu'ils sont disponibles.
+La fiche sélectionnée affiche les métriques de risque, le repricing exact
+selon plusieurs chocs de YTM et une projection simple des coupons. Les flux
+supposent une obligation à taux fixe bullet sans calendrier ni stub. Les
+graphiques utilisent uniquement les champs importés ; les spreads source ne
+sont pas assimilés à des Z-spreads. Les lignes filtrées peuvent être exportées
+en CSV.
+
 ### Panel automatique, agent juge et audit
 
 La page « Panel automatique » classe les candidats de
@@ -128,6 +145,15 @@ et l'écart de notation 25 points par cran. Le rapport détaille, pour chaque
 candidat, les critères concordants, les écarts, les exclusions, la source et
 les indicateurs de qualité pour les deux dates demandées.
 
+Dans le parcours « Pricing d'une nouvelle obligation », le prix de référence
+reste calculé à partir du Z-spread pondéré des comparables. L'utilisateur peut
+ajouter séparément un ajustement de spread d'émission en points de base ; le
+rapport affiche alors le spread, le YTM et les prix clean/dirty du scénario,
+sans modifier la juste valeur de référence. Une enveloppe de prix est aussi
+recalculée aux spreads minimum et maximum observés dans les comparables
+utilisables. Cette dispersion du panel n'est pas un intervalle de confiance,
+et l'ajustement d'émission est une hypothèse saisie, pas une donnée de marché.
+
 Le seed présent est explicitement `synthetic_demo`, non daté et non officiel.
 Ses `spread_bps` ne sont pas des Z-spreads ; la table ne contient pas non plus
 de prix bid/ask ni de courbe zéro EUR datée. L'application bloque donc toute
@@ -135,6 +161,20 @@ valorisation de production à partir de ces données. La sélection est une
 démonstration du classement, pas une estimation financière. Il faut importer
 des observations licenciées et datées, les conventions/coupons, les prix et
 les courbes correspondantes avant de calculer une juste valeur.
+Le statut `official` et le nom de source sont des données déclarées ; le
+pipeline ne vérifie pas indépendamment la provenance ni les droits de licence.
+
+Le bootstrap produit des taux zéro effectifs annuels ; la courbe est interpolée
+linéairement en taux et les flux sont actualisés selon
+`1 / (1 + taux zéro + Z-spread)^temps`. Le YTM des obligations reste composé à
+la fréquence du coupon. Les conventions absentes ou non prises en charge ne
+sont pas remplacées silencieusement, et les comparables callable, puttable,
+convertibles, perpétuels ou indexés sur l'inflation sont exclus du moteur à
+taux fixe. Ces conventions reproduisent le modèle de référence, mais ne
+remplacent pas les calendriers, conventions ICMA, courbes multi-devises ou
+modèles d'options nécessaires à une valorisation de production. La convention
+`ACT/ACT` implémentée découpe les jours par année civile (style ISDA) ; elle
+n'est pas équivalente à `ACT/ACT ICMA`, qui reste non prise en charge.
 
 L'agent juge Mistral Large 4 peut challenger le panel automatique ou une
 valorisation manuelle. Il examine les comparables, leurs sources, les données

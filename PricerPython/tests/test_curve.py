@@ -25,8 +25,8 @@ def test_bootstrap_recovers_discount_factors():
     # Bootstrap semestriel explicite sur les deux premiers points.
     df_05 = 1 / (1 + 0.02 / 2)
     df_1 = (1 - (0.022 / 2) * df_05) / (1 + 0.022 / 2)
-    assert nodes[0].zero_rate == pytest.approx(-math.log(df_05) / 0.5)
-    assert nodes[1].zero_rate == pytest.approx(-math.log(df_1) / 1.0)
+    assert nodes[0].zero_rate == pytest.approx(df_05 ** (-1 / 0.5) - 1)
+    assert nodes[1].zero_rate == pytest.approx(df_1 ** (-1 / 1.0) - 1)
 
     # La courbe est croissante et les taux restent proches des swaps au pair.
     rates = [node.zero_rate for node in nodes]

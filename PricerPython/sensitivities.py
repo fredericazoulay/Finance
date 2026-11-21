@@ -57,7 +57,7 @@ def bond_metrics(
     """Métriques complètes d'une obligation à taux fixe.
 
     Prix clean/dirty via la convention street (capitalisation périodique) ;
-    duration/convexité sur les flux ACT/365 actualisés annuellement.
+    duration/convexité sur les flux ACT/365 actualisés à la fréquence du coupon.
     """
     if ytm is None:
         if dirty_price is None:
@@ -79,12 +79,23 @@ def bond_metrics(
     accrued = price["accrued_interest"]
 
     flows = bond_cashflows(settlement_date, maturity_date, coupon, nominal, frequency)
-    pv = sum(amount / (1 + ytm) ** years for years, amount in flows)
-    macaulay = sum(years * amount / (1 + ytm) ** years for years, amount in flows) / pv
-    modified = macaulay / (1 + ytm)
+    periodic_rate = ytm / frequency
+    pv = sum(amount / (1 + periodic_rate) ** (years * frequency) for years, amount in flows)
+    macaulay = (
+        sum(
+            years * amount / (1 + periodic_rate) ** (years * frequency)
+            for years, amount in flows
+        )
+        / pv
+    )
+    modified = macaulay / (1 + periodic_rate)
     convexity = (
         sum(
-            years * (years + 1) * amount / (1 + ytm) ** (years + 2)
+            years
+            * (years * frequency + 1)
+            * amount
+            / frequency
+            / (1 + periodic_rate) ** (years * frequency + 2)
             for years, amount in flows
         )
         / pv
@@ -99,8 +110,11 @@ def bond_metrics(
             z_spread_bps = round(z_spread_from_price(flows, zero_fn, dirty) * 10000, 4)
         except ValueError:
             z_spread_bps = None
+    effective_ytm = (1 + ytm / frequency) ** frequency - 1
     g_spread_bps = (
-        round((ytm - zero_fn(years_to_maturity)) * 10000, 4) if zero_fn is not None else None
+        round((effective_ytm - zero_fn(years_to_maturity)) * 10000, 4)
+        if zero_fn is not None
+        else None
     )
     i_spread_bps = (
         round((ytm - swap_rate_at_maturity) * 10000, 4)

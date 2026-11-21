@@ -60,7 +60,10 @@ def present_value(
         if not math.isfinite(years) or years <= 0 or not math.isfinite(amount):
             raise ValueError("Chaque flux doit avoir une maturité positive et un montant fini.")
         periodic_rate = (zero_rate(years) + z_spread) / frequency
-        total += amount / (1 + periodic_rate) ** (years * frequency)
+        discount_base = 1 + periodic_rate
+        if discount_base <= 0:
+            raise ValueError("Le taux d'actualisation est incompatible avec la fréquence.")
+        total += amount / discount_base ** (years * frequency)
     return total
 
 

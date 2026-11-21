@@ -56,10 +56,11 @@ def test_select_comparables_explains_rank_and_blocks_demo_valuation():
         bond_type="Floating",
         coupon_type="Floating",
     )
+    callable_bond = _candidate(isin="XS0000000007", is_callable=True)
 
     report = select_comparables(
         _target(),
-        [weaker, wrong_currency, target_bond, expired, wrong_type, best],
+        [weaker, wrong_currency, target_bond, expired, wrong_type, best, callable_bond],
     )
 
     assert [item["isin"] for item in report["selected"]] == [
@@ -74,10 +75,17 @@ def test_select_comparables_explains_rank_and_blocks_demo_valuation():
     assert "titre cible exclu du panel" in [
         item["reason"] for item in report["excluded"]
     ]
+    assert any(
+        item["reason"] == "optionnalité ou structure non prise en charge"
+        for item in report["excluded"]
+    )
     assert report["valuation_allowed"] is False
     assert any("synthétique" in flag for flag in report["quality_flags"])
     assert any("date d'observation" in flag for flag in report["quality_flags"])
     assert "pas un Z-spread" in report["spread_label"]
+    assert "maturité 20 %" in report["methodology"]
+    assert "notation 25 %" in report["methodology"]
+    assert "taux de coupon 15 %" in report["methodology"]
 
 
 def test_selection_rejects_invalid_limit():

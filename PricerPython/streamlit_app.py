@@ -9,6 +9,12 @@ from urllib.request import urlopen
 import pandas as pd
 import streamlit as st
 
+import QuantLib as ql
+import sklearn as sk
+import matplotlib as mpl
+import numpy as np 
+import scipy as sp
+
 from localization import LANGUAGE_KEY, current_language, error_text, text
 from pricing import (
     DayCount,
@@ -25,6 +31,109 @@ from valuation_ui import (
 )
 
 DAY_COUNTS: tuple[DayCount, ...] = DAY_COUNT_CONVENTIONS
+GROUP_OPTIONS = (
+    "BO",
+    "BO_ANALYSE",
+    "BO_CASH",
+    "BO_COMPTA",
+    "BO_EOD",
+    "BO_EXT",
+    "BO_EXTOTPL",
+    "BO_EXTPEPL",
+    "BO_EXTEPEL",
+    "BO_EXTVMPL",
+    "BO_EXT_OTC",
+    "BO_EXT_PE",
+    "BO_EXT_VMO",
+    "BO_MANAGER",
+    "BO_OPS",
+    "BO_OPS_FLX",
+    "BO_OTC",
+    "BO_OTC_APP",
+    "BO_OTC_SUP",
+    "BO_SEC",
+    "BO_SPE",
+    "BO_STL",
+    "BO_SUP",
+    "BO_TPO_IMP",
+    "BO_TPO_OST",
+    "BO_VALO",
+    "BO_VMOB",
+    "BO_VMOB_AP",
+    "BO_VMOB_SU",
+    "COLLATERAL",
+    "CONFIG",
+    "CONTRL-INT",
+    "CONTROL",
+    "DEOFIP",
+    "DFFE",
+    "DFFE_GES",
+    "DFFE_ST",
+    "DFI",
+    "DFINB2",
+    "DFINB3",
+    "DFINF",
+    "DFINF_ST",
+    "DPFGPA-DR",
+    "DPFGPA-WI",
+    "DPFGPTAUX",
+    "DPFIDS-DR",
+    "DPFIDS-WI",
+    "FO",
+    "FO FI",
+    "FO_AM",
+    "FO_COM",
+    "FO_CRD",
+    "FO_EOD",
+    "FO_EQD",
+    "FO_EXT",
+    "FO_FI",
+    "FO_FXD_SA",
+    "FO_FXD_TR",
+    "FO_FXMM_SA",
+    "FO_FXMM_TR",
+    "FO_FX_FWD",
+    "FO_FX_SPT",
+    "FO_IRD",
+    "FO_MM",
+    "FO_MM_TR",
+    "FO_OAT",
+    "FO_PERF",
+    "FO_PL_CTRL",
+    "FO_SALES",
+    "FO_SF",
+    "FRR",
+    "GDAFCT",
+    "GDAPT",
+    "GDAPTC",
+    "GDAPTH",
+    "GDAPTS",
+    "GDAPTT",
+    "HOUSEKEEP",
+    "INTERMED",
+    "LICADMIN",
+    "MIG_MO",
+    "MLC_ADMIN",
+    "MLC_CONFIG",
+    "MLC_EU",
+    "MLC_OPS",
+    "MLC_SUP",
+    "MLC_SUPP",
+    "MO",
+    "MO-ACPR",
+    "MO-ANALYSE",
+    "MO-BCH_CPL",
+    "MO-CLT_EXT",
+    "MO-DPFSM2",
+    "MO-EQ_NC",
+    "MO-OST_INS",
+    "MO-SUPGEST",
+    "MO2",
+    "MOASUPP_BO",
+    "MOASUPP_FO",
+    "MOASUPP_MO",
+    "MOA_CONFIG",
+)
 PANEL_NAME_COLUMN = "Obligation"
 PANEL_SPREAD_COLUMN = "Spread (pb)"
 PANEL_SIMILARITY_COLUMN = "Similarité (0-100)"
@@ -894,7 +1003,13 @@ def _render_header() -> None:
             )
         with group:
             st.caption(text("GROUPE", "GROUP"))
-            st.markdown("**BO_CASH**")
+            st.selectbox(
+                text("Groupe", "Group"),
+                GROUP_OPTIONS,
+                index=GROUP_OPTIONS.index("BO_CASH"),
+                key="app_group",
+                label_visibility="collapsed",
+            )
         with language:
             st.caption(text("LANGUE", "LANGUAGE"))
             st.selectbox(
@@ -1051,6 +1166,17 @@ def main() -> None:
                 help=text(
                     "Estimer un score indicatif à partir des comparables et de la qualité des données.",
                     "Estimate a score from comparables and data quality.",
+                ),
+            ),
+        ],
+        text("GRAPHIQUES", "CHARTS"): [
+            st.Page(
+                "pages/graphiques.py",
+                title=text("Graphiques obligataires", "Bond charts"),
+                icon=":material/monitoring:",
+                help=text(
+                    "Explorer la répartition du panel, les rendements, spreads source, flux et sensibilités obligataires.",
+                    "Explore panel distributions, yields, source spreads, cash flows and bond sensitivities.",
                 ),
             ),
         ],

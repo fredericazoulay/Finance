@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from typing import Any
@@ -52,10 +53,19 @@ def _target_bond(target: PipelineTarget, observation_date: date) -> TargetBond:
 
 
 def _day_count(value: Any) -> DayCount:
-    try:
-        return DayCount(str(value).strip().upper())
-    except ValueError:
+    if isinstance(value, DayCount):
+        return value
+    if value is None or not str(value).strip():
+        raise ValueError("Convention de décompte absente.")
+    normalized = str(value).strip().upper()
+    if normalized == "ACT/365F":
         return DayCount.ACT_365
+    try:
+        return DayCount(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            f"Convention de décompte non prise en charge : {value!r}."
+        ) from exc
 
 
 def _comparable_z_spread(
@@ -75,11 +85,25 @@ def _comparable_z_spread(
     if ytm_pct is None and clean_price is None:
         return None, None, ["YTM et prix clean absents : Z-spread non calculable"]
 
-    frequency = candidate.get("payment_frequency") or 2
-    if frequency not in (1, 2, 4, 12):
-        frequency = 2
+    raw_frequency = candidate.get("payment_frequency")
+    if raw_frequency is None or isinstance(raw_frequency, bool):
+        return None, None, ["fréquence de coupon absente ou invalide"]
+    try:
+        numeric_frequency = float(raw_frequency)
+    except (TypeError, ValueError):
+        return None, None, ["fréquence de coupon absente ou invalide"]
+    if (
+        not math.isfinite(numeric_frequency)
+        or not numeric_frequency.is_integer()
+        or int(numeric_frequency) not in (1, 2, 4, 12)
+    ):
+        return None, None, ["fréquence de coupon non prise en charge"]
+    frequency = int(numeric_frequency)
     coupon = float(coupon_pct) / 100
-    day_count = _day_count(candidate.get("day_count"))
+    try:
+        day_count = _day_count(candidate.get("day_count"))
+    except ValueError as exc:
+        return None, None, [str(exc)]
     if ytm_pct is not None:
         price = bond_price(
             coupon, float(ytm_pct) / 100, observation_date, maturity, 100.0, frequency, day_count
@@ -127,7 +151,11 @@ _METHODOLOGY = (
     "par bisection pour que la somme de ses flux actualisés à (taux zéro + Z) égale "
     "ce prix. Le Z-spread cible est la moyenne des Z-spreads des comparables "
     "pondérée par les scores de similarité. Le yield est le taux zéro à maturité "
-    "(courbe zéro EUR bootstrapée depuis les swaps EUR 6M) plus le Z-spread."
+    "(courbe zéro EUR bootstrapée depuis les swaps EUR 6M) plus le Z-spread. "
+    "L'enveloppe de prix est recalculée aux Z-spreads minimum et maximum observés "
+    "dans le panel utilisable ; ce n'est pas un intervalle de confiance. "
+    "L'ajustement d'émission est appliqué séparément au spread central pour fournir "
+    "un scénario indicatif, sans modifier la juste valeur de référence."
 )
 
 
@@ -138,6 +166,7 @@ def _run_date(
     observation_date: date,
     *,
     limit: int,
+    issue_spread_adjustment_bps: float,
 ) -> dict[str, Any]:
     settlement = target.settlement_date or observation_date
     flags: list[str] = []
@@ -183,6 +212,11 @@ def _run_date(
                     for item in usable
                 ]
             )
+            comparable_spreads = [
+                float(item["z_spread_bps"]) for item in usable
+            ]
+            min_comparable_spread = min(comparable_spreads)
+            max_comparable_spread = max(comparable_spreads)
             maturity_years = (target.maturity_date - settlement).days / 365
             zero_rate = zero_rate_at(maturity_years, nodes)
             yield_decimal = zero_rate + z_spread_bps / 10000
@@ -199,6 +233,14 @@ def _run_date(
                 target.frequency,
                 target.day_count,
             )["accrued_interest"]
+            panel_dirty_prices = [
+                present_value(flows, zero_fn, spread / 10000)
+                for spread in comparable_spreads
+            ]
+            issue_z_spread_bps = z_spread_bps + issue_spread_adjustment_bps
+            issue_dirty_price = present_value(
+                flows, zero_fn, issue_z_spread_bps / 10000
+            )
             result = {
                 "weighted_z_spread_bps": round(z_spread_bps, 4),
                 "zero_rate_at_maturity": round(zero_rate, 8),
@@ -209,16 +251,46 @@ def _run_date(
                 "implied_ytm": round(_implied_ytm(target, settlement, dirty_price), 8),
                 "comparables_used": [item.get("isin") for item in usable],
                 "comparables_used_count": len(usable),
+                "observed_comparable_spread_range_bps": {
+                    "minimum": round(min_comparable_spread, 4),
+                    "maximum": round(max_comparable_spread, 4),
+                },
+                "observed_panel_price_range": {
+                    "minimum_clean_price": round(
+                        min(panel_dirty_prices) - accrued, 8
+                    ),
+                    "maximum_clean_price": round(
+                        max(panel_dirty_prices) - accrued, 8
+                    ),
+                    "minimum_dirty_price": round(min(panel_dirty_prices), 8),
+                    "maximum_dirty_price": round(max(panel_dirty_prices), 8),
+                },
+                "issue_scenario": {
+                    "spread_adjustment_bps": issue_spread_adjustment_bps,
+                    "z_spread_bps": round(issue_z_spread_bps, 4),
+                    "yield_from_curve_and_z_spread": round(
+                        zero_rate + issue_z_spread_bps / 10000, 8
+                    ),
+                    "implied_ytm": round(
+                        _implied_ytm(target, settlement, issue_dirty_price), 8
+                    ),
+                    "dirty_price": round(issue_dirty_price, 8),
+                    "clean_price": round(issue_dirty_price - accrued, 8),
+                },
             }
         else:
             flags.append("Aucun comparable avec un Z-spread calculable à cette date.")
 
     official = bool(selection["selected"]) and all(
-        item.get("data_status") == "official" for item in selection["selected"]
+        item.get("data_status") == "official"
+        and bool(str(item.get("source_name") or "").strip())
+        and item.get("market_date") == observation_date
+        and item.get("z_spread_bps") is not None
+        for item in selection["selected"]
     )
     if selection["selected"] and not official:
         flags.append(
-            "La provenance des données n'est pas certifiée 'official' ; valorisation indicative uniquement."
+            "La valorisation de production exige, pour chaque comparable, des conventions calculables, une source et le statut 'official' ; valorisation indicative uniquement."
         )
 
     return {
@@ -241,8 +313,15 @@ def run_pricing_pipeline(
     observation_dates: list[date],
     *,
     limit: int = 5,
+    issue_spread_adjustment_bps: float = 0.0,
 ) -> dict[str, Any]:
     """Estimer le Z-spread et le yield de la cible à chacune des deux dates d'observation."""
+    if (
+        isinstance(issue_spread_adjustment_bps, bool)
+        or not isinstance(issue_spread_adjustment_bps, (int, float))
+        or not math.isfinite(issue_spread_adjustment_bps)
+    ):
+        raise ValueError("L'ajustement de spread d'émission doit être un nombre fini.")
     if len(observation_dates) != 2:
         raise ValueError("Indiquez exactement deux dates d'observation.")
     if observation_dates[0] >= observation_dates[1]:
@@ -251,6 +330,8 @@ def run_pricing_pipeline(
         raise ValueError("Ce pipeline ne traite que les obligations en EUR.")
     if target.frequency not in (1, 2, 4, 12):
         raise ValueError("La fréquence doit être 1, 2, 4 ou 12 coupons par an.")
+    if target.coupon_type.strip().casefold() != "fixed" or target.bond_type.strip().casefold() != "fixed":
+        raise ValueError("Le pipeline ne traite que les obligations simples à taux fixe.")
 
     return {
         "schema_version": 1,
@@ -258,9 +339,19 @@ def run_pricing_pipeline(
         "target": asdict(target),
         "observation_dates": [d.isoformat() for d in observation_dates],
         "curve_source": "courbe zéro EUR bootstrapée depuis les taux swap EUR 6M au pair",
+        "issue_spread_adjustment_bps": issue_spread_adjustment_bps,
+        "issue_spread_adjustment_description": (
+            "Ajustement saisi par l'utilisateur, appliqué au Z-spread pondéré "
+            "uniquement dans le scénario de prix d'émission."
+        ),
         "dates": {
             observation_date.isoformat(): _run_date(
-                target, candidates, curves.get(observation_date), observation_date, limit=limit
+                target,
+                candidates,
+                curves.get(observation_date),
+                observation_date,
+                limit=limit,
+                issue_spread_adjustment_bps=issue_spread_adjustment_bps,
             )
             for observation_date in observation_dates
         },

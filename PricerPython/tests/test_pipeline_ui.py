@@ -93,6 +93,7 @@ def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
     app.text_input(key="cas3_target_rating").set_value("BBB")
     app.text_input(key="cas3_target_seniority").set_value("Senior")
     app.number_input(key="cas3_target_coupon_rate").set_value(4.0)
+    app.number_input(key="cas3_issue_spread_adjustment_bps").set_value(25.0)
     app.date_input(key="cas3_target_maturity").set_value(date(2031, 10, 15))
     app.text_area(key=f"cas3_swaps_{DATE_1.isoformat()}").set_value(SWAP_TEXT)
     app.text_area(key=f"cas3_swaps_{DATE_2.isoformat()}").set_value(SWAP_TEXT)
@@ -102,6 +103,7 @@ def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
     assert not app.error
     report = app.session_state[pipeline_ui.REPORT_KEY]
     assert report["observation_dates"] == [DATE_1.isoformat(), DATE_2.isoformat()]
+    assert report["issue_spread_adjustment_bps"] == 25
     for iso_date in (DATE_1.isoformat(), DATE_2.isoformat()):
         date_report = report["dates"][iso_date]
         assert date_report["valuation_allowed"] is True
@@ -109,6 +111,10 @@ def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
         assert result is not None
         assert result["weighted_z_spread_bps"] > 0
         assert result["comparables_used_count"] == 1
+        assert result["issue_scenario"]["spread_adjustment_bps"] == 25
+        assert result["issue_scenario"]["z_spread_bps"] == round(
+            result["weighted_z_spread_bps"] + 25, 4
+        )
         expected_yield = (
             result["zero_rate_at_maturity"] + result["weighted_z_spread_bps"] / 10000
         )

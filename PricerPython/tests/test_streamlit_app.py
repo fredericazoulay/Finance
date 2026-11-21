@@ -18,6 +18,10 @@ def test_topbar_language_environment_and_theme_controls():
         "Hackathon GDA 2026 JARVIS - Team PricerExMachina" in str(item.value)
         for item in app.caption
     )
+    assert app.selectbox(key="app_group").value == "BO_CASH"
+    app.selectbox(key="app_group").set_value("BO_ANALYSE").run()
+    assert not app.exception
+    assert app.selectbox(key="app_group").value == "BO_ANALYSE"
     app.selectbox(key="app_environment").set_value("PROD").run()
     app.selectbox(key="app_language").set_value("EN").run()
     assert not app.exception

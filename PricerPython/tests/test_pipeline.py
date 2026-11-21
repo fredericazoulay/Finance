@@ -141,6 +141,50 @@ def test_pipeline_prices_target_at_two_dates():
     assert [item["isin"] for item in second["selected"]] == ["XS0000000003"]
 
 
+def test_pipeline_separates_issue_adjustment_from_fair_value():
+    baseline = run_pricing_pipeline(_target(), _candidates(), _curves(), [D1, D2])
+    adjusted = run_pricing_pipeline(
+        _target(),
+        _candidates(),
+        _curves(),
+        [D1, D2],
+        issue_spread_adjustment_bps=25,
+    )
+
+    baseline_result = baseline["dates"][D1.isoformat()]["result"]
+    adjusted_result = adjusted["dates"][D1.isoformat()]["result"]
+    assert adjusted["issue_spread_adjustment_bps"] == 25
+    assert adjusted_result["weighted_z_spread_bps"] == pytest.approx(
+        baseline_result["weighted_z_spread_bps"]
+    )
+    assert adjusted_result["clean_price"] == pytest.approx(
+        baseline_result["clean_price"]
+    )
+
+    issue_scenario = adjusted_result["issue_scenario"]
+    assert issue_scenario["z_spread_bps"] == pytest.approx(
+        adjusted_result["weighted_z_spread_bps"] + 25
+    )
+    assert issue_scenario["clean_price"] < adjusted_result["clean_price"]
+    assert issue_scenario["implied_ytm"] > adjusted_result["implied_ytm"]
+
+    panel_range = adjusted_result["observed_panel_price_range"]
+    assert panel_range["minimum_clean_price"] <= adjusted_result["clean_price"]
+    assert adjusted_result["clean_price"] <= panel_range["maximum_clean_price"]
+    assert "pas un intervalle de confiance" in adjusted["dates"][D1.isoformat()]["methodology"]
+
+
+def test_pipeline_rejects_non_finite_issue_spread_adjustment():
+    with pytest.raises(ValueError, match="nombre fini"):
+        run_pricing_pipeline(
+            _target(),
+            _candidates(),
+            _curves(),
+            [D1, D2],
+            issue_spread_adjustment_bps=float("nan"),
+        )
+
+
 def test_pipeline_degrades_gracefully_without_curve_or_dated_data():
     candidates = [_candidate(market_date=None)]
     report = run_pricing_pipeline(_target(), candidates, {D1: [CurveNode(1, 0.02)]}, [D1, D2])
@@ -164,6 +208,43 @@ def test_pipeline_marks_non_official_data_as_indicative():
     assert first["result"] is not None
     assert first["valuation_allowed"] is False
     assert any("official" in flag for flag in first["quality_flags"])
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected_note"),
+    [
+        ({"payment_frequency": 3}, "fréquence de coupon non prise en charge"),
+        ({"day_count": "ACT/ACT ICMA"}, "Convention de décompte non prise en charge"),
+    ],
+)
+def test_pipeline_blocks_unrecognized_comparable_conventions(overrides, expected_note):
+    candidate = _candidate(**overrides)
+    report = run_pricing_pipeline(_target(), [candidate], _curves(), [D1, D2])
+
+    first = report["dates"]["2026-01-02"]
+    assert first["selected"][0]["z_spread_bps"] is None
+    assert first["valuation_allowed"] is False
+    assert any(expected_note in flag for flag in first["quality_flags"])
+
+
+def test_pipeline_blocks_valuation_when_one_selected_comparable_is_unusable():
+    candidates = [
+        _candidate(),
+        _candidate(isin="XS0000000002", payment_frequency=3),
+    ]
+    report = run_pricing_pipeline(_target(), candidates, _curves(), [D1, D2])
+
+    first = report["dates"]["2026-01-02"]
+    assert first["result"] is not None
+    assert first["valuation_allowed"] is False
+    assert any("conventions calculables" in flag for flag in first["quality_flags"])
+
+
+def test_pipeline_rejects_non_fixed_target_structure():
+    with pytest.raises(ValueError, match="obligations simples à taux fixe"):
+        run_pricing_pipeline(
+            replace(_target(), bond_type="Floating"), _candidates(), _curves(), [D1, D2]
+        )
 
 
 def test_pipeline_uses_clean_price_when_ytm_is_missing():

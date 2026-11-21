@@ -62,6 +62,21 @@ _WEIGHTS = {
     "coupon type": 10,
     "coupon rate": 15,
 }
+_WEIGHT_LABELS = {
+    "maturity": "maturité",
+    "rating": "notation",
+    "sector": "secteur / type d'émetteur",
+    "seniority": "séniorité",
+    "coupon type": "type de coupon",
+    "coupon rate": "taux de coupon",
+}
+_UNSUPPORTED_STRUCTURE_FLAGS = (
+    "is_callable",
+    "is_putable",
+    "is_convertible",
+    "is_perpetual",
+    "is_inflation_linked",
+)
 
 
 @dataclass(frozen=True)
@@ -81,6 +96,21 @@ class TargetBond:
 
 def _normalized(value: Any) -> str:
     return str(value or "").strip().casefold()
+
+
+def _flag_is_enabled(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value).strip().casefold()
+    if normalized in {"", "false", "no", "non", "n", "0", "off"}:
+        return False
+    if normalized in {"true", "yes", "oui", "y", "1", "on"}:
+        return True
+    return True
 
 
 def _rating_notch(value: Any) -> int | None:
@@ -186,6 +216,17 @@ def select_comparables(
         if _normalized(candidate.get("currency")) != _normalized(target.currency):
             excluded.append({"isin": isin, "reason": "devise différente"})
             continue
+        if any(
+            _flag_is_enabled(candidate.get(flag))
+            for flag in _UNSUPPORTED_STRUCTURE_FLAGS
+        ):
+            excluded.append(
+                {
+                    "isin": isin,
+                    "reason": "optionnalité ou structure non prise en charge",
+                }
+            )
+            continue
         if isinstance(candidate.get("maturity_date"), date) and (
             candidate["maturity_date"] <= target.observation_date
         ):
@@ -265,6 +306,10 @@ def select_comparables(
         flags.append(
             "Un ou plusieurs comparables n'ont pas de spread source."
         )
+    if any(not str(item.get("source_name") or "").strip() for item in selected):
+        flags.append(
+            "La source de marché d'un ou plusieurs comparables est absente."
+        )
     if any(item.get("market_date") != target.observation_date for item in selected):
         flags.append(
             "Aucun spread de marché vérifié n'est disponible à la date d'observation cible."
@@ -281,6 +326,10 @@ def select_comparables(
             "Les scores ESG sont synthétiques ou non vérifiés et ne contribuent pas au score de comparabilité."
         )
 
+    methodology_weights = ", ".join(
+        f"{_WEIGHT_LABELS[criterion]} {_WEIGHTS[criterion]} %"
+        for criterion in _WEIGHTS
+    )
     return {
         "target": {
             "isin": target.isin,
@@ -299,8 +348,9 @@ def select_comparables(
         "methodology": (
             "Devise identique et exclusion de l'ISIN cible sont des filtres "
             "bloquants. Les autres critères sont notés sur 100 puis pondérés : "
-            "maturité 25 %, notation 25 %, secteur 20 %, séniorité 15 %, "
-            "type de coupon 15 %. L'écart de maturité retire 20 points par an ; "
+            f"{methodology_weights}. Le critère secteur / type d'émetteur compare "
+            "la valeur cible au champ issuer_type disponible. "
+            "L'écart de maturité retire 20 points par an ; "
             "l'écart de notation retire 25 points par cran. Les égalités "
             "catégorielles valent 100, les différences ou données manquantes 0. "
             "Les ex aequo sont départagés par l'écart de maturité puis l'ISIN."
