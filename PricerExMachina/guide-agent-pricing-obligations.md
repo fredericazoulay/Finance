@@ -1,6 +1,6 @@
 # Guide de création d’un agent de pricing d’obligations
 
-> **Sources et limite :** ce guide s’appuie sur le besoin du hackathon et la documentation Mistral Studio. Le contenu des diapositives du PDF `studio-demo-deck-mna-walkthrough-FR.pdf` n’a pas pu être extrait dans cette session ; les étapes propres à cette présentation ne sont donc pas reprises.
+> **Sources et limite :** ce guide s’appuie sur le besoin du hackathon, le PDF [SIGMA-Presentation-Mistral](../FinanceCalculatorBackend/Hackathon/SIGMA-Presentation-Mistral.pdf) et la documentation Mistral Studio. Le PDF `studio-demo-deck-mna-walkthrough-FR.pdf` n’a pas pu être lu dans cette session ; ses étapes propres ne sont donc pas reprises.
 
 ## Objectif
 
@@ -77,6 +77,19 @@ PricerExMachina/
 | `app/audit.py` | Envoi SMTP de la trace et lecture des métadonnées Mailpit en environnement de développement. |
 | `streamlit_app.py` | Interface de saisie, affichage des résultats et graphiques matplotlib. |
 | `tests/` | Tests pytest de l’API, de l’import, de l’audit, de la sélection et de la valorisation. |
+
+## Workflow Studio inspiré de la présentation SIGMA
+
+La présentation montre un workflow composé de quatre étapes : collecte, analyses parallèles, score, puis approbation humaine (HITL). Elle insiste aussi sur l’évaluation par scores détaillés et sur la traçabilité des versions de prompts. Pour le pricing obligataire, adapter ce modèle ainsi :
+
+1. **Recevoir et valider la demande** : extraire les caractéristiques de l’obligation et demander les champs indispensables absents.
+2. **Collecter les données** : appeler les outils applicatifs en lecture seule pour récupérer les observations officielles et la courbe correspondante.
+3. **Contrôler en parallèle** : faire examiner séparément la qualité des données, la pertinence des comparables et la cohérence des conventions/flux. Ces vérifications peuvent être parallèles ; la valeur numérique du spread et du prix doit toujours provenir du calcul déterministe, pas d’une moyenne des réponses de modèles.
+4. **Évaluer et faire valider** : vérifier les seuils métier et soumettre les dossiers complexes, incomplets ou contradictoires à une revue humaine avant toute décision d’investissement.
+
+Créer le workflow dans la section **Workflows** de Mistral Studio, et conserver les instructions de l’agent dans **Prompts** avec une version identifiable. Dans **Évaluations**, constituer un jeu de cas de référence couvrant les cas simples, intermédiaires et complexes ; noter séparément la qualité du panel, l’écart de spread/prix et le respect des avertissements. Enregistrer la version du prompt et les résultats de chaque évaluation. Ne pas traiter le score de 68 % illustré dans la présentation comme un seuil de fiabilité applicable au pricing : calibrer tout seuil sur des cas historiques évalués par des experts et demander une revue humaine en l’absence de calibration.
+
+**État du code actuel :** l’API et l’interface réalisent le calcul déterministe ; l’appel Mistral facultatif explique un résultat déjà calculé. Le workflow Studio, les agents de contrôle parallèles et l’étape HITL ne sont pas provisionnés ni déployés par le code actuel. Ils doivent être créés et évalués dans le workspace autorisé avant d’annoncer cette orchestration comme opérationnelle.
 
 ## Étapes dans Mistral Studio
 

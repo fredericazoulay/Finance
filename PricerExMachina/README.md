@@ -120,6 +120,14 @@ Si `SMTP_HOST` et `SMTP_FROM` sont définis, `/api/pricing` envoie la trace stru
 
 Les données de démonstration du dépôt ne suffisent pas à produire une valorisation de marché : elles ne comportent pas les dates d’observation requises et les spreads ne sont pas qualifiés. Il faut importer des observations officielles datées, confirmer les conventions de spread, fournir une courbe zéro approuvée et transmettre les cashflows nécessaires.
 
+## Recommandations Mistral Studio (présentation SIGMA)
+
+Le parcours présenté dans [SIGMA-Presentation-Mistral](../FinanceCalculatorBackend/Hackathon/SIGMA-Presentation-Mistral.pdf) est un workflow en quatre temps : collecte, contrôles/analyses parallèles, scoring, puis approbation humaine (HITL). Pour l’obligataire, les vérifications parallèles peuvent porter sur la qualité des données, la pertinence des comparables et les conventions de valorisation ; seul le moteur déterministe de l’application calcule le prix et le spread.
+
+Versionner les prompts Studio, conserver leur identifiant/version avec les traces et évaluer chaque version sur un jeu de cas historiques validés. Mesurer séparément panel, erreur de spread/prix et traitement des cas incomplets ; ne pas reprendre le score de 68 % montré dans la présentation comme seuil de fiabilité du pricer.
+
+**Limite actuelle :** ce dépôt n’installe ni ne déploie un workflow Studio, les contrôles parallèles ou l’approbation HITL. Mistral est actuellement limité à l’explication facultative des résultats. Ces éléments nécessitent une configuration et une validation dans le workspace Studio avant mise en production.
+
 ## Tests
 
 ```powershell
