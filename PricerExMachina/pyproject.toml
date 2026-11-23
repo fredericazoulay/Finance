@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pricer-ex-machina"
+version = "0.1.0"
+description = "Deterministic, data-gated bond comparable pricing MVP"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+mistral = ["mistralai>=1.0,<3"]
+dev = ["psycopg[binary]>=3.2,<4", "mistralai>=1.0,<3"]
+
+[tool.setuptools]
+packages = ["app"]

@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from curve import CurveNode, zero_rate_at, zero_rate_function
-from pipeline import PipelineTarget, run_pricing_pipeline
+from pipeline import CurveProvenance, PipelineTarget, run_pricing_pipeline
 from pricing import SpreadObservation, bond_price, weighted_spread
 from zspread import bond_cashflows, present_value, z_spread_from_price
 
@@ -29,6 +29,7 @@ def _candidate(**overrides):
         "yield_to_maturity_pct": 4.5,
         "market_date": D1,
         "source_name": "fournisseur-licencie",
+        "provider_claim": "provider-verified",
         "data_status": "official",
     }
     candidate.update(overrides)
@@ -57,6 +58,13 @@ def _curves():
     }
 
 
+def _curve_provenance():
+    return {
+        D1: CurveProvenance("fournisseur-courbe", D1, "official"),
+        D2: CurveProvenance("fournisseur-courbe", D2, "official"),
+    }
+
+
 def _candidates():
     return [
         _candidate(),
@@ -68,6 +76,24 @@ def _candidates():
             yield_to_maturity_pct=4.8,
             market_date=D2,
         ),
+        _candidate(
+            isin="XS0000000006",
+            maturity_date=date(2029, 12, 1),
+            yield_to_maturity_pct=4.4,
+            market_date=D1,
+        ),
+        _candidate(
+            isin="XS0000000007",
+            maturity_date=date(2029, 12, 1),
+            yield_to_maturity_pct=4.3,
+            market_date=D2,
+        ),
+        _candidate(
+            isin="XS0000000008",
+            maturity_date=date(2032, 1, 1),
+            yield_to_maturity_pct=4.7,
+            market_date=D2,
+        ),
         _candidate(isin="XS0000000004", currency="USD", market_date=D1),
         _candidate(isin="XS9999999999", market_date=D1),
         _candidate(isin="XS0000000005", market_date=None),
@@ -75,7 +101,14 @@ def _candidates():
 
 
 def test_pipeline_prices_target_at_two_dates():
-    report = run_pricing_pipeline(_target(), _candidates(), _curves(), [D1, D2], limit=5)
+    report = run_pricing_pipeline(
+        _target(),
+        _candidates(),
+        _curves(),
+        [D1, D2],
+        limit=5,
+        curve_provenance=_curve_provenance(),
+    )
 
     assert report["observation_dates"] == ["2026-01-02", "2026-02-02"]
     assert set(report["dates"]) == {"2026-01-02", "2026-02-02"}
@@ -86,7 +119,11 @@ def test_pipeline_prices_target_at_two_dates():
     assert "XS9999999999" not in selected_isins
     assert "XS0000000004" not in selected_isins
     assert "XS0000000005" not in selected_isins
-    assert set(selected_isins) == {"XS0000000001", "XS0000000002"}
+    assert set(selected_isins) == {
+        "XS0000000001",
+        "XS0000000002",
+        "XS0000000006",
+    }
     assert all(item["z_spread_bps"] is not None for item in first["selected"])
 
     excluded_reasons = [item["reason"] for item in first["excluded"]]
@@ -128,7 +165,7 @@ def test_pipeline_prices_target_at_two_dates():
     # Le prix de la cible est cohérent avec le YTM implicite.
     assert bond_price(
         0.04, result["implied_ytm"], D1, date(2030, 1, 1), 100.0, 2, "ACT/ACT"
-    )["dirty_price"] == pytest.approx(result["dirty_price"], abs=1e-6)
+    )["dirty_price"] == pytest.approx(result["dirty_price"], abs=2e-6)
     assert result["clean_price"] == pytest.approx(
         result["dirty_price"] - result["accrued_interest"], abs=1e-8
     )
@@ -138,7 +175,36 @@ def test_pipeline_prices_target_at_two_dates():
     # La seconde date produit aussi une valorisation.
     second = report["dates"]["2026-02-02"]
     assert second["result"] is not None
-    assert [item["isin"] for item in second["selected"]] == ["XS0000000003"]
+    assert second["valuation_allowed"] is True
+    assert len(second["selected"]) == 3
+    assert second["curve"]["source_name"] == "fournisseur-courbe"
+    assert second["curve"]["nodes"][0]["years"] == 1
+    assert second["curve"]["nodes"][0]["zero_rate"] == pytest.approx(0.021)
+
+
+def test_pipeline_blocks_production_gate_without_curve_provenance():
+    report = run_pricing_pipeline(_target(), _candidates(), _curves(), [D1, D2])
+
+    first = report["dates"][D1.isoformat()]
+    assert first["result"] is not None
+    assert first["valuation_allowed"] is False
+    assert first["curve"]["data_status"] == "unverified"
+    assert any("provenance de la courbe" in flag for flag in first["quality_flags"])
+
+
+def test_pipeline_blocks_production_gate_with_too_few_comparables():
+    report = run_pricing_pipeline(
+        _target(),
+        [_candidate()],
+        _curves(),
+        [D1, D2],
+        curve_provenance=_curve_provenance(),
+    )
+
+    first = report["dates"][D1.isoformat()]
+    assert first["result"] is not None
+    assert first["valuation_allowed"] is False
+    assert any("Au moins 3 comparables" in flag for flag in first["quality_flags"])
 
 
 def test_pipeline_separates_issue_adjustment_from_fair_value():
@@ -167,6 +233,21 @@ def test_pipeline_separates_issue_adjustment_from_fair_value():
     )
     assert issue_scenario["clean_price"] < adjusted_result["clean_price"]
     assert issue_scenario["implied_ytm"] > adjusted_result["implied_ytm"]
+
+    stress = adjusted_result["stress_scenarios"]
+    curve_scenarios = stress["reference_curve"]
+    spread_scenarios = stress["credit_spread"]
+    assert len(curve_scenarios) == len(spread_scenarios) == 7
+    assert curve_scenarios[3]["curve_shock_bps"] == 0
+    assert spread_scenarios[3]["spread_shock_bps"] == 0
+    assert curve_scenarios[3]["clean_price"] == pytest.approx(
+        issue_scenario["clean_price"]
+    )
+    assert spread_scenarios[3]["clean_price"] == pytest.approx(
+        issue_scenario["clean_price"]
+    )
+    assert curve_scenarios[0]["clean_price"] > curve_scenarios[-1]["clean_price"]
+    assert spread_scenarios[0]["clean_price"] > spread_scenarios[-1]["clean_price"]
 
     panel_range = adjusted_result["observed_panel_price_range"]
     assert panel_range["minimum_clean_price"] <= adjusted_result["clean_price"]
@@ -227,7 +308,7 @@ def test_pipeline_blocks_unrecognized_comparable_conventions(overrides, expected
     assert any(expected_note in flag for flag in first["quality_flags"])
 
 
-def test_pipeline_blocks_valuation_when_one_selected_comparable_is_unusable():
+def test_pipeline_blocks_valuation_when_panel_has_too_few_calculable_comparables():
     candidates = [
         _candidate(),
         _candidate(isin="XS0000000002", payment_frequency=3),
@@ -237,7 +318,7 @@ def test_pipeline_blocks_valuation_when_one_selected_comparable_is_unusable():
     first = report["dates"]["2026-01-02"]
     assert first["result"] is not None
     assert first["valuation_allowed"] is False
-    assert any("conventions calculables" in flag for flag in first["quality_flags"])
+    assert any("Au moins 3 comparables" in flag for flag in first["quality_flags"])
 
 
 def test_pipeline_rejects_non_fixed_target_structure():

@@ -1113,6 +1113,15 @@ def main() -> None:
                 ),
             ),
             st.Page(
+                "pages/flux_marche.py",
+                title=text("Flux de marché différés", "Delayed market data"),
+                icon=":material/download:",
+                help=text(
+                    "Prévisualiser et importer un fichier obligataire Euronext différé.",
+                    "Preview and import a delayed Euronext bond file.",
+                ),
+            ),
+            st.Page(
                 "pages/panel_automatique.py",
                 title=text("Panel automatique", "Automatic panel"),
                 icon=":material/search:",
@@ -1209,11 +1218,16 @@ def main() -> None:
                     width="stretch",
                 )
         st.divider()
-        st.caption(text("Catalogue PostgreSQL · accès en lecture seule", "PostgreSQL catalogue · read-only"))
         st.caption(
             text(
-                "Les comparables et données de marché restent saisis manuellement.",
-                "Comparables and market data are entered manually.",
+                "Catalogue PostgreSQL · lecture et import contrôlé",
+                "PostgreSQL catalogue · reads and controlled imports",
+            )
+        )
+        st.caption(
+            text(
+                "Les observations de marché peuvent être importées depuis un CSV Euronext compatible.",
+                "Market observations can be imported from a compatible Euronext CSV.",
             )
         )
         st.space(56)

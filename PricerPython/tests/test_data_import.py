@@ -2,14 +2,17 @@ from datetime import date
 
 import pytest
 
+import database
 from curve import SwapPoint
 from data_import import (
     parse_euronext_csv,
+    parse_euronext_csv_content,
     parse_light_csv,
     parse_swap_curve_csv,
     upsert_market_observations,
     upsert_swap_curve,
 )
+from market_feeds import parse_euronext_bonds_export
 
 LIGHT_CSV = (
     "securityId;currency;maturityDate;yieldToMaturity;emissionDate;issuer;rating;source;"
@@ -89,7 +92,7 @@ def test_parse_euronext_csv_deduplicates_and_reads_coupon_and_price(tmp_path):
     assert a2a["currency"] == "EUR"
     assert a2a["market_date"] == date(2026, 10, 26)
     assert a2a["maturity_date"] == date(2027, 10, 19)
-    assert a2a["data_status"] == "official"
+    assert a2a["data_status"] == "unverified"
     dbr = by_isin["DE0001102341"]
     assert dbr["coupon_rate_pct"] == pytest.approx(2.10)
     assert dbr["market_date"] == date(2026, 10, 27)
@@ -102,6 +105,40 @@ def test_parse_euronext_csv_market_date_override(tmp_path):
     rows = parse_euronext_csv(path, market_date=date(2026, 10, 27))
 
     assert all(row["market_date"] == date(2026, 10, 27) for row in rows)
+
+
+def test_parse_euronext_csv_content_defaults_to_unverified():
+    rows = parse_euronext_csv_content(EURONEXT_CSV)
+
+    assert rows[0]["data_status"] == "unverified"
+    assert rows[0]["market_date"] == date(2026, 10, 26)
+
+
+def test_parse_euronext_csv_content_rejects_unknown_status():
+    with pytest.raises(ValueError, match="data_status"):
+        parse_euronext_csv_content(EURONEXT_CSV, data_status="trusted")
+
+
+def test_parse_euronext_bonds_export_preserves_provenance_and_attestation():
+    content = EURONEXT_CSV.encode("utf-8")
+
+    unverified = parse_euronext_bonds_export(content, "daily.csv")
+    confirmed = parse_euronext_bonds_export(
+        content,
+        "daily.csv",
+        confirmed_internal_noncommercial_use=True,
+    )
+
+    assert unverified[0]["data_status"] == "unverified"
+    assert confirmed[0]["data_status"] == "official"
+    assert "Euronext Bonds export · daily.csv ·" in confirmed[0]["source_name"]
+    assert confirmed[0]["provider_claim"] == "Euronext"
+    assert confirmed[0]["source_name"] == unverified[0]["source_name"]
+
+
+def test_parse_euronext_bonds_export_rejects_non_utf8_file():
+    with pytest.raises(ValueError, match="UTF-8"):
+        parse_euronext_bonds_export(b"\xff", "daily.csv")
 
 
 def test_parse_euronext_csv_falls_back_to_report_date(tmp_path):
@@ -174,16 +211,55 @@ def test_upsert_market_observations_runs_one_upsert_per_row(tmp_path):
     assert params["clean_price"] == pytest.approx(95.4677)
 
 
+def test_upsert_market_observations_uses_write_connection(monkeypatch):
+    connection = _FakeConnection()
+    connection_options = []
+    monkeypatch.setattr(
+        database,
+        "_connect",
+        lambda **options: connection_options.append(options) or connection,
+    )
+
+    count = upsert_market_observations(parse_euronext_csv_content(EURONEXT_CSV))
+
+    assert count == 2
+    assert connection_options == [{"read_only": False}]
+
+
 def test_upsert_swap_curve_inserts_points():
     connection = _FakeConnection()
 
     count = upsert_swap_curve(
         {date(2026, 1, 2): [SwapPoint(0.5, 0.02), SwapPoint(1.0, 0.022)]},
         source_name="courbe-test",
+        data_status="official",
         connect=connection,
     )
 
     assert count == 2
     sql, params = connection.cursor_obj.executed[0]
     assert "bp2s.swap_curve" in sql
-    assert params == (date(2026, 1, 2), 0.5, 0.02, "courbe-test")
+    assert params == (
+        date(2026, 1, 2),
+        0.5,
+        0.02,
+        "courbe-test",
+        "official",
+    )
+
+
+def test_upsert_swap_curve_rejects_unknown_status():
+    with pytest.raises(ValueError, match="data_status"):
+        upsert_swap_curve(
+            {date(2026, 1, 2): [SwapPoint(0.5, 0.02)]},
+            source_name="courbe-test",
+            data_status="trusted",
+        )
+
+
+def test_upsert_swap_curve_rejects_empty_source():
+    with pytest.raises(ValueError, match="source_name"):
+        upsert_swap_curve(
+            {date(2026, 1, 2): [SwapPoint(0.5, 0.02)]},
+            source_name=" ",
+        )

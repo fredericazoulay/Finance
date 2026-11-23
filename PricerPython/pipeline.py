@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from comparable_selection import TargetBond, select_comparables
 from curve import CurveNode, zero_rate_at, zero_rate_function
@@ -34,6 +34,16 @@ class PipelineTarget:
     settlement_date: date | None = None
     coupon_type: str = "Fixed"
     bond_type: str = "Fixed"
+
+
+@dataclass(frozen=True)
+class CurveProvenance:
+    source_name: str
+    market_date: date
+    data_status: str
+
+
+MIN_PRODUCTION_COMPARABLES = 3
 
 
 def _target_bond(target: PipelineTarget, observation_date: date) -> TargetBond:
@@ -145,6 +155,36 @@ def _implied_ytm(target: PipelineTarget, settlement: date, dirty_price: float) -
     return (lower + upper) / 2
 
 
+def _scenario_valuation(
+    target: PipelineTarget,
+    settlement: date,
+    flows: list[tuple[float, float]],
+    zero_fn: Callable[[float], float],
+    accrued: float,
+    base_z_spread_bps: float,
+    *,
+    curve_shock_bps: float,
+    spread_shock_bps: float,
+) -> dict[str, float]:
+    shifted_zero_rate = curve_shock_bps / 10000
+
+    def shocked_zero_fn(years: float) -> float:
+        return zero_fn(years) + shifted_zero_rate
+
+    scenario_z_spread_bps = base_z_spread_bps + spread_shock_bps
+    dirty_price = present_value(
+        flows, shocked_zero_fn, scenario_z_spread_bps / 10000
+    )
+    return {
+        "curve_shock_bps": curve_shock_bps,
+        "spread_shock_bps": spread_shock_bps,
+        "z_spread_bps": scenario_z_spread_bps,
+        "dirty_price": dirty_price,
+        "clean_price": dirty_price - accrued,
+        "implied_ytm": _implied_ytm(target, settlement, dirty_price),
+    }
+
+
 _METHODOLOGY = (
     " Chaque comparable retenu est revalorisé à la date d'observation : son prix "
     "dirty implicite est reconstruit depuis son YTM, puis son Z-spread est résolu "
@@ -155,7 +195,10 @@ _METHODOLOGY = (
     "L'enveloppe de prix est recalculée aux Z-spreads minimum et maximum observés "
     "dans le panel utilisable ; ce n'est pas un intervalle de confiance. "
     "L'ajustement d'émission est appliqué séparément au spread central pour fournir "
-    "un scénario indicatif, sans modifier la juste valeur de référence."
+    "un scénario indicatif, sans modifier la juste valeur de référence. "
+    "Les sensibilités sont des revalorisations exactes sous chocs parallèles "
+    "indépendants de la courbe zéro et du Z-spread ; elles ne sont pas des chocs "
+    "par point de courbe ni des prévisions de marché."
 )
 
 
@@ -163,6 +206,7 @@ def _run_date(
     target: PipelineTarget,
     candidates: list[dict[str, Any]],
     nodes: list[CurveNode] | None,
+    curve_provenance: CurveProvenance | None,
     observation_date: date,
     *,
     limit: int,
@@ -175,6 +219,21 @@ def _run_date(
         flags.append(
             f"Aucune courbe zéro EUR (swaps 6M) fournie pour le {observation_date.isoformat()}."
         )
+    if curve_provenance is None:
+        flags.append(
+            "La provenance de la courbe zéro est absente ; cette courbe ne peut pas être qualifiée pour une valorisation de production."
+        )
+    else:
+        if not curve_provenance.source_name.strip():
+            flags.append("La source de la courbe zéro est absente.")
+        if curve_provenance.market_date != observation_date:
+            flags.append(
+                "La date de la courbe zéro ne correspond pas à la date d'observation."
+            )
+        if curve_provenance.data_status != "official":
+            flags.append(
+                "La courbe zéro n'est pas marquée official ; valorisation indicative uniquement."
+            )
 
     dated = [c for c in candidates if c.get("market_date") == observation_date]
     undated_excluded = [
@@ -241,6 +300,45 @@ def _run_date(
             issue_dirty_price = present_value(
                 flows, zero_fn, issue_z_spread_bps / 10000
             )
+            issue_clean_price = issue_dirty_price - accrued
+            shocks = (-100, -50, -25, 0, 25, 50, 100)
+            curve_scenarios = []
+            spread_scenarios = []
+            for shock in shocks:
+                curve_scenario = _scenario_valuation(
+                    target,
+                    settlement,
+                    flows,
+                    zero_fn,
+                    accrued,
+                    issue_z_spread_bps,
+                    curve_shock_bps=shock,
+                    spread_shock_bps=0,
+                )
+                spread_scenario = _scenario_valuation(
+                    target,
+                    settlement,
+                    flows,
+                    zero_fn,
+                    accrued,
+                    issue_z_spread_bps,
+                    curve_shock_bps=0,
+                    spread_shock_bps=shock,
+                )
+                for scenario in (curve_scenario, spread_scenario):
+                    scenario["clean_price_change"] = (
+                        scenario["clean_price"] - issue_clean_price
+                    )
+                    for field in (
+                        "dirty_price",
+                        "clean_price",
+                        "clean_price_change",
+                        "implied_ytm",
+                        "z_spread_bps",
+                    ):
+                        scenario[field] = round(scenario[field], 8)
+                curve_scenarios.append(curve_scenario)
+                spread_scenarios.append(spread_scenario)
             result = {
                 "weighted_z_spread_bps": round(z_spread_bps, 4),
                 "zero_rate_at_maturity": round(zero_rate, 8),
@@ -275,33 +373,81 @@ def _run_date(
                         _implied_ytm(target, settlement, issue_dirty_price), 8
                     ),
                     "dirty_price": round(issue_dirty_price, 8),
-                    "clean_price": round(issue_dirty_price - accrued, 8),
+                    "clean_price": round(issue_clean_price, 8),
+                },
+                "stress_scenarios": {
+                    "reference_curve": curve_scenarios,
+                    "credit_spread": spread_scenarios,
+                    "description": (
+                        "Repricing exact sous chocs parallèles indépendants de la "
+                        "courbe zéro et du Z-spread, autour du scénario d'émission."
+                    ),
                 },
             }
         else:
             flags.append("Aucun comparable avec un Z-spread calculable à cette date.")
 
-    official = bool(selection["selected"]) and all(
+    usable_count = sum(
+        item.get("z_spread_bps") is not None for item in selection["selected"]
+    )
+    if usable_count < MIN_PRODUCTION_COMPARABLES:
+        flags.append(
+            f"Au moins {MIN_PRODUCTION_COMPARABLES} comparables avec Z-spread calculable sont requis pour une valorisation de production ; {usable_count} disponible(s)."
+        )
+
+    comparable_sources_qualified = bool(selection["selected"]) and all(
         item.get("data_status") == "official"
         and bool(str(item.get("source_name") or "").strip())
+        and bool(str(item.get("provider_claim") or "").strip())
         and item.get("market_date") == observation_date
         and item.get("z_spread_bps") is not None
         for item in selection["selected"]
     )
-    if selection["selected"] and not official:
+    if selection["selected"] and not comparable_sources_qualified:
         flags.append(
-            "La valorisation de production exige, pour chaque comparable, des conventions calculables, une source et le statut 'official' ; valorisation indicative uniquement."
+            "Chaque comparable doit avoir un Z-spread calculable, une date exacte, une source, un fournisseur déclaré et le statut 'official'."
         )
+    curve_source_qualified = (
+        curve_provenance is not None
+        and bool(curve_provenance.source_name.strip())
+        and curve_provenance.market_date == observation_date
+        and curve_provenance.data_status == "official"
+    )
+    production_ready = (
+        result is not None
+        and usable_count >= MIN_PRODUCTION_COMPARABLES
+        and comparable_sources_qualified
+        and curve_source_qualified
+        and nodes is not None
+    )
 
     return {
         "observation_date": observation_date.isoformat(),
         "settlement_date": settlement.isoformat(),
+        "curve": {
+            "market_date": (
+                curve_provenance.market_date.isoformat()
+                if curve_provenance is not None
+                else None
+            ),
+            "source_name": (
+                curve_provenance.source_name if curve_provenance is not None else None
+            ),
+            "data_status": (
+                curve_provenance.data_status
+                if curve_provenance is not None
+                else "unverified"
+            ),
+            "nodes": (
+                [asdict(node) for node in nodes] if nodes is not None else []
+            ),
+        },
         "selected": selection["selected"],
         "excluded": selection["excluded"],
         "methodology": selection["methodology"] + _METHODOLOGY,
         "weights": selection["weights"],
         "quality_flags": sorted(set(selection["quality_flags"] + flags)),
-        "valuation_allowed": official and result is not None,
+        "valuation_allowed": production_ready,
         "result": result,
     }
 
@@ -314,6 +460,7 @@ def run_pricing_pipeline(
     *,
     limit: int = 5,
     issue_spread_adjustment_bps: float = 0.0,
+    curve_provenance: dict[date, CurveProvenance] | None = None,
 ) -> dict[str, Any]:
     """Estimer le Z-spread et le yield de la cible à chacune des deux dates d'observation."""
     if (
@@ -338,7 +485,10 @@ def run_pricing_pipeline(
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "target": asdict(target),
         "observation_dates": [d.isoformat() for d in observation_dates],
-        "curve_source": "courbe zéro EUR bootstrapée depuis les taux swap EUR 6M au pair",
+        "curve_source": (
+            "Courbe zéro EUR bootstrapée depuis les taux swap EUR 6M au pair ; "
+            "provenance détaillée par date."
+        ),
         "issue_spread_adjustment_bps": issue_spread_adjustment_bps,
         "issue_spread_adjustment_description": (
             "Ajustement saisi par l'utilisateur, appliqué au Z-spread pondéré "
@@ -349,6 +499,7 @@ def run_pricing_pipeline(
                 target,
                 candidates,
                 curves.get(observation_date),
+                (curve_provenance or {}).get(observation_date),
                 observation_date,
                 limit=limit,
                 issue_spread_adjustment_bps=issue_spread_adjustment_bps,

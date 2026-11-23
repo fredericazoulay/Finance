@@ -1,7 +1,7 @@
 """API FastAPI du prototype de pricing obligataire."""
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from curve import CurveNode, SwapPoint, bootstrap_zero_curve, zero_rate_function
 from database import DatabaseConfigurationError, search_obligations
+from pipeline import CurveProvenance, PipelineTarget, run_pricing_pipeline
 from pricing import (
     DayCount,
     SpreadObservation,
@@ -17,7 +18,6 @@ from pricing import (
     theoretical_yield,
     weighted_spread,
 )
-from pipeline import PipelineTarget, run_pricing_pipeline
 from request_extraction import extract_target
 from zspread import z_spread_from_price
 
@@ -97,6 +97,14 @@ class CurveNodeInput(BaseModel):
     zero_rate: float = Field(ge=-0.5, le=1, description="Taux zéro décimal annuel.")
 
 
+class CurveProvenanceInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_name: str = Field(min_length=1)
+    market_date: date
+    data_status: Literal["official", "unverified", "synthetic_demo"]
+
+
 class CashFlowInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
@@ -158,6 +166,10 @@ class PipelineRequest(BaseModel):
     curves: dict[str, list[CurveNodeInput]] = Field(
         description="Courbes zéro par date d'observation (clé ISO AAAA-MM-JJ)."
     )
+    curve_provenance: dict[str, CurveProvenanceInput] = Field(
+        default_factory=dict,
+        description="Provenance déclarée des courbes zéro par date ISO.",
+    )
     observation_dates: list[date] = Field(min_length=2, max_length=2)
 
 
@@ -171,9 +183,9 @@ class ExtractRequest(BaseModel):
     )
 
 
-def _run_calculation(calculation, *args):
+def _run_calculation(calculation, *args, **kwargs):
     try:
-        return calculation(*args)
+        return calculation(*args, **kwargs)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -306,10 +318,23 @@ def calculate_panel(request: PipelineRequest) -> dict[str, Any]:
             date.fromisoformat(key): [CurveNode(item.years, item.zero_rate) for item in nodes]
             for key, nodes in request.curves.items()
         }
+        curve_provenance = {
+            date.fromisoformat(key): CurveProvenance(
+                source_name=metadata.source_name,
+                market_date=metadata.market_date,
+                data_status=metadata.data_status,
+            )
+            for key, metadata in request.curve_provenance.items()
+        }
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _run_calculation(
-        run_pricing_pipeline, target, comparables, curves, request.observation_dates
+        run_pricing_pipeline,
+        target,
+        comparables,
+        curves,
+        request.observation_dates,
+        curve_provenance=curve_provenance,
     )
 
 

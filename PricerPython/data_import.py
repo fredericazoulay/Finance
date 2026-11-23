@@ -195,8 +195,8 @@ def parse_euronext_csv(
     path: str | Path,
     *,
     market_date: date | None = None,
-    source_name: str = "Euronext_Bonds_2026-10-27.csv",
-    data_status: str = "official",
+    source_name: str = "Euronext_Bonds.csv",
+    data_status: str = "unverified",
     default_currency: str = "EUR",
 ) -> list[dict[str, Any]]:
     """Parser le fichier Euronext (4 lignes d'en-tête, séparateur ';').
@@ -207,7 +207,32 @@ def parse_euronext_csv(
     (plusieurs marchés) sont dédupliqués en gardant la ligne qui a un prix.
     """
     with open(path, encoding="utf-8-sig") as handle:
-        lines = handle.read().splitlines()
+        content = handle.read()
+    return parse_euronext_csv_content(
+        content,
+        market_date=market_date,
+        source_name=source_name,
+        data_status=data_status,
+        default_currency=default_currency,
+    )
+
+
+def parse_euronext_csv_content(
+    content: str,
+    *,
+    market_date: date | None = None,
+    source_name: str = "Euronext_Bonds.csv",
+    data_status: str = "unverified",
+    default_currency: str = "EUR",
+) -> list[dict[str, Any]]:
+    """Parser le contenu texte d'un export obligataire Euronext."""
+    if data_status not in {"official", "unverified", "synthetic_demo"}:
+        raise ValueError(
+            "data_status doit être 'official', 'unverified' ou 'synthetic_demo'."
+        )
+    if not source_name.strip():
+        raise ValueError("source_name ne peut pas être vide.")
+    lines = content.lstrip("\ufeff").splitlines()
     header_index = next(
         (index for index, line in enumerate(lines) if line.startswith("Name;")),
         None,
@@ -261,6 +286,8 @@ def parse_euronext_csv(
         existing = best_by_isin.get(isin)
         if existing is None or (existing["clean_price"] is None and price is not None):
             best_by_isin[isin] = row
+    if not best_by_isin:
+        raise ValueError("Le fichier Euronext ne contient aucune obligation exploitable.")
     return list(best_by_isin.values())
 
 
@@ -326,7 +353,7 @@ def upsert_market_observations(
     if connect is None:
         from database import _connect
 
-        with _connect() as connection:
+        with _connect(read_only=False) as connection:
             return _upsert_observations(connection, rows)
     with connect as connection:
         return _upsert_observations(connection, rows)
@@ -336,16 +363,25 @@ def upsert_swap_curve(
     curves: dict[date, list[SwapPoint]],
     *,
     source_name: str,
+    data_status: str = "unverified",
     connect=None,
 ) -> int:
     """Insérer/mettre à jour les taux swap EUR au pair par date."""
+    if not source_name.strip():
+        raise ValueError("source_name ne peut pas être vide.")
+    if data_status not in {"official", "unverified", "synthetic_demo"}:
+        raise ValueError(
+            "data_status doit être 'official', 'unverified' ou 'synthetic_demo'."
+        )
     sql = (
-        "INSERT INTO bp2s.swap_curve (curve_date, years, par_rate, source_name) "
-        "VALUES (%s, %s, %s, %s) "
-        "ON CONFLICT (curve_date, years, source_name) DO UPDATE SET par_rate = EXCLUDED.par_rate"
+        "INSERT INTO bp2s.swap_curve "
+        "(curve_date, years, par_rate, source_name, data_status) "
+        "VALUES (%s, %s, %s, %s, %s) "
+        "ON CONFLICT (curve_date, years, source_name) DO UPDATE SET "
+        "par_rate = EXCLUDED.par_rate, data_status = EXCLUDED.data_status"
     )
     parameters = [
-        (curve_date, point.years, point.par_rate, source_name)
+        (curve_date, point.years, point.par_rate, source_name, data_status)
         for curve_date, points in curves.items()
         for point in points
     ]
@@ -361,7 +397,7 @@ def upsert_swap_curve(
     if connect is None:
         from database import _connect
 
-        with _connect() as connection:
+        with _connect(read_only=False) as connection:
             return _run(connection)
     with connect as connection:
         return _run(connection)

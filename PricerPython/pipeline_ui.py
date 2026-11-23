@@ -13,8 +13,8 @@ import psycopg
 import streamlit as st
 
 from audit_mail import (
-    AuditMailConfigurationError,
     DEFAULT_AUDIT_RECIPIENT,
+    AuditMailConfigurationError,
     send_audit_email,
     smtp_settings_from_environment,
 )
@@ -22,7 +22,7 @@ from curve import SwapPoint, bootstrap_zero_curve
 from database import (
     DatabaseConfigurationError,
     list_market_observations,
-    list_swap_curves,
+    list_swap_curve_sets,
 )
 from localization import text
 from mistral_judge import (
@@ -30,12 +30,13 @@ from mistral_judge import (
     JudgeServiceError,
     challenge_panel,
 )
-from pipeline import PipelineTarget, run_pricing_pipeline
+from pipeline import CurveProvenance, PipelineTarget, run_pricing_pipeline
 from request_extraction import extract_target
 
 REPORT_KEY = "cas3_pipeline_report"
 JUDGE_KEY = "cas3_pipeline_judge"
 CURVES_KEY = "cas3_swap_curves_by_date"
+CURVE_METADATA_KEY = "cas3_swap_curve_metadata_by_date"
 EXTRACT_KEY = "cas3_pending_extract"
 EXTRACT_RESULT_KEY = "cas3_extraction"
 MAX_CANDIDATES = 5
@@ -93,15 +94,42 @@ def _swap_text_for(observation_date: date) -> str:
     return DEFAULT_SWAP_TEXT
 
 
+def _curve_provenance_for_input(
+    observation_date: date, raw_text: str, points: list[SwapPoint]
+) -> CurveProvenance:
+    iso_date = observation_date.isoformat()
+    metadata = st.session_state.get(CURVE_METADATA_KEY, {}).get(iso_date)
+    loaded_points = st.session_state.get(CURVES_KEY, {}).get(iso_date)
+    if metadata and loaded_points == points:
+        return CurveProvenance(
+            source_name=str(metadata["source_name"]),
+            market_date=metadata["market_date"],
+            data_status=str(metadata["data_status"]),
+        )
+    if raw_text.strip() == DEFAULT_SWAP_TEXT.strip():
+        return CurveProvenance(
+            source_name="Courbe de démonstration préremplie",
+            market_date=observation_date,
+            data_status="synthetic_demo",
+        )
+    return CurveProvenance(
+        source_name="Saisie manuelle",
+        market_date=observation_date,
+        data_status="unverified",
+    )
+
+
 def _judge_evidence(report: dict[str, Any]) -> dict[str, Any]:
     selected: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     flags: list[str] = []
     valuation: dict[str, Any] = {}
+    curves: dict[str, Any] = {}
     for iso_date, date_report in report["dates"].items():
         flags.extend(date_report["quality_flags"])
         excluded.extend(date_report["excluded"])
         valuation[iso_date] = date_report["result"]
+        curves[iso_date] = date_report["curve"]
         for item in date_report["selected"]:
             selected.append({**item, "observation_date": iso_date})
     return {
@@ -112,6 +140,7 @@ def _judge_evidence(report: dict[str, Any]) -> dict[str, Any]:
         "selected": selected,
         "excluded": excluded,
         "zero_curve": report["curve_source"],
+        "curves": curves,
         "methodology": next(iter(report["dates"].values()))["methodology"],
         "quality_flags": sorted(set(flags)),
         "valuation_allowed": all(
@@ -132,19 +161,34 @@ def _render_date_result(
     if date_report["valuation_allowed"]:
         st.success(
             text(
-                "Valorisation autorisée : données officielles et courbe zéro EUR fournie.",
-                "Valuation allowed: official data and EUR zero curve provided.",
+                "Seuils techniques de qualité satisfaits. Les statuts et sources sont déclaratifs et ne sont pas vérifiés indépendamment.",
+                "Technical quality thresholds passed. Sources and statuses are declared and are not independently verified.",
             )
         )
     else:
         st.warning(
             text(
-                "Valorisation indicative uniquement : données non certifiées 'official' "
-                "ou courbe zéro manquante pour cette date.",
-                "Indicative valuation only: data not certified 'official' or missing "
-                "zero curve for this date.",
+                "Valorisation indicative uniquement : seuil de comparables, statut ou provenance de la courbe insuffisant.",
+                "Indicative valuation only: comparable threshold, status, or curve provenance is insufficient.",
             )
         )
+    curve = date_report["curve"]
+    st.caption(
+        text(
+            "Courbe utilisée — source : "
+            + str(curve["source_name"] or "absente")
+            + " ; date : "
+            + str(curve["market_date"] or "absente")
+            + " ; statut déclaré : "
+            + str(curve["data_status"]),
+            "Curve used — source: "
+            + str(curve["source_name"] or "missing")
+            + " ; date: "
+            + str(curve["market_date"] or "missing")
+            + " ; declared status: "
+            + str(curve["data_status"]),
+        )
+    )
     for flag in date_report["quality_flags"]:
         st.caption(f"• {flag}")
 
@@ -247,6 +291,69 @@ def _render_date_result(
                 "It is not inferred from market data.",
             )
         )
+        stress = result["stress_scenarios"]
+        with st.expander(
+            text(
+                "Sensibilités aux chocs parallèles",
+                "Parallel-shock sensitivities",
+            )
+        ):
+            st.caption(
+                text(
+                    "Chaque choc est appliqué isolément au scénario d'émission : le choc de courbe "
+                    "laisse le Z-spread inchangé, et le choc de spread laisse la courbe zéro inchangée. "
+                    "Les prix sont recalculés sur les flux.",
+                    "Each shock is applied independently to the issue scenario: curve shocks keep "
+                    "the Z-spread fixed, and spread shocks keep the zero curve fixed. Prices are "
+                    "repriced from cash flows.",
+                )
+            )
+            curve_col, spread_col = st.columns(2)
+            for column, scenario_key, title in (
+                (
+                    curve_col,
+                    "reference_curve",
+                    text("Choc de courbe zéro", "Zero-curve shock"),
+                ),
+                (
+                    spread_col,
+                    "credit_spread",
+                    text("Choc de Z-spread", "Z-spread shock"),
+                ),
+            ):
+                with column:
+                    st.markdown(f"**{title}**")
+                    scenario_rows = stress[scenario_key]
+                    shock_key = (
+                        "curve_shock_bps"
+                        if scenario_key == "reference_curve"
+                        else "spread_shock_bps"
+                    )
+                    scenario_frame = pd.DataFrame(
+                        [
+                            {
+                                text("Choc (pb)", "Shock (bps)"): row[shock_key],
+                                text("Prix clean", "Clean price"): round(
+                                    row["clean_price"], 4
+                                ),
+                                text("Variation", "Change"): round(
+                                    row["clean_price_change"], 4
+                                ),
+                                text("YTM (%)", "YTM (%)"): round(
+                                    row["implied_ytm"] * 100, 4
+                                ),
+                            }
+                            for row in scenario_rows
+                        ]
+                    )
+                    st.dataframe(
+                        scenario_frame,
+                        hide_index=True,
+                        alt=text(
+                            f"Prix et rendement sous chocs de {title.lower()}.",
+                            f"Price and yield under {title.lower()} scenarios.",
+                        ),
+                    )
         st.caption(
             text(
                 f"{result['comparables_used_count']} comparable(s) utilisé(s) : "
@@ -469,14 +576,16 @@ def render_pipeline() -> None:
     )
     st.caption(
         text(
-            "Cas d'usage #3 : à partir d'un panel de comparables issus d'une base "
-            "officielle et de la courbe zéro EUR (bootstrapée depuis les swaps EUR 6M "
+            "Cas d'usage #3 : à partir d'un panel de comparables dont les sources "
+            "sont déclarées official, et de la courbe zéro EUR (bootstrapée depuis "
+            "les swaps EUR 6M "
             "au pair), estimer le Z-spread et le yield de la nouvelle obligation à "
-            "chacune des deux dates d'observation. Yield = taux zéro + Z-spread.",
-            "Use case #3: from a comparable panel from an official source and the "
-            "EUR zero curve (bootstrapped from EUR 6M par swaps), estimate the new "
-            "bond's Z-spread and yield at each of the two observation dates. "
-            "Yield = zero rate + Z-spread.",
+            "chacune des deux dates d'observation. Le statut official n'est pas "
+            "vérifié indépendamment. Yield = taux zéro + Z-spread.",
+            "Use case #3: from comparables whose source status is declared official "
+            "and the EUR zero curve (bootstrapped from EUR 6M par swaps), estimate "
+            "the new bond's Z-spread and yield at each observation date. Official "
+            "status is not independently verified. Yield = zero rate + Z-spread.",
         )
     )
 
@@ -493,6 +602,13 @@ def render_pipeline() -> None:
         today - timedelta(days=1),
         key="cas3_obs_date_2",
     )
+    curve_source_filter = st.text_input(
+        text(
+            "Source de courbe à charger (facultatif, nom exact)",
+            "Curve source to load (optional, exact name)",
+        ),
+        key="cas3_swap_curve_source",
+    )
     if st.button(
         text(
             "Charger les courbes swap de la base pour ces deux dates",
@@ -501,7 +617,9 @@ def render_pipeline() -> None:
         key="cas3_load_curves",
     ):
         try:
-            curves = list_swap_curves()
+            curve_sets = list_swap_curve_sets(
+                source_name=curve_source_filter.strip() or None
+            )
         except DatabaseConfigurationError as exc:
             st.error(str(exc))
         except psycopg.Error as exc:
@@ -512,19 +630,65 @@ def render_pipeline() -> None:
                 )
             )
         else:
-            st.session_state[CURVES_KEY] = {
-                iso_date: points for iso_date, points in curves.items()
+            requested_dates = (first_date, second_date)
+            selected_sets = {
+                observation_date: [
+                    curve_set
+                    for curve_set in curve_sets
+                    if curve_set["curve_date"] == observation_date
+                ]
+                for observation_date in requested_dates
             }
-            loaded = [
-                iso_date
-                for iso_date in (first_date.isoformat(), second_date.isoformat())
-                if iso_date in curves
+            ambiguous_dates = [
+                observation_date.isoformat()
+                for observation_date, matching_sets in selected_sets.items()
+                if len(matching_sets) > 1
             ]
+            if ambiguous_dates:
+                st.error(
+                    text(
+                        "Plusieurs sources existent pour : "
+                        + ", ".join(ambiguous_dates)
+                        + ". Indiquez le nom exact d'une source.",
+                        "Multiple sources exist for: "
+                        + ", ".join(ambiguous_dates)
+                        + ". Enter an exact source name.",
+                    )
+                )
+                return
+
+            curves = {
+                observation_date.isoformat(): matching_sets[0]["points"]
+                for observation_date, matching_sets in selected_sets.items()
+                if matching_sets
+            }
+            metadata = {
+                observation_date.isoformat(): {
+                    "source_name": matching_sets[0]["source_name"],
+                    "data_status": matching_sets[0]["data_status"],
+                    "market_date": matching_sets[0]["curve_date"],
+                }
+                for observation_date, matching_sets in selected_sets.items()
+                if matching_sets
+            }
+            st.session_state[CURVES_KEY] = curves
+            st.session_state[CURVE_METADATA_KEY] = metadata
+            loaded = list(curves)
             if loaded:
                 st.success(
                     text(
-                        "Courbes chargées pour : " + ", ".join(loaded),
-                        "Curves loaded for: " + ", ".join(loaded),
+                        "Courbes chargées : "
+                        + ", ".join(
+                            f"{iso_date} ({metadata[iso_date]['source_name']}, "
+                            f"{metadata[iso_date]['data_status']})"
+                            for iso_date in loaded
+                        ),
+                        "Curves loaded: "
+                        + ", ".join(
+                            f"{iso_date} ({metadata[iso_date]['source_name']}, "
+                            f"{metadata[iso_date]['data_status']})"
+                            for iso_date in loaded
+                        ),
                     )
                 )
             else:
@@ -711,9 +875,11 @@ def render_pipeline() -> None:
             )
             return
         try:
+            swap_points_1 = _parse_swap_text(swap_text_1)
+            swap_points_2 = _parse_swap_text(swap_text_2)
             curves = {
-                first_date: bootstrap_zero_curve(_parse_swap_text(swap_text_1)),
-                second_date: bootstrap_zero_curve(_parse_swap_text(swap_text_2)),
+                first_date: bootstrap_zero_curve(swap_points_1),
+                second_date: bootstrap_zero_curve(swap_points_2),
             }
         except ValueError as exc:
             st.error(str(exc))
@@ -753,6 +919,14 @@ def render_pipeline() -> None:
                 [first_date, second_date],
                 limit=MAX_CANDIDATES,
                 issue_spread_adjustment_bps=issue_spread_adjustment_bps,
+                curve_provenance={
+                    first_date: _curve_provenance_for_input(
+                        first_date, swap_text_1, swap_points_1
+                    ),
+                    second_date: _curve_provenance_for_input(
+                        second_date, swap_text_2, swap_points_2
+                    ),
+                },
             )
         except ValueError as exc:
             st.error(str(exc))

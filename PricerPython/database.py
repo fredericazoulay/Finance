@@ -7,10 +7,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from curve import SwapPoint
 import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
+
+from curve import SwapPoint
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parent
 OBLIGATION_COLUMNS = (
@@ -104,7 +105,9 @@ def load_local_environment() -> None:
             return
 
 
-def _connect() -> psycopg.Connection[dict[str, Any]]:
+def _connect(
+    *, read_only: bool = True
+) -> psycopg.Connection[dict[str, Any]]:
     load_local_environment()
     password = os.environ.get("POSTGRES_PASSWORD")
     if not password:
@@ -118,16 +121,18 @@ def _connect() -> psycopg.Connection[dict[str, Any]]:
     except ValueError as exc:
         raise DatabaseConfigurationError("POSTGRES_PORT doit être un entier.") from exc
 
-    return psycopg.connect(
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=port,
-        dbname=os.environ.get("POSTGRES_DB", "finance_pricer"),
-        user=os.environ.get("POSTGRES_USER", "finance_pricer"),
-        password=password,
-        connect_timeout=5,
-        options="-c default_transaction_read_only=on",
-        row_factory=dict_row,
-    )
+    options: dict[str, Any] = {
+        "host": os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        "port": port,
+        "dbname": os.environ.get("POSTGRES_DB", "finance_pricer"),
+        "user": os.environ.get("POSTGRES_USER", "finance_pricer"),
+        "password": password,
+        "connect_timeout": 5,
+        "row_factory": dict_row,
+    }
+    if read_only:
+        options["options"] = "-c default_transaction_read_only=on"
+    return psycopg.connect(**options)
 
 
 def search_obligations(
@@ -185,19 +190,74 @@ def list_market_observations(*, limit: int = 5000) -> list[dict[str, Any]]:
 
 
 
-def list_swap_curves(*, source_name: str | None = None) -> dict[date, list[SwapPoint]]:
-    """Lire les taux swap EUR au pair par date d'observation (courbe EUR 6M)."""
-    query = "SELECT curve_date, years, par_rate FROM bp2s.swap_curve"
+def list_swap_curve_sets(
+    *, source_name: str | None = None
+) -> list[dict[str, Any]]:
+    """Lire les courbes swap séparément par date et source."""
+    query = """
+        SELECT curve_date, years, par_rate, source_name, data_status
+        FROM bp2s.swap_curve
+    """
     parameters: tuple[str, ...] = ()
     if source_name:
         query += " WHERE source_name = %s"
         parameters = (source_name,)
-    query += " ORDER BY curve_date, years"
+    query += " ORDER BY curve_date, source_name, years"
     with _connect() as connection:
+        has_status_column = connection.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'bp2s'
+                  AND table_name = 'swap_curve'
+                  AND column_name = 'data_status'
+            ) AS has_data_status
+            """,
+            (),
+        ).fetchone()["has_data_status"]
+        if not has_status_column:
+            query = query.replace(
+                "par_rate, source_name, data_status",
+                "par_rate, source_name, 'unverified'::text AS data_status",
+            )
         rows = connection.execute(query, parameters).fetchall()
-    curves: dict[date, list[SwapPoint]] = {}
+
+    grouped: dict[tuple[date, str], dict[str, Any]] = {}
+    statuses: dict[tuple[date, str], set[str]] = {}
     for row in rows:
-        curves.setdefault(row["curve_date"], []).append(
+        key = (row["curve_date"], row["source_name"])
+        if key not in grouped:
+            grouped[key] = {
+                "curve_date": row["curve_date"],
+                "source_name": row["source_name"],
+                "data_status": row["data_status"],
+                "points": [],
+            }
+            statuses[key] = set()
+        statuses[key].add(str(row["data_status"]))
+        grouped[key]["points"].append(
             SwapPoint(float(row["years"]), float(row["par_rate"]))
         )
+
+    curve_sets = []
+    for key, curve_set in grouped.items():
+        if len(statuses[key]) > 1:
+            curve_set["data_status"] = "mixed"
+        curve_sets.append(curve_set)
+    return curve_sets
+
+
+def list_swap_curves(*, source_name: str | None = None) -> dict[date, list[SwapPoint]]:
+    """Lire les courbes EUR 6M sans jamais mélanger plusieurs sources."""
+    curve_sets = list_swap_curve_sets(source_name=source_name)
+    curves: dict[date, list[SwapPoint]] = {}
+    for curve_set in curve_sets:
+        curve_date = curve_set["curve_date"]
+        if curve_date in curves:
+            raise DatabaseConfigurationError(
+                f"Plusieurs sources de courbe existent pour le {curve_date.isoformat()} ; "
+                "sélectionnez une source précise."
+            )
+        curves[curve_date] = curve_set["points"]
     return curves

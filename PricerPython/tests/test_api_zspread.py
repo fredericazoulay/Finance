@@ -109,8 +109,47 @@ def _panel_payload():
                 "yield_to_maturity_pct": 4.5,
                 "market_date": "2026-01-02",
                 "source_name": "fournisseur-licencie",
+                "provider_claim": "provider-verified",
                 "data_status": "official",
-            }
+            },
+            {
+                "isin": "XS0000000002",
+                "issuer": "Issuer B",
+                "issuer_type": "Corporate",
+                "bond_type": "Fixed",
+                "currency": "EUR",
+                "maturity_date": "2030-06-30",
+                "coupon_type": "Fixed",
+                "seniority": "Senior",
+                "rating": "BBB",
+                "coupon_rate_pct": 4.2,
+                "payment_frequency": 2,
+                "day_count": "ACT/365",
+                "yield_to_maturity_pct": 4.6,
+                "market_date": "2026-01-02",
+                "source_name": "fournisseur-licencie",
+                "provider_claim": "provider-verified",
+                "data_status": "official",
+            },
+            {
+                "isin": "XS0000000003",
+                "issuer": "Issuer C",
+                "issuer_type": "Corporate",
+                "bond_type": "Fixed",
+                "currency": "EUR",
+                "maturity_date": "2029-12-01",
+                "coupon_type": "Fixed",
+                "seniority": "Senior",
+                "rating": "BBB",
+                "coupon_rate_pct": 3.8,
+                "payment_frequency": 2,
+                "day_count": "ACT/365",
+                "yield_to_maturity_pct": 4.4,
+                "market_date": "2026-01-02",
+                "source_name": "fournisseur-licencie",
+                "provider_claim": "provider-verified",
+                "data_status": "official",
+            },
         ],
         "curves": {
             "2026-01-02": [
@@ -123,6 +162,18 @@ def _panel_payload():
                 {"years": 5, "zero_rate": 0.029},
                 {"years": 10, "zero_rate": 0.033},
             ],
+        },
+        "curve_provenance": {
+            "2026-01-02": {
+                "source_name": "fournisseur-courbe",
+                "market_date": "2026-01-02",
+                "data_status": "official",
+            },
+            "2026-02-02": {
+                "source_name": "fournisseur-courbe",
+                "market_date": "2026-02-02",
+                "data_status": "official",
+            },
         },
         "observation_dates": ["2026-01-02", "2026-02-02"],
     }
@@ -139,7 +190,7 @@ def test_panel_endpoint_prices_target_at_two_dates():
     assert first["valuation_allowed"] is True
     assert first["result"]["weighted_z_spread_bps"] > 0
     assert first["result"]["yield_from_curve_and_z_spread"] > 0
-    assert first["result"]["comparables_used"] == ["XS0000000001"]
+    assert first["result"]["comparables_used_count"] == 3
     assert first["selected"][0]["z_spread_bps"] > 0
 
     second = report["dates"]["2026-02-02"]

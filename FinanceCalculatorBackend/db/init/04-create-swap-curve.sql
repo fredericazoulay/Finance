@@ -5,8 +5,14 @@ CREATE TABLE IF NOT EXISTS bp2s.swap_curve (
     years       NUMERIC(6, 3) NOT NULL CHECK (years > 0 AND years <= 100),
     par_rate    NUMERIC(12, 6) NOT NULL CHECK (par_rate >= -0.5 AND par_rate <= 1),
     source_name TEXT NOT NULL,
+    data_status TEXT NOT NULL DEFAULT 'unverified'
+        CHECK (data_status IN ('official', 'unverified', 'synthetic_demo')),
     PRIMARY KEY (curve_date, years, source_name)
 );
+
+ALTER TABLE bp2s.swap_curve
+    ADD COLUMN IF NOT EXISTS data_status TEXT NOT NULL DEFAULT 'unverified'
+        CHECK (data_status IN ('official', 'unverified', 'synthetic_demo'));
 
 CREATE INDEX IF NOT EXISTS ix_swap_curve_date
     ON bp2s.swap_curve (curve_date);

@@ -1,0 +1,28 @@
+Proposition de pricing d’une obligation à partir d’un panel 
+Ce matin, la table d'intermédiation vous propose de participer à l'émission d’une nouvelle obligation sur le marché primaire. 
+Avant de prendre une décision d'investissement, vous souhaitez déterminer la juste valeur (Fair Value) de cette obligation en les comparant aux titres déjà présents sur le marché secondaire pour comparer aux prix / taux proposés. 
+Délivrer un outil permettant d'évaluer rapidement si une nouvelle émission est attractive par rapport aux niveaux observés sur le marché secondaire 
+1. Création d’ un outil d'estimation du Z-spread des nouvelles obligations à chacune des deux dates d'observation où 
+▪ L'utilisateur renseigne leurs caractéristiques (par obligation) : émetteur, secteur, rating, maturité, rang de séniorité, devise, etc.). 
+▪ À partir des données de marché fournies, l'outil détermine le niveau de Z-spread théorique le plus pertinent pour chaque obligation. 
+2. Résultats attendus pour chaque nouvelle obligation et pour chacune des deux dates : 
+▪ Estimation du Z-spread ▪ Identification des obligations comparables utilisées dans le calcul 
+▪ Explication de la méthodologie retenue 
+▪ Calcul du yield à partir du Z-spread obtenu et de la courbe swap EUR 6M (considérée comme la courbe des taux sans risque) 
+▪ Critères de succès : l'outil doit produire une valorisation robuste, explicable et cohérente avec les comparables de marché. 
+La performance sera évaluée à la fois sur la précision des estimations et sur la qualité de la méthodologie proposée. 
+Deux jeux de données du marché obligataire vous sont fournis, correspondant à deux dates d'observation différentes
+
+Processus La mission : concevoir un agent IA capable de déterminer le prix d'une obligation en constituant un panel de titres comparables issus d'une base officielle, puis en déduisant un prix d'équivalence. 
+01 Analyser la demande :à partir d'une demande de pricing formulée par un utilisateur, l'agent IA analyse la requête et extrait les informations pertinentes (données structurées) nécessaires à la recherche du panel. 
+02 Constituer le panel :sur la base de ces caractéristiques, l'agent IA filtre le panel pertinent à partir de la base officielle en identifiant les obligations «comparables» à celle dont le pricing est demandé. 
+03 Déterminer le prix : à partir de ce panel, l'agent IA détermine un prix d'équivalence pour l'obligation. 
+04 Tracer & restituer : l'agent IA documente ses choix de constitution du panel et les données utilisées, puis informe l'utilisateur des traitements réalisés. 
+Cas pratique : pricing de plusieurs obligations par niveau de complexité 
+• Cas simple: de nombreux points de spread. 
+• Cas intermédiaire: peu de points, mais un univers d'investissement permettant de trouver facilement des obligations comparables. 
+• Cas complexe: aucun point de courbe pour l'émetteur, peu ou pas de courbes pour les émetteurs comparables et très peu de titres comparables. 
+Les caractéristiques de l'obligation à pricer sont très spécifiques et peu communes (ex : label ESG, call peu commun). 
+Traçabilité : l’agent doit expliquer son raisonnement et ses actions/conclusions par mail sur la boite audit@cdc.hackathon 
+Résilience et Contrôle : l’agent doit être robuste, doit s’adapter au différent cas de figure (vous pourrez tester par exemple que le résultat ne diverge pas malgré une perte d’information), doit être contrôlé/supervisé par un autre agent 
+Performance et ESG : l’agent doit être économe en tokens

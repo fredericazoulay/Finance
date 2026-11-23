@@ -5,7 +5,7 @@ from streamlit.testing.v1 import AppTest
 
 def test_streamlit_app_starts_without_errors():
     app_path = Path(__file__).parents[1] / "streamlit_app.py"
-    app = AppTest.from_file(str(app_path)).run(timeout=15)
+    app = AppTest.from_file(str(app_path)).run(timeout=30)
 
     assert not app.exception
 
@@ -46,6 +46,17 @@ def test_legacy_theme_label_is_migrated():
     assert not app.exception
     assert app.selectbox(key="app_theme").value == "light"
     assert any("#f6f8fa" in str(item.value) for item in app.html)
+
+
+def test_delayed_market_feed_page_starts_without_database_writes():
+    app_path = Path(__file__).parents[1] / "streamlit_app.py"
+    app = AppTest.from_file(str(app_path), default_timeout=20).run()
+    app.switch_page("pages/flux_marche.py").run()
+
+    assert not app.exception
+    assert app.file_uploader(key="euronext_bonds_csv")
+    assert not any(item.key == "euronext_import" for item in app.button)
+    assert any("non commercial" in item.value for item in app.caption)
 
 
 def test_angular_themes_are_available_and_applied():

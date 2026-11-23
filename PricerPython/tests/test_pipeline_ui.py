@@ -65,6 +65,23 @@ def _swap_points() -> list[SwapPoint]:
     ]
 
 
+def _curve_sets() -> list[dict]:
+    return [
+        {
+            "curve_date": DATE_1,
+            "source_name": "courbe-licencie",
+            "data_status": "official",
+            "points": _swap_points(),
+        },
+        {
+            "curve_date": DATE_2,
+            "source_name": "courbe-licencie",
+            "data_status": "official",
+            "points": _swap_points(),
+        },
+    ]
+
+
 def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
     import pipeline_ui
 
@@ -75,8 +92,8 @@ def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
     )
     monkeypatch.setattr(
         pipeline_ui,
-        "list_swap_curves",
-        lambda: {DATE_1: _swap_points(), DATE_2: _swap_points()},
+        "list_swap_curve_sets",
+        lambda source_name=None: _curve_sets(),
     )
 
     app_path = Path(__file__).parents[1] / "streamlit_app.py"
@@ -106,7 +123,9 @@ def test_pipeline_page_estimates_zspread_and_yield_at_two_dates(monkeypatch):
     assert report["issue_spread_adjustment_bps"] == 25
     for iso_date in (DATE_1.isoformat(), DATE_2.isoformat()):
         date_report = report["dates"][iso_date]
-        assert date_report["valuation_allowed"] is True
+        assert date_report["valuation_allowed"] is False
+        assert date_report["curve"]["source_name"] == "courbe-licencie"
+        assert any("Au moins 3 comparables" in flag for flag in date_report["quality_flags"])
         result = date_report["result"]
         assert result is not None
         assert result["weighted_z_spread_bps"] > 0
@@ -132,8 +151,8 @@ def test_pipeline_page_extracts_natural_language_request_and_prices(monkeypatch)
     )
     monkeypatch.setattr(
         pipeline_ui,
-        "list_swap_curves",
-        lambda: {DATE_1: _swap_points(), DATE_2: _swap_points()},
+        "list_swap_curve_sets",
+        lambda source_name=None: _curve_sets(),
     )
 
     def fake_extract(request_text, **kwargs):
@@ -197,7 +216,7 @@ def test_pipeline_page_rejects_non_eur_currency(monkeypatch):
         pipeline_ui, "list_market_observations", lambda: [_observation("XS1", DATE_1)]
     )
     monkeypatch.setattr(
-        pipeline_ui, "list_swap_curves", lambda: {DATE_1: _swap_points()}
+        pipeline_ui, "list_swap_curve_sets", lambda source_name=None: _curve_sets()
     )
 
     app_path = Path(__file__).parents[1] / "streamlit_app.py"

@@ -77,7 +77,7 @@ streamlit run streamlit_app.py
 L'application s'ouvre par défaut sur `http://localhost:8501`. Elle permet de
 calculer un prix clean/dirty, d'établir un spread pondéré et un rendement
 théorique à partir d'un panel saisi manuellement, et d'estimer un score de
-confiance. Aucune source de marché n'est interrogée.
+confiance. Aucune source de marché n'est interrogée automatiquement.
 
 L'en-tête affiche la page active et l'état de l'API ; la barre latérale indique
 que le catalogue PostgreSQL est en lecture seule et regroupe la valorisation,
@@ -153,16 +153,56 @@ sans modifier la juste valeur de référence. Une enveloppe de prix est aussi
 recalculée aux spreads minimum et maximum observés dans les comparables
 utilisables. Cette dispersion du panel n'est pas un intervalle de confiance,
 et l'ajustement d'émission est une hypothèse saisie, pas une donnée de marché.
+L'API `POST /pricing/panel` accepte également `curve_provenance` par date
+(source, date et statut déclaré) ; si cette métadonnée manque, le résultat est
+indicatif et le rapport l'explique.
+Le détail propose aussi des chocs parallèles indépendants de la courbe zéro et
+du Z-spread, de -100 à +100 pb, avec repricing des flux, variation de prix clean
+et YTM implicite. Ces scénarios sont des sensibilités du modèle, pas des
+prévisions ; le choc de courbe est parallèle et ne remplace pas une analyse par
+point de courbe.
+
+La page « Flux de marché différés » permet de prévisualiser puis d'importer
+manuellement un CSV obligataire Euronext compatible avec le format
+`European Bonds`. La page n'automatise pas le téléchargement Euronext et ne
+traite pas les fichiers de trades MiFID II dont le format diffère. L'import
+enregistre le nom du fichier et une empreinte de son contenu comme source ;
+le doublon exact est idempotent et les fichiers distincts restent traçables.
+Sans confirmation de provenance et d'usage, les lignes restent `unverified`.
+L'import ne devient `official` qu'après confirmation de l'utilisateur que le
+fichier provient d'Euronext et que l'usage reste interne/non commercial, sans
+redistribution. Ce statut est une attestation, pas une vérification
+cryptographique. Le prix importé est un dernier/closing price ; ce n'est pas
+un bid/ask ni une cotation temps réel. L'accès aux données retardées est
+annoncé gratuit par Euronext pour l'usage interne, selon les conditions
+applicables : [accès aux fichiers retardés](https://marketdata.euronext.com/data-reporting-service/trades-file)
+et [conditions tarifaires et d'usage](https://www.euronext.com/en/data/real-time-data/pricing-specs-agreements/market-data-pricing-policies).
+
+La connexion de lecture du référentiel reste read-only. Seule l'action
+explicite « Importer les observations » utilise une connexion d'écriture.
 
 Le seed présent est explicitement `synthetic_demo`, non daté et non officiel.
-Ses `spread_bps` ne sont pas des Z-spreads ; la table ne contient pas non plus
-de prix bid/ask ni de courbe zéro EUR datée. L'application bloque donc toute
-valorisation de production à partir de ces données. La sélection est une
-démonstration du classement, pas une estimation financière. Il faut importer
-des observations licenciées et datées, les conventions/coupons, les prix et
-les courbes correspondantes avant de calculer une juste valeur.
-Le statut `official` et le nom de source sont des données déclarées ; le
-pipeline ne vérifie pas indépendamment la provenance ni les droits de licence.
+Ses `spread_bps` ne sont pas des Z-spreads. Le pipeline ne qualifie une
+valorisation que si chaque date possède une courbe datée, sourcée et marquée
+`official`, ainsi qu'au moins trois comparables à Z-spread calculable, datés
+exactement, sourcés et marqués `official`. Sinon, le calcul reste disponible à
+titre indicatif et les motifs sont restitués dans le rapport. Les courbes
+saisies manuellement sont toujours `unverified`; plusieurs sources présentes
+pour une même date ne sont jamais fusionnées. Le statut `official`, le nom de
+source et le fournisseur sont déclaratifs : l'application ne vérifie pas
+indépendamment la provenance ni les droits de licence. Aucun flux automatique
+de cotations corporate ni contrôle indépendant de licence n'est fourni par le
+projet. L'ECB autorise la réutilisation gratuite
+de ses statistiques avec attribution, mais son avis sur les courbes euro
+précise qu'elles ne sont pas destinées à calculer des prix ou rendements de
+cotation ; elles ne sont donc pas branchées au moteur de pricing. Un usage
+commercial Euronext nécessite de vérifier les accords et frais applicables.
+
+La table des courbes conserve désormais le statut de chaque point, par défaut
+`unverified`. Pour une base déjà initialisée, appliquer le script additif
+`04-create-swap-curve.sql` avant d'utiliser `upsert_swap_curve` avec un statut.
+Les courbes existantes sont rétrogradées à `unverified` et doivent être
+réimportées avec des métadonnées validées par votre processus de gouvernance.
 
 Le bootstrap produit des taux zéro effectifs annuels ; la courbe est interpolée
 linéairement en taux et les flux sont actualisés selon
@@ -194,14 +234,16 @@ sélection/exclusion sont conservés dans le rapport. Le « Panel automatique »
 est la démonstration qui classe les observations du référentiel ; ses données
 synthétiques et non datées ne permettent pas une juste valeur de marché.
 
-Pour une base existante, appliquez une fois le script additif de création et
-de seed du référentiel :
+Pour une base existante, appliquez les scripts additifs requis :
 
 ```powershell
 Set-Location "C:\Users\frede\VSCode\Finance\FinanceCalculatorBackend"
 docker compose --env-file .env exec -T postgres psql -v ON_ERROR_STOP=1 `
   -U finance_pricer -d finance_pricer `
   -f /docker-entrypoint-initdb.d/03-create-market-observations.sql
+docker compose --env-file .env exec -T postgres psql -v ON_ERROR_STOP=1 `
+  -U finance_pricer -d finance_pricer `
+  -f /docker-entrypoint-initdb.d/04-create-swap-curve.sql
 ```
 
 Le script est également exécuté automatiquement lors de l'initialisation d'une
