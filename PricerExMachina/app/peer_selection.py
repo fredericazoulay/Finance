@@ -6,8 +6,20 @@ from datetime import date
 import math
 from typing import Any
 
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import StandardScaler
+
 
 SUPPORTED_MATCH_FIELDS = ("issuer", "issuer_type", "rating", "seniority")
+_RATING_NOTCH = {
+    "aaa": 0, "aa+": 1, "aa": 2, "aa-": 3,
+    "a+": 4, "a": 5, "a-": 6,
+    "bbb+": 7, "bbb": 8, "bbb-": 9,
+    "bb+": 10, "bb": 11, "bb-": 12,
+    "b+": 13, "b": 14, "b-": 15,
+    "ccc+": 16, "ccc": 17, "ccc-": 18, "cc": 19, "c": 20, "d": 21,
+}
 
 
 def _month_distance(left: date, right: date) -> int:
@@ -80,3 +92,44 @@ def median_spread_bps(peers: list[dict[str, Any]]) -> float:
     if len(values) % 2:
         return values[middle]
     return (values[middle - 1] + values[middle]) / 2.0
+
+
+def rank_peers(
+    target: dict[str, Any],
+    peers: list[dict[str, Any]],
+    maximum_comparables: int,
+) -> list[dict[str, Any]]:
+    """Keep the closest eligible peers using standardized maturity and rating distance."""
+    if not peers:
+        return []
+
+    target_maturity = date.fromisoformat(target["maturity_date"])
+    target_rating = _RATING_NOTCH.get(_normal(target.get("rating")).replace(" ", ""))
+    use_rating = target_rating is not None and all(
+        _RATING_NOTCH.get(_normal(peer.get("rating")).replace(" ", "")) is not None
+        for peer in peers
+    )
+
+    target_features = [target_maturity.toordinal() / 365.25]
+    feature_rows = []
+    for peer in peers:
+        peer_maturity = date.fromisoformat(str(peer["maturity_date"]))
+        feature_rows.append([peer_maturity.toordinal() / 365.25])
+        if use_rating:
+            peer_rating = _RATING_NOTCH[_normal(peer.get("rating")).replace(" ", "")]
+            feature_rows[-1].append(float(peer_rating))
+    if use_rating:
+        target_features.append(float(target_rating))
+
+    scaler = StandardScaler()
+    matrix = scaler.fit_transform(np.asarray(feature_rows, dtype=np.float64))
+    query = scaler.transform(np.asarray([target_features], dtype=np.float64))
+    count = min(maximum_comparables, len(peers))
+    neighbors = NearestNeighbors(n_neighbors=count, algorithm="brute", metric="euclidean")
+    neighbors.fit(matrix)
+    distances, indices = neighbors.kneighbors(query)
+    selected = sorted(
+        zip(distances[0].tolist(), indices[0].tolist()),
+        key=lambda item: (item[0], str(peers[item[1]]["isin"]).casefold()),
+    )
+    return [peers[index] for _, index in selected]

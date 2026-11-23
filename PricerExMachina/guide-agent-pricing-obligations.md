@@ -16,67 +16,67 @@ Le modèle Mistral interprète la demande et orchestre des outils. Le code appli
 ## Architecture cible
 
 ```text
-Utilisateur
-    │ caractéristiques de l’obligation
-    ▼
-API de pricing ──► Agent Mistral Studio
-    │                    │
-    │                    ├── recherche des comparables
-    │                    ├── calcul du spread et de la valorisation
-    │                    └── contrôles indépendants
-    │
-    ├── PostgreSQL (accès applicatif en lecture seule)
-    ├── courbe swap EUR 6M par date
-    └── audit vers audit@cdc.hackathon
+Utilisateur ──► Interface Streamlit ──► API FastAPI
+                                          │
+                     ┌────────────────────┼──────────────────────┐
+                     ▼                    ▼                      ▼
+             PostgreSQL read-only   sélection sklearn   courbe QuantLib
+                                          │                    │
+                                          └──── NumPy/SciPy ───┘
+                                                       │
+                                                       ▼
+                                             résultat + audit SMTP
+
+Endpoint facultatif /api/assistant ──► Mistral (explication du résultat, sans recalcul)
 ```
 
 Les identifiants PostgreSQL restent dans l’environnement d’exécution du service, jamais dans les instructions de l’agent. Si le traitement s’exécute dans le cloud Mistral, prévoir un worker ou un service dans un environnement autorisé qui accède à la base sans l’exposer publiquement. Les workflows Mistral peuvent orchestrer plusieurs étapes et du code exécuté dans votre environnement ; vérifier le mode de déploiement et les accès réseau avant de retenir cette option.
 
 ## Fichiers à créer
 
-Structure de départ proposée, à adapter aux conventions du dépôt :
+Structure actuellement implémentée :
 
 ```text
 PricerExMachina/
 ├── README.md
 ├── pyproject.toml
+├── requirements.txt
 ├── .env.example
-├── Dockerfile
 ├── app/
 │   ├── main.py
-│   ├── schemas.py
+│   ├── importer.py
 │   ├── agent.py
-│   ├── tools.py
 │   ├── repository.py
 │   ├── peer_selection.py
+│   ├── pricing.py
 │   ├── valuation.py
-│   ├── supervisor.py
-│   └── audit.py
-├── migrations/
-│   └── 001_pricing_audit.sql
+│   ├── audit.py
+│   └── __init__.py
+├── streamlit_app.py
+├── guide-agent-pricing-obligations.md
 └── tests/
-    ├── test_peer_selection.py
-    ├── test_valuation.py
-    └── test_pricing_flow.py
+    ├── test_api.py
+    ├── test_audit.py
+    ├── test_importer.py
+    ├── test_pricing.py
+    └── test_repository.py
 ```
 
 | Fichier | Responsabilité |
 |---|---|
-| `README.md` | Installation, configuration, lancement, déploiement, limites et exemples de requêtes. |
-| `pyproject.toml` | Dépendances et outils de test et de formatage : SDK Mistral, pilote PostgreSQL, validation de schémas et solveur numérique si nécessaire. |
-| `.env.example` | Noms des paramètres attendus, sans valeurs secrètes : `MISTRAL_API_KEY`, `DATABASE_URL` et configuration du service de courriel. |
-| `Dockerfile` | Exécution reproductible du service ou du worker, selon le déploiement retenu. |
-| `app/schemas.py` | Schémas validés de la demande et de la réponse : devise, émetteur, secteur, rating, séniorité, maturité, coupon, dates d’observation et caractéristiques optionnelles (call, label ESG, etc.). |
-| `app/main.py` | Point d’entrée HTTP : valide la demande, appelle le traitement et renvoie la réponse structurée. |
-| `app/agent.py` | Configuration de l’agent Mistral, de ses instructions et des outils auxquels il a accès. |
-| `app/tools.py` | Outils bornés tels que `find_comparables` et `price_bond`. L’agent choisit ces opérations, mais ne construit pas de SQL. |
+| `README.md` | Installation, configuration, lancement, limites, endpoints et exemples de requêtes. |
+| `pyproject.toml` et `requirements.txt` | Dépendances de l’API, de l’interface, des calculs QuantLib/NumPy/SciPy et scikit-learn, de l’import Excel, de l’audit Mailpit et des tests. |
+| `.env.example` | Noms des paramètres attendus, sans valeurs secrètes : `MISTRAL_API_KEY`, `DATABASE_URL`, SMTP et Mailpit. |
+| `app/main.py` | API FastAPI : valide la demande, appelle le traitement, expose la prévisualisation Excel et l’état Mailpit ; Uvicorn sert l’application. |
+| `app/importer.py` | Prévisualisation et validation en lecture seule des classeurs avec openpyxl ; aucune écriture automatique en base. |
+| `app/agent.py` | Explication facultative via Mistral des résultats déterministes ; le modèle n’accède pas à la base et ne calcule pas les prix. |
 | `app/repository.py` | Accès PostgreSQL en lecture seule avec requêtes paramétrées. Centralise le mapping du schéma réel vers les objets métier. |
-| `app/peer_selection.py` | Règles de comparabilité, exclusions, règles de repli et pondération des titres. |
-| `app/valuation.py` | Calculs déterministes : flux de trésorerie, interpolation de courbe, estimation du spread et calcul du prix et du yield. |
-| `app/supervisor.py` | Contrôles indépendants : unités, qualité et nombre de comparables, données manquantes, limites métier et cohérence des résultats. |
-| `app/audit.py` | Création de la trace et envoi à la boîte d’audit ; doit signaler explicitement tout échec d’envoi. |
-| `migrations/001_pricing_audit.sql` | Table d’audit seulement si aucune table adaptée n’existe. Ne pas recréer les tables de marché fournies. |
-| `tests/` | Tests ciblés sur la sélection, la valorisation et les cas de données insuffisantes. |
+| `app/peer_selection.py` | Filtres stricts puis classement des comparables par plus proches voisins avec scikit-learn. |
+| `app/pricing.py` | Validation de la requête et coordination du calcul indépendant pour chaque date. |
+| `app/valuation.py` | QuantLib pour la courbe zéro et l’actualisation, NumPy pour les flux, SciPy pour résoudre le yield. |
+| `app/audit.py` | Envoi SMTP de la trace et lecture des métadonnées Mailpit en environnement de développement. |
+| `streamlit_app.py` | Interface de saisie, affichage des résultats et graphiques matplotlib. |
+| `tests/` | Tests pytest de l’API, de l’import, de l’audit, de la sélection et de la valorisation. |
 
 ## Étapes dans Mistral Studio
 

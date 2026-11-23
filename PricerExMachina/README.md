@@ -1,43 +1,61 @@
-# PricerExMachina — bond-pricing MVP
+# PricerExMachina — agent de pricing obligataire
 
-A small, local HTTP application for deterministic bond-comparable analysis. The Python service reads only the existing `bp2s.market_observation` and `bp2s.swap_curve` PostgreSQL tables. Mistral is optional and can only explain a completed result; it has no database connection and cannot change numerical output.
+Application locale de pricing à partir d’obligations comparables. FastAPI expose le service, PostgreSQL fournit les observations officielles en lecture seule, et Mistral ne fait qu’expliquer les résultats déterministes. Une interface Streamlit présente les résultats et les comparables.
 
-## What exists in the repository / current blockers
+## Utilisation des dépendances
 
-The configured schema is in `FinanceCalculatorBackend/db/init/03-create-market-observations.sql` and `04-create-swap-curve.sql`.
+Les dépendances de `requirements.txt` sont déclarées dans `pyproject.toml` et utilisées dans ces composants :
 
-* `market_observation` has `spread_bps`, `market_date`, `source_name`, and `data_status`. Its bundled seed is explicitly `synthetic_demo` and leaves `market_date` NULL, so it is excluded from pricing. Official, date-stamped observations must be imported before a production-like result can be obtained.
-* `swap_curve` stores dated **par rates**, not zero rates, and the repository contains no approved bootstrap convention or evidence that two official curves have been loaded. The app does not silently reinterpret par rates as zero rates. A zero curve can instead be supplied explicitly per observation date in the API request; identify its source and status.
-* The schema has no explicit sector column (it has `issuer_type`); the MVP does not pretend those fields are equivalent.
-* The supplied schema does not record target coupon schedules, calendars, or accrual conventions in a form sufficient to reconstruct target cash flows. Supply dated cash flows and, if a clean price is needed, accrued interest by date. No coupon schedule is fabricated.
-* There are no audit/email credentials or settings here. Email is intentionally not sent; response says `audit_status: not_sent`.
+| Bibliothèque | Utilisation |
+|---|---|
+| FastAPI / Uvicorn | API HTTP et serveur ASGI (`app/main.py`). |
+| psycopg | Requêtes fixes et paramétrées, en transaction PostgreSQL read-only (`app/repository.py`). |
+| python-dotenv | Chargement local des variables d’environnement. |
+| openpyxl | Validation et prévisualisation en lecture seule de classeurs de données (`app/importer.py`). |
+| pytest / httpx | Tests de l’API, des traitements et des intégrations. |
+| mailpit-api-client | Vérification des messages d’audit dans une boîte Mailpit de développement (`GET /api/audit/mailpit`). |
+| Streamlit / matplotlib | Interface de demande de pricing, prévisualisation de classeur et graphique des comparables (`streamlit_app.py`). |
+| QuantLib | Courbe zéro et dates/day-count utilisés dans les actualisations (`app/valuation.py`). |
+| scikit-learn / NumPy | Sélection des comparables les plus proches et calculs vectorisés. |
+| SciPy | Résolution numérique du yield actuariel. |
+| Mistral SDK | Explication facultative des résultats transmis à `/api/assistant`; le modèle n’accède ni à PostgreSQL ni aux calculs. |
 
-Consequently, a missing/insufficient panel returns no spread. A panel with adequate official comparable spreads but no eligible zero curve can return a source-data-based spread only, not a price/yield. These statuses are blockers, not successful pricing.
+## Installation et démarrage
 
-## Run locally
-
-Python 3.10+ is sufficient for the deterministic tests and HTTP service. PostgreSQL uses the existing schema, not a new migration.
-
-```powershell
-cd Finance\PricerExMachina
-python -m pip install -e ".[postgres]"
-$env:DATABASE_URL = "your-authorized-read-only-connection-string"
-python -m app.main
-```
-
-Do not use a write-capable database role. The adapter starts every transaction read-only, uses fixed SQL and bound parameters, and only selects the fields required. Table/schema identifiers are fixed in code. If there is no authorized connection string, leave `DATABASE_URL` unset; `/health` says the database is unconfigured and pricing returns an explicit service-unavailable error. The example file intentionally contains no credential values.
-
-Health check: `GET http://127.0.0.1:8080/health`
-
-Run tests without a database or provider credentials:
+Python 3.10+ est requis. Créer un environnement virtuel selon les pratiques du projet, puis :
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-## Pricing endpoint
+Configurer uniquement les services autorisés dans `.env`. Ne pas versionner ce fichier ni y enregistrer des secrets. Pour utiliser PostgreSQL, définir `DATABASE_URL` avec un compte en lecture seule.
 
-`POST /api/pricing`. The caller must state peer-selection criteria—there are no hidden defaults. For example (values are illustrative request structure only, not market observations):
+Démarrer l’API :
+
+```powershell
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
+```
+
+Dans un autre terminal, démarrer l’interface :
+
+```powershell
+python -m streamlit run streamlit_app.py
+```
+
+L’API est disponible à `http://127.0.0.1:8080`; l’interface Streamlit affiche l’URL locale à son démarrage. Pour pointer l’interface vers une autre API, définir `PRICER_API_URL`.
+
+## Endpoints
+
+- `GET /health` — disponibilité du service et état de configuration de PostgreSQL.
+- `POST /api/pricing` — calcul par date d’observation et envoi conditionnel de la trace d’audit si SMTP est configuré.
+- `POST /api/assistant` — explication facultative d’un résultat déjà calculé ; nécessite `MISTRAL_API_KEY`.
+- `POST /api/market-data/preview` — corps binaire `.xlsx`, maximum 10 MB ; valide et prévisualise les feuilles `market_observations` et, facultativement, `zero_curve`. **Aucune écriture** n’est effectuée.
+- `GET /api/audit/mailpit` — métadonnées des messages récents de Mailpit, sans exposer leurs corps.
+
+### Exemple de demande de pricing
+
+Les valeurs sont un exemple de structure, pas des données de marché :
 
 ```json
 {
@@ -53,19 +71,23 @@ python -m unittest discover -s tests -v
       {"payment_date": "2027-06-01", "amount": 4.0},
       {"payment_date": "2030-06-01", "amount": 104.0}
     ],
-    "accrued_interest_by_date": {"2026-10-27": 0.0, "2026-10-28": 0.01}
+    "accrued_interest_by_date": {
+      "2026-10-27": 0.0,
+      "2026-10-28": 0.01
+    }
   },
   "observation_dates": ["2026-10-27", "2026-10-28"],
   "selection": {
     "maturity_tolerance_months": 24,
-    "match_fields": ["issuer", "rating", "seniority"],
     "minimum_comparables": 3,
+    "maximum_comparables": 20,
+    "match_fields": ["issuer", "rating", "seniority"],
     "spread_measure": "z_spread_bps"
   },
   "zero_curves": [
     {
       "observation_date": "2026-10-27",
-      "source": "Name of supplied/imported curve source",
+      "source": "Source explicite de la courbe zéro",
       "data_status": "official",
       "nodes": [
         {"time_years": 0.5, "zero_rate": 0.02},
@@ -76,28 +98,32 @@ python -m unittest discover -s tests -v
 }
 ```
 
-`issuer_type`, rating, and seniority are optional target fields unless named in `match_fields`; every requested match is exact and must be present on both target and comparable. Same currency, exact observation date, official status, valid source spread, and target-ISIN exclusion are hard eligibility checks. Maturity tolerance and minimum panel size are required inputs, not assumed business defaults.
+`maximum_comparables` et `minimum_comparables` doivent être fournis explicitement. Les filtres stricts imposent une observation à la date exacte, la même devise, un statut officiel, l’exclusion de l’ISIN cible et le respect de la tolérance de maturité. Les correspondances des champs demandés sont exactes. Scikit-learn classe ensuite les titres admissibles par distance standardisée de maturité et, lorsque les ratings sont reconnus, de rating. Le spread du panel retenu est sa médiane non pondérée.
 
-For each date the service reports the selected ISINs, date/source/status and imported spread, all excluded rows/reasons, criteria, and warnings. `spread_measure` must explicitly declare whether the generic database `spread_bps` column means `z_spread_bps` or remains `unclassified_spread_bps`. Without that declaration, the application will not label the median as a Z-spread or price the target. When confirmed, it uses an unweighted median of source spreads; this is not a spread recalculated from security prices. No ranking by “best” bond or risk-adjusted recommendation is made.
+Le champ de la base `spread_bps` n’identifie pas sa convention. Le demandeur doit confirmer explicitement `z_spread_bps`; sinon, l’application ne qualifie pas la médiane de Z-spread et ne calcule pas de prix/yield.
 
-### Valuation conventions
+## Méthode de valorisation
 
-The optional curve must match the observation date, identify its source and status, and contain at least two strictly increasing tenor nodes. Rates are continuously compounded zero rates; node interpolation is linear; extrapolation is disallowed. Dated target cash flows are discounted from the observation date using ACT/365F and `exp(-(zero_rate + z_spread) * time)`. The returned theoretical dirty price is on the nominal/currency units of supplied cash flows. A clean price is returned only when the caller provides accrued interest for that date. Yield is solved from those dated cash flows and dirty price using an annual-effective yield convention. These conventions are returned in the calculation description; they are not derived from the imported `swap_curve` table.
+Pour chaque date séparément, l’application actualise les cashflows fournis à l’aide d’une courbe zéro correspondant à cette même date, selon les conventions suivantes : ACT/365F, interpolation linéaire des taux zéro et capitalisation continue, plus un Z-spread constant. QuantLib calcule les facteurs d’actualisation, NumPy agrège les valeurs, et SciPy résout le yield annualisé effectif correspondant au prix dirty.
 
-Only curves marked `official` are labelled `calculated`; unverified/demo curves are labelled `calculated_unverified`. A missing curve, uncovered cash-flow tenor, insufficient panel, or absent cash flow prevents full valuation and is surfaced in status/warnings.
+Les nœuds doivent couvrir chaque flux ; aucune extrapolation n’est faite. Les cashflows et l’intérêt couru ne sont pas reconstruits. Un prix clean n’est restitué que si l’intérêt couru est fourni pour cette date. La table `bp2s.swap_curve` contient des taux par, pas une courbe zéro : elle n’est ni assimilée ni transformée sans convention de bootstrap approuvée.
 
-## Optional Mistral explanation
+## Excel et données de marché
 
-Install the SDK only if desired:
+La feuille `market_observations` du classeur de prévisualisation doit au minimum contenir les colonnes `isin`, `currency`, `maturity_date`, `market_date`, `spread_bps`, `source_name` et `data_status`. La feuille `zero_curve`, si présente, doit contenir `observation_date`, `tenor_years`, `zero_rate`, `source_name` et `data_status`. Les colonnes de dates acceptent des cellules Excel de date ou des chaînes ISO `YYYY-MM-DD`.
+
+La prévisualisation sert à vérifier la structure et les lignes; elle ne charge pas de données dans PostgreSQL et ne remplace pas l’approvisionnement officiel de la base.
+
+## Audit et limites de l’environnement
+
+Si `SMTP_HOST` et `SMTP_FROM` sont définis, `/api/pricing` envoie la trace structurée vers `AUDIT_TO` (par défaut `audit@cdc.hackathon`). Une erreur d’envoi est restituée comme `audit_status: failed` et consignée côté serveur. Pour un test local, Mailpit écoute usuellement SMTP sur le port 1025 et son API sur le port 8025. Le client Mailpit ne sert qu’à inspecter la boîte de développement ; il n’envoie pas le courriel.
+
+Les données de démonstration du dépôt ne suffisent pas à produire une valorisation de marché : elles ne comportent pas les dates d’observation requises et les spreads ne sont pas qualifiés. Il faut importer des observations officielles datées, confirmer les conventions de spread, fournir une courbe zéro approuvée et transmettre les cashflows nécessaires.
+
+## Tests
 
 ```powershell
-python -m pip install -e ".[mistral]"
-$env:MISTRAL_API_KEY = "your-authorized-key"
-$env:MISTRAL_MODEL = "mistral-small-latest"
+python -m pytest -q
 ```
 
-`POST /api/assistant` accepts `{ "question": "...", "pricing_result": { ... } }`. It uses the Mistral chat-completions SDK; the model only explains the supplied deterministic output. It does not interpret arbitrary SQL, access PostgreSQL, select peers, or calculate prices. Data in `pricing_result` and the question are sent to the configured Mistral API, so only submit data approved for that provider. If no key/SDK is configured, this optional route returns an explicit 503. Mistral credentials stay in environment variables; no Studio agent, cloud workflow, or deployment is provisioned.
-
-## Audit and limitations
-
-The application returns a traceable structured response, but does not send email or claim delivery. Email delivery and any persistent audit sink require approved configuration and are outside this MVP. No market data or credentials are bundled; numerical values are calculated only from caller-supplied curves/cash flows and official rows returned by the existing database.
+Les tests n’utilisent pas de base PostgreSQL, de compte Mistral, de serveur SMTP ni de service Mailpit réel.

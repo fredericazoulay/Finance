@@ -2,7 +2,7 @@ import unittest
 from datetime import date
 import math
 
-from app.peer_selection import eligible_peers, median_spread_bps
+from app.peer_selection import eligible_peers, median_spread_bps, rank_peers
 from app.pricing import RequestError, price_request, validate_request
 from app.valuation import value_cashflows
 
@@ -59,6 +59,7 @@ def request():
         "selection": {
             "maturity_tolerance_months": 12,
             "minimum_comparables": 2,
+            "maximum_comparables": 4,
             "match_fields": ["issuer", "rating", "seniority"],
             "spread_measure": "z_spread_bps",
         },
@@ -99,6 +100,16 @@ class PeerSelectionTests(unittest.TestCase):
     def test_median_is_deterministic_for_even_and_odd_panels(self):
         self.assertEqual(median_spread_bps([row("A", 80), row("B", 100)]), 90)
         self.assertEqual(median_spread_bps([row("A", 100), row("B", 80), row("C", 90)]), 90)
+
+    def test_nearest_neighbor_panel_is_bounded_and_prefers_closer_maturities(self):
+        target = {**TARGET, "rating": "A"}
+        peers = [
+            row("FAR", 200, maturity="2032-06-01"),
+            row("NEAR", 100, maturity="2030-07-01"),
+            row("MID", 150, maturity="2031-06-01"),
+        ]
+        selected = rank_peers(target, peers, 2)
+        self.assertEqual({peer["isin"] for peer in selected}, {"NEAR", "MID"})
 
 
 class ValuationTests(unittest.TestCase):
@@ -166,7 +177,7 @@ class PricingFlowTests(unittest.TestCase):
         self.assertEqual(valuation["z_spread_bps"], 110)
         self.assertIsNone(valuation["yield_percent"])
         self.assertTrue(any("not converted" in warning for warning in valuation["warnings"]))
-        self.assertEqual(result["audit_status"], "not_sent (email delivery is intentionally not configured)")
+        self.assertNotIn("audit_status", result)
 
     def test_selection_policy_must_be_explicit(self):
         payload = request()

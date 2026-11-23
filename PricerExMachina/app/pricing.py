@@ -6,7 +6,7 @@ from datetime import date
 import math
 from typing import Any
 
-from .peer_selection import SUPPORTED_MATCH_FIELDS, eligible_peers, median_spread_bps
+from .peer_selection import SUPPORTED_MATCH_FIELDS, eligible_peers, median_spread_bps, rank_peers
 from .valuation import value_cashflows
 
 
@@ -59,12 +59,22 @@ def validate_request(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
         raise RequestError("selection is required; set explicit maturity_tolerance_months, match_fields and minimum_comparables")
     tolerance = selection.get("maturity_tolerance_months")
     minimum = selection.get("minimum_comparables")
+    maximum = selection.get("maximum_comparables")
     match_fields = selection.get("match_fields")
     spread_measure = selection.get("spread_measure")
     if not isinstance(tolerance, int) or isinstance(tolerance, bool) or tolerance < 0 or tolerance > 240:
         raise RequestError("selection.maturity_tolerance_months must be an explicit integer from 0 to 240")
     if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 1:
         raise RequestError("selection.minimum_comparables must be an explicit positive integer")
+    if (
+        not isinstance(maximum, int)
+        or isinstance(maximum, bool)
+        or maximum < minimum
+        or maximum > 500
+    ):
+        raise RequestError(
+            "selection.maximum_comparables must be an explicit integer between minimum_comparables and 500"
+        )
     if not isinstance(match_fields, list) or any(
         not isinstance(field, str) or field not in SUPPORTED_MATCH_FIELDS for field in match_fields
     ):
@@ -105,6 +115,7 @@ def validate_request(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
     return target, [str(d) for d in parsed_dates], {
         "maturity_tolerance_months": tolerance,
         "minimum_comparables": minimum,
+        "maximum_comparables": maximum,
         "match_fields": match_fields,
         "spread_measure": spread_measure,
         "curves_by_date": curves_by_date,
@@ -116,13 +127,14 @@ def price_request(payload: dict[str, Any], repository: Any) -> dict[str, Any]:
     valuations = []
     for observation_date in observation_dates:
         inputs = repository.fetch_date_inputs(target, observation_date)
-        peers, excluded = eligible_peers(
+        eligible, excluded = eligible_peers(
             target,
             inputs["peers"],
             date.fromisoformat(observation_date),
             selection["maturity_tolerance_months"],
             selection["match_fields"],
         )
+        peers = rank_peers(target, eligible, selection["maximum_comparables"])
         warnings: list[str] = []
         result: dict[str, Any] = {
             "observation_date": observation_date,
@@ -139,6 +151,9 @@ def price_request(payload: dict[str, Any], repository: Any) -> dict[str, Any]:
                 "maturity_tolerance_months": selection["maturity_tolerance_months"],
                 "required_exact_matches": selection["match_fields"],
                 "minimum_comparables": selection["minimum_comparables"],
+                "maximum_comparables": selection["maximum_comparables"],
+                "eligible_comparable_count": len(eligible),
+                "ranking": "scikit-learn nearest neighbors on standardized maturity and, when recognized, rating distance",
                 "eligible_data_status": "official",
                 "spread_field": "spread_bps",
                 "spread_measure_as_confirmed_by_caller": selection["spread_measure"],
@@ -147,7 +162,8 @@ def price_request(payload: dict[str, Any], repository: Any) -> dict[str, Any]:
             "methodology": (
                 "For this date only: select official, exact-date, same-currency observations; "
                 "exclude the target ISIN; apply the user-specified maturity tolerance and exact-match fields; "
-                "take the unweighted median of source spread_bps."
+                "rank eligible peers by standardized maturity and recognized rating proximity, retain at most "
+                "maximum_comparables, and take their unweighted median source spread_bps."
             ),
             "warnings": warnings,
         }
@@ -241,6 +257,5 @@ def price_request(payload: dict[str, Any], repository: Any) -> dict[str, Any]:
             "issuer": target.get("issuer"),
         },
         "valuations": valuations,
-        "audit_status": "not_sent (email delivery is intentionally not configured)",
         "disclaimer": "Calculated outputs are analytical results from supplied/imported inputs, not investment advice.",
     }
